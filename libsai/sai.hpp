@@ -26,7 +26,7 @@ namespace sai
 		VirtualFileSystem();
 		~VirtualFileSystem();
 
-		bool Open(const char* FileName);
+		bool Mount(const char* FileName);
 
 		size_t GetClusterCount() const;
 		size_t GetSize() const;
