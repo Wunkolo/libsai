@@ -9,7 +9,7 @@ namespace sai
 	class VirtualFileSystem;
 
 	// Typedefs
-	typedef VirtualFileSystem Archive;
+	typedef VirtualFileSystem FileSystem;
 
 	class NonCopyable
 	{
