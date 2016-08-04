@@ -87,6 +87,11 @@ namespace sai
 		return GetClusterCount() * ClusterSize;
 	}
 
+	bool VirtualFileSystem::Read(const VirtualFileEntry & Entry, void * Destination, size_t Size) const
+	{
+		return false;
+	}
+
 	void VirtualFileSystem::VFSCluster::DecryptTable(uint32_t ClusterNumber)
 	{
 		uint32_t Key = ClusterNumber & (~0x1FF);

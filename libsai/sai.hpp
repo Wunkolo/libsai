@@ -54,6 +54,8 @@ namespace sai
 			uint64_t UnknownB;
 		};
 
+		bool Read(const VirtualFileEntry& Entry, void* Destination, size_t Size) const;
+
 	private:
 		static const size_t ClusterSize = 4096;
 
