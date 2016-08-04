@@ -250,3 +250,8 @@ paket-files/
 # JetBrains Rider
 .idea/
 *.sln.iml
+/test.sai
+/main.cpp
+/libsai.vcxproj.filters
+/libsai.vcxproj
+/libsai.sln
