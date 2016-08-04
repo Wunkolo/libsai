@@ -92,6 +92,88 @@ namespace sai
 		return false;
 	}
 
+	void VirtualFileSystem::Iterate(VFSVisitor &Visitor)
+	{
+		VFSCluster Root;
+
+		GetCluster(2, &Root);
+
+		for( size_t i = 0; Root.VFSEntries[i].Flags; i++ )
+		{
+			switch( Root.VFSEntries[i].Type )
+			{
+			case VirtualFileEntry::EntryType::File:
+			{
+				Visitor.VisitFile(Root.VFSEntries[i]);
+				break;
+			}
+			case VirtualFileEntry::EntryType::Folder:
+			{
+				Visitor.VisitFolderBegin(Root.VFSEntries[i]);
+				Visitor.VisitFolderEnd();
+				break;
+			}
+			}
+		}
+	}
+
+	bool VirtualFileSystem::GetCluster(size_t ClusterNum, VFSCluster * Cluster)
+	{
+		static intmax_t CacheTableNum = -1;
+		static VFSCluster CacheTable;
+
+		if( ClusterNum < ClusterCount )
+		{
+			if( !(ClusterNum & 0x1FF) ) // Cluster is a table
+			{
+				if( ClusterNum == CacheTableNum ) // Cache hit
+				{
+					memcpy(Cluster, &CacheTable, ClusterSize);
+					return true;
+				}
+				// Read and Decrypt Table
+				FileStream.seekg(ClusterNum * ClusterSize);
+				FileStream.read(
+					reinterpret_cast<char*>(&CacheTable.u8),
+					ClusterSize
+				);
+				CacheTable.DecryptTable(ClusterNum);
+
+				memcpy(Cluster, &CacheTable, ClusterSize);
+			}
+			else if( ClusterNum & 0x1FF ) // Cluster is data
+			{
+				size_t NearestTable = ClusterNum & ~(0x1FF);
+				uint32_t Key = 0;
+				if( CacheTableNum == NearestTable ) // Table Cache Hit
+				{
+					Key = CacheTable.TableEntries[ClusterNum - NearestTable].ClusterChecksum;
+				}
+				else // Cache Miss
+				{
+					// Read and Decrypt Table
+					FileStream.seekg(NearestTable * ClusterSize);
+					FileStream.read(
+						reinterpret_cast<char*>(&CacheTable.u8),
+						ClusterSize
+					);
+					CacheTable.DecryptTable(NearestTable);
+					Key = CacheTable.TableEntries[ClusterNum - NearestTable].ClusterChecksum;
+				}
+
+				// Read and Decrypt Data
+				FileStream.seekg(ClusterNum * ClusterSize);
+				FileStream.read(
+					reinterpret_cast<char*>(&Cluster->u8),
+					ClusterSize
+				);
+				Cluster->DecryptData(Key);
+				return true;
+			}
+		}
+		return false;
+	}
+
 	void VirtualFileSystem::VFSCluster::DecryptTable(uint32_t ClusterNumber)
 	{
 		uint32_t Key = ClusterNumber & (~0x1FF);

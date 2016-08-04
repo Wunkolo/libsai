@@ -45,16 +45,28 @@ namespace sai
 			} Type;
 			uint8_t Pad4;
 			uint32_t ClusterNumber;
-			uint32_t Size;
-			// Max file size 4gb
+			uint32_t Size;// Max file size 4gb
 			// Windows FILETIME
-			// Contains a 64-bit value representing the number of
-			// 100-nanosecond intervals since January 1, 1601 (UTC).
 			uint64_t TimeStamp;
 			uint64_t UnknownB;
 		};
 
 		bool Read(const VirtualFileEntry& Entry, void* Destination, size_t Size) const;
+
+		class VFSVisitor
+		{
+		public:
+			virtual ~VFSVisitor() {};
+
+			// Visit a Folder
+			virtual void VisitFolderBegin(const VirtualFileEntry& Entry) = 0;
+			virtual void VisitFolderEnd() = 0;
+
+			// Visit a File
+			virtual void VisitFile(const VirtualFileEntry& Entry) = 0;
+		};
+
+		void Iterate(VFSVisitor &Visitor);
 
 	private:
 		static const size_t ClusterSize = 4096;
@@ -84,6 +96,8 @@ namespace sai
 
 			uint32_t Checksum(bool Table = false);
 		};
+
+		bool GetCluster(size_t ClusterNum, VFSCluster *Cluster);
 
 		// Current VFS Variables
 		size_t ClusterCount;
