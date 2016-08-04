@@ -30,14 +30,9 @@ namespace sai
 
 		size_t GetClusterCount() const;
 		size_t GetSize() const;
-	private:
-		static const size_t ClusterSize = 4096;
-
-		// Decryption key
-		static const uint32_t ClusterKey[1024];
 
 		// Virtual File System entry
-		struct VFSEntry
+		struct VirtualFileEntry
 		{
 			uint32_t Flags;
 			char Name[32];
@@ -50,13 +45,20 @@ namespace sai
 			} Type;
 			uint8_t Pad4;
 			uint32_t ClusterNumber;
-			uint32_t Size; // Max file size 4gb
-						   // Windows FILETIME
-						   // Contains a 64-bit value representing the number of
-						   // 100-nanosecond intervals since January 1, 1601 (UTC).
+			uint32_t Size;
+			// Max file size 4gb
+			// Windows FILETIME
+			// Contains a 64-bit value representing the number of
+			// 100-nanosecond intervals since January 1, 1601 (UTC).
 			uint64_t TimeStamp;
 			uint64_t UnknownB;
 		};
+
+	private:
+		static const size_t ClusterSize = 4096;
+
+		// Decryption key
+		static const uint32_t ClusterKey[1024];
 
 		// Virtual File System Cluster (4096 bytes)
 		union VFSCluster
@@ -73,7 +75,7 @@ namespace sai
 			}TableEntries[512];
 
 			// VFS Entries
-			VFSEntry VFSEntries[64];
+			VirtualFileEntry VFSEntries[64];
 
 			void DecryptTable(uint32_t ClusterNumber);
 			void DecryptData(uint32_t ClusterKey);
