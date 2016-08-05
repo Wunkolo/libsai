@@ -93,6 +93,33 @@ namespace sai
 	{
 		if( FileStream )
 		{
+			VFSCluster CurFAT; // Current File Allocation table
+			GetCluster(2, &CurFAT);
+
+			std::string CurPath(Path);
+
+			const char* CurToken = std::strtok(&CurPath[0], "./");
+
+			size_t CurEntry = 0;
+			while( CurEntry < 64 && CurFAT.VFSEntries[CurEntry].Flags )
+			{
+				if( std::strcmp(CurToken, CurFAT.VFSEntries[CurEntry].Name) == 0 )
+				{
+					CurToken = std::strtok(nullptr, "./");
+					if( CurToken == nullptr ) // If there is no more to process
+					{
+						*Entry = CurFAT.VFSEntries[CurEntry];
+						return true;
+					}
+					GetCluster(
+						CurFAT.VFSEntries[CurEntry].ClusterNumber,
+						&CurFAT
+					);
+					CurEntry = 0;
+					continue;
+				}
+				CurEntry++;
+			}
 		}
 		return false;
 	}
