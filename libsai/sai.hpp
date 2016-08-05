@@ -5,12 +5,6 @@
 
 namespace sai
 {
-	// Forward prototypes
-	class VirtualFileSystem;
-
-	// Typedefs
-	typedef VirtualFileSystem FileSystem;
-
 	class NonCopyable
 	{
 	public:
@@ -105,4 +99,8 @@ namespace sai
 		size_t ClusterCount;
 		std::ifstream FileStream;
 	};
+
+	// Typedefs
+	typedef VirtualFileSystem FileSystem;
+	typedef VirtualFileSystem::VFSVisitor FileSystemVisitor;
 }
