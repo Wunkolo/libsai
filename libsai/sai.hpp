@@ -45,7 +45,7 @@ namespace sai
 			uint64_t UnknownB;
 		};
 
-		bool Read(const VirtualFileEntry& Entry, void* Destination, size_t Size) const;
+		bool Read(const VirtualFileEntry& Entry, void* Destination, size_t Size);
 
 		class VFSVisitor
 		{

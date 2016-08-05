@@ -1,5 +1,7 @@
 #include "sai.hpp"
 
+#include <algorithm>
+
 namespace sai
 {
 	VirtualFileSystem::VirtualFileSystem()
@@ -87,8 +89,36 @@ namespace sai
 		return GetClusterCount() * ClusterSize;
 	}
 
-	bool VirtualFileSystem::Read(const VirtualFileEntry & Entry, void * Destination, size_t Size) const
+	bool VirtualFileSystem::Read(const VirtualFileEntry & Entry, void * Destination, size_t Size)
 	{
+		if(
+			Entry.ClusterNumber < ClusterCount
+			&& (Entry.Type == VirtualFileEntry::EntryType::File)
+			&& Size
+			&& Entry.Size )
+		{
+			Size = std::min(Size, Entry.Size);
+			VFSCluster CurCluster;
+			uint8_t *WritePoint = reinterpret_cast<uint8_t*>(Destination);
+			size_t ClusterOffset = 0;
+			while( Size )
+			{
+				GetCluster(Entry.ClusterNumber + ClusterOffset, &CurCluster);
+				if( Size < ClusterSize ) // Trailing unaligned data
+				{
+					memcpy(WritePoint, CurCluster.u8, Size);
+					Size = 0;
+				}
+				else // Read full cluster
+				{
+					memcpy(WritePoint, CurCluster.u8, ClusterSize);
+					WritePoint += ClusterSize;
+					Size -= ClusterSize;
+					ClusterOffset++;
+				}
+			}
+			return true;
+		}
 		return false;
 	}
 
