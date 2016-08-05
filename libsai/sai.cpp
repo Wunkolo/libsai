@@ -94,22 +94,26 @@ namespace sai
 
 	void VirtualFileSystem::Iterate(VFSVisitor &Visitor)
 	{
-		VFSCluster Root;
+		VisitCluster(2, Visitor);
+	}
 
-		GetCluster(2, &Root);
-
-		for( size_t i = 0; Root.VFSEntries[i].Flags; i++ )
+	void VirtualFileSystem::VisitCluster(size_t ClusterNumber, VFSVisitor& Visitor)
+	{
+		VFSCluster CurCluster;
+		GetCluster(ClusterNumber, &CurCluster);
+		for( size_t i = 0; CurCluster.VFSEntries[i].Flags; i++ )
 		{
-			switch( Root.VFSEntries[i].Type )
+			switch( CurCluster.VFSEntries[i].Type )
 			{
 			case VirtualFileEntry::EntryType::File:
 			{
-				Visitor.VisitFile(Root.VFSEntries[i]);
+				Visitor.VisitFile(CurCluster.VFSEntries[i]);
 				break;
 			}
 			case VirtualFileEntry::EntryType::Folder:
 			{
-				Visitor.VisitFolderBegin(Root.VFSEntries[i]);
+				Visitor.VisitFolderBegin(CurCluster.VFSEntries[i]);
+				VisitCluster(CurCluster.VFSEntries[i].ClusterNumber, Visitor);
 				Visitor.VisitFolderEnd();
 				break;
 			}

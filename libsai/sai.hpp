@@ -71,6 +71,8 @@ namespace sai
 	private:
 		static const size_t ClusterSize = 4096;
 
+		void VisitCluster(size_t ClusterNumber, VFSVisitor& Visitor);
+
 		// Decryption key
 		static const uint32_t ClusterKey[1024];
 
