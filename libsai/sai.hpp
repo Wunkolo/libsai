@@ -104,5 +104,6 @@ namespace sai
 
 	// Typedefs
 	typedef VirtualFileSystem FileSystem;
+	typedef VirtualFileSystem::VirtualFileEntry FileEntry;
 	typedef VirtualFileSystem::VFSVisitor FileSystemVisitor;
 }
