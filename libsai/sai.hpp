@@ -20,7 +20,7 @@ namespace sai
 		VirtualFileSystem();
 		~VirtualFileSystem();
 
-		bool Mount(const char* FileName);
+		bool Mount(const char *FileName);
 
 		size_t GetClusterCount() const;
 		size_t GetSize() const;
@@ -45,7 +45,9 @@ namespace sai
 			uint64_t UnknownB;
 		};
 
-		bool Read(const VirtualFileEntry& Entry, void* Destination, size_t Size);
+		bool GetEntry(const char *Path, VirtualFileEntry *Entry);
+
+		bool Read(const VirtualFileEntry &Entry, void *Destination, size_t Size);
 
 		class VFSVisitor
 		{
@@ -53,11 +55,11 @@ namespace sai
 			virtual ~VFSVisitor() {};
 
 			// Visit a Folder
-			virtual void VisitFolderBegin(const VirtualFileEntry& Entry) = 0;
+			virtual void VisitFolderBegin(const VirtualFileEntry &Entry) = 0;
 			virtual void VisitFolderEnd() = 0;
 
 			// Visit a File
-			virtual void VisitFile(const VirtualFileEntry& Entry) = 0;
+			virtual void VisitFile(const VirtualFileEntry &Entry) = 0;
 		};
 
 		void Iterate(VFSVisitor &Visitor);
@@ -65,7 +67,7 @@ namespace sai
 	private:
 		static const size_t ClusterSize = 4096;
 
-		void VisitCluster(size_t ClusterNumber, VFSVisitor& Visitor);
+		void VisitCluster(size_t ClusterNumber, VFSVisitor &Visitor);
 
 		// Decryption key
 		static const uint32_t ClusterKey[1024];

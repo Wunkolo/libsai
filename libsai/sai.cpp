@@ -15,7 +15,7 @@ namespace sai
 		}
 	}
 
-	bool VirtualFileSystem::Mount(const char * FileName)
+	bool VirtualFileSystem::Mount(const char *FileName)
 	{
 		FileStream.open(FileName, std::ios::binary | std::ios::ate);
 
@@ -89,7 +89,15 @@ namespace sai
 		return GetClusterCount() * ClusterSize;
 	}
 
-	bool VirtualFileSystem::Read(const VirtualFileEntry & Entry, void * Destination, size_t Size)
+	bool VirtualFileSystem::GetEntry(const char *Path, VirtualFileEntry *Entry)
+	{
+		if( FileStream )
+		{
+		}
+		return false;
+	}
+
+	bool VirtualFileSystem::Read(const VirtualFileEntry &Entry, void *Destination, size_t Size)
 	{
 		if(
 			Entry.ClusterNumber < ClusterCount
@@ -131,7 +139,7 @@ namespace sai
 		}
 	}
 
-	void VirtualFileSystem::VisitCluster(size_t ClusterNumber, VFSVisitor& Visitor)
+	void VirtualFileSystem::VisitCluster(size_t ClusterNumber, VFSVisitor &Visitor)
 	{
 		VFSCluster CurCluster;
 		GetCluster(ClusterNumber, &CurCluster);
@@ -155,7 +163,7 @@ namespace sai
 		}
 	}
 
-	bool VirtualFileSystem::GetCluster(size_t ClusterNum, VFSCluster * Cluster)
+	bool VirtualFileSystem::GetCluster(size_t ClusterNum, VFSCluster *Cluster)
 	{
 		static intmax_t CacheTableNum = -1;
 		static VFSCluster CacheTable;
