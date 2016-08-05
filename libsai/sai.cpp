@@ -95,7 +95,8 @@ namespace sai
 			Entry.ClusterNumber < ClusterCount
 			&& (Entry.Type == VirtualFileEntry::EntryType::File)
 			&& Size
-			&& Entry.Size )
+			&& Entry.Size
+			&& FileStream )
 		{
 			Size = std::min(Size, Entry.Size);
 			VFSCluster CurCluster;
@@ -124,7 +125,10 @@ namespace sai
 
 	void VirtualFileSystem::Iterate(VFSVisitor &Visitor)
 	{
-		VisitCluster(2, Visitor);
+		if( FileStream )
+		{
+			VisitCluster(2, Visitor);
+		}
 	}
 
 	void VirtualFileSystem::VisitCluster(size_t ClusterNumber, VFSVisitor& Visitor)
