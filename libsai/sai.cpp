@@ -105,11 +105,16 @@ namespace sai
 			{
 				if( std::strcmp(CurToken, CurFAT.VFSEntries[CurEntry].Name) == 0 )
 				{
-					CurToken = std::strtok(nullptr, "./");
-					if( CurToken == nullptr ) // If there is no more to process
+					if( (CurToken = std::strtok(nullptr, "./")) == nullptr ) // No more tokens to process, done
 					{
 						*Entry = CurFAT.VFSEntries[CurEntry];
 						return true;
+					}
+
+					if( CurFAT.VFSEntries[CurEntry].Type != VirtualFileEntry::EntryType::Folder )
+					{
+						// Entry is not a folder, cant go further
+						return false;
 					}
 					GetCluster(
 						CurFAT.VFSEntries[CurEntry].ClusterNumber,
