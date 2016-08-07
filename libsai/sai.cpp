@@ -228,7 +228,7 @@ namespace sai
 					// Read and Decrypt Table
 					FileStream.seekg(NearestTable * ClusterSize);
 					FileStream.read(
-						reinterpret_cast<char*>(&CacheTable->u8),
+						reinterpret_cast<char*>(CacheTable->u8),
 						ClusterSize
 					);
 					CacheTable->DecryptTable(NearestTable);
