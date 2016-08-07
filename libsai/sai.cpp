@@ -45,6 +45,7 @@ namespace sai
 			// Verify all clusters
 			VFSCluster CurTable;
 			VFSCluster CurCluster;
+			// TODO: Speed htis up!, threaded semaphore
 			for( size_t i = 0; i < ClusterCount; i++ )
 			{
 				if( !(i & 0x1FF) ) // Cluster is a table
