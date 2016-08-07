@@ -5,13 +5,21 @@
 namespace sai
 {
 	VirtualFileSystem::VirtualFileSystem()
+		:
+		CacheTable(nullptr)
 	{
+		CacheTable = new VFSCluster();
 	}
+
 	VirtualFileSystem::~VirtualFileSystem()
 	{
 		if( FileStream )
 		{
 			FileStream.close();
+		}
+		if( CacheTable )
+		{
+			delete CacheTable;
 		}
 	}
 
@@ -197,25 +205,22 @@ namespace sai
 
 	bool VirtualFileSystem::GetCluster(size_t ClusterNum, VFSCluster *Cluster)
 	{
-		static intmax_t CacheTableNum = -1;
-		static VFSCluster CacheTable;
-
 		if( ClusterNum < ClusterCount )
 		{
 			if( !(ClusterNum & 0x1FF) ) // Cluster is a table
 			{
 				if( ClusterNum == CacheTableNum ) // Cache hit
 				{
-					memcpy(Cluster, &CacheTable.u8, ClusterSize);
+					memcpy(Cluster, &CacheTable->u8, ClusterSize);
 					return true;
 				}
 				// Read and Decrypt Table
 				FileStream.seekg(ClusterNum * ClusterSize);
 				FileStream.read(
-					reinterpret_cast<char*>(&CacheTable.u8),
+					reinterpret_cast<char*>(&CacheTable->u8),
 					ClusterSize
 				);
-				CacheTable.DecryptTable(ClusterNum);
+				CacheTable->DecryptTable(ClusterNum);
 
 				memcpy(Cluster, &CacheTable, ClusterSize);
 			}
@@ -225,18 +230,18 @@ namespace sai
 				uint32_t Key = 0;
 				if( CacheTableNum == NearestTable ) // Table Cache Hit
 				{
-					Key = CacheTable.TableEntries[ClusterNum - NearestTable].ClusterChecksum;
+					Key = CacheTable->TableEntries[ClusterNum - NearestTable].ClusterChecksum;
 				}
 				else // Cache Miss
 				{
 					// Read and Decrypt Table
 					FileStream.seekg(NearestTable * ClusterSize);
 					FileStream.read(
-						reinterpret_cast<char*>(&CacheTable.u8),
+						reinterpret_cast<char*>(&CacheTable->u8),
 						ClusterSize
 					);
-					CacheTable.DecryptTable(NearestTable);
-					Key = CacheTable.TableEntries[ClusterNum - NearestTable].ClusterChecksum;
+					CacheTable->DecryptTable(NearestTable);
+					Key = CacheTable->TableEntries[ClusterNum - NearestTable].ClusterChecksum;
 				}
 
 				// Read and Decrypt Data

@@ -18,6 +18,7 @@ namespace sai
 	{
 	public:
 		VirtualFileSystem();
+
 		~VirtualFileSystem();
 
 		bool Mount(const char *FileName);
@@ -100,6 +101,10 @@ namespace sai
 		// Current VFS Variables
 		size_t ClusterCount;
 		std::ifstream FileStream;
+
+		// Cluster Caching
+		intmax_t CacheTableNum = -1;
+		VFSCluster *CacheTable;
 	};
 
 	// Typedefs
