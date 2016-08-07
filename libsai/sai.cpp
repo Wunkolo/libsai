@@ -63,9 +63,7 @@ namespace sai
 				{
 					GetCluster(i, &CurCluster);
 
-					uint32_t Checksum = CurTable.TableEntries[i & 0x1FF].ClusterChecksum;
-
-					if( Checksum != CurCluster.Checksum() )
+					if( CurTable.TableEntries[i & 0x1FF].ClusterChecksum != CurCluster.Checksum() )
 					{
 						// Checksum mismatch. Data invalid
 						FileStream.close();
@@ -202,13 +200,13 @@ namespace sai
 			{
 				if( ClusterNum == CacheTableNum ) // Cache hit
 				{
-					memcpy(Cluster->u8, &CacheTable->u8, ClusterSize);
+					memcpy(Cluster->u8, CacheTable->u8, ClusterSize);
 					return true;
 				}
 				// Read and Decrypt Table
 				FileStream.seekg(ClusterNum * ClusterSize);
 				FileStream.read(
-					reinterpret_cast<char*>(&CacheTable->u8),
+					reinterpret_cast<char*>(CacheTable->u8),
 					ClusterSize
 				);
 				CacheTable->DecryptTable(ClusterNum);
