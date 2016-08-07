@@ -49,12 +49,7 @@ namespace sai
 			{
 				if( !(i & 0x1FF) ) // Cluster is a table
 				{
-					FileStream.read(
-						reinterpret_cast<char*>(&CurTable.u8),
-						ClusterSize
-					);
-
-					CurTable.DecryptTable(i);
+					GetCluster(i, &CurTable);
 
 					if( CurTable.TableEntries[0].ClusterChecksum != CurTable.Checksum(true) )
 					{
@@ -65,14 +60,9 @@ namespace sai
 				}
 				else if( i & 0x1FF ) // Cluster is data
 				{
-					FileStream.read(
-						reinterpret_cast<char*>(&CurCluster.u8),
-						ClusterSize
-					);
+					GetCluster(i, &CurCluster);
 
 					uint32_t Checksum = CurTable.TableEntries[i & 0x1FF].ClusterChecksum;
-
-					CurCluster.DecryptData(Checksum);
 
 					if( Checksum != CurCluster.Checksum() )
 					{
@@ -221,8 +211,9 @@ namespace sai
 					ClusterSize
 				);
 				CacheTable->DecryptTable(ClusterNum);
-
-				memcpy(Cluster, &CacheTable, ClusterSize);
+				CacheTableNum = ClusterNum;
+				memcpy(Cluster->u8, CacheTable->u8, ClusterSize);
+				return true;
 			}
 			else if( ClusterNum & 0x1FF ) // Cluster is data
 			{
@@ -247,7 +238,7 @@ namespace sai
 				// Read and Decrypt Data
 				FileStream.seekg(ClusterNum * ClusterSize);
 				FileStream.read(
-					reinterpret_cast<char*>(&Cluster->u8),
+					reinterpret_cast<char*>(Cluster->u8),
 					ClusterSize
 				);
 				Cluster->DecryptData(Key);
