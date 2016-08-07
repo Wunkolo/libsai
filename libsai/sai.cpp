@@ -206,7 +206,7 @@ namespace sai
 			{
 				if( ClusterNum == CacheTableNum ) // Cache hit
 				{
-					memcpy(Cluster, &CacheTable, ClusterSize);
+					memcpy(Cluster, &CacheTable.u8, ClusterSize);
 					return true;
 				}
 				// Read and Decrypt Table
