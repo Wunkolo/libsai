@@ -105,6 +105,7 @@ namespace sai
 		// Cluster Caching
 		intmax_t CacheTableNum = -1;
 		VFSCluster *CacheTable;
+		VFSCluster *CacheBuffer;
 	};
 
 	// Typedefs

@@ -4,9 +4,11 @@ namespace sai
 {
 	VirtualFileSystem::VirtualFileSystem()
 		:
-		CacheTable(nullptr)
+		CacheTable(nullptr),
+		CacheBuffer(nullptr)
 	{
 		CacheTable = new VFSCluster();
+		CacheBuffer = new VFSCluster();
 	}
 
 	VirtualFileSystem::~VirtualFileSystem()
@@ -18,6 +20,10 @@ namespace sai
 		if( CacheTable )
 		{
 			delete CacheTable;
+		}
+		if( CacheBuffer )
+		{
+			delete CacheBuffer;
 		}
 	}
 
@@ -41,16 +47,13 @@ namespace sai
 			FileStream.seekg(0, std::ios::beg);
 
 			// Verify all clusters
-			VFSCluster CurTable;
-			VFSCluster CurCluster;
-			// TODO: Speed this up!, threaded semaphore
 			for( size_t i = 0; i < ClusterCount; i++ )
 			{
 				if( !(i & 0x1FF) ) // Cluster is a table
 				{
-					GetCluster(i, &CurTable);
+					GetCluster(i, CacheTable);
 
-					if( CurTable.TableEntries[0].ClusterChecksum != CurTable.Checksum(true) )
+					if( CacheTable->TableEntries[0].ClusterChecksum != CacheTable->Checksum(true) )
 					{
 						// Checksum mismatch. Table invalid
 						FileStream.close();
@@ -59,9 +62,9 @@ namespace sai
 				}
 				else if( i & 0x1FF ) // Cluster is data
 				{
-					GetCluster(i, &CurCluster);
+					GetCluster(i, CacheBuffer);
 
-					if( CurTable.TableEntries[i & 0x1FF].ClusterChecksum != CurCluster.Checksum() )
+					if( CacheTable->TableEntries[i & 0x1FF].ClusterChecksum != CacheBuffer->Checksum(false) )
 					{
 						// Checksum mismatch. Data invalid
 						FileStream.close();
@@ -88,32 +91,31 @@ namespace sai
 	{
 		if( FileStream )
 		{
-			VFSCluster CurFAT; // Current File Allocation table
-			GetCluster(2, &CurFAT);
+			GetCluster(2, CacheBuffer);
 
 			std::string CurPath(Path);
 
 			const char* CurToken = std::strtok(&CurPath[0], "./");
 
 			size_t CurEntry = 0;
-			while( CurEntry < 64 && CurFAT.VFSEntries[CurEntry].Flags )
+			while( CurEntry < 64 && CacheBuffer->VFSEntries[CurEntry].Flags )
 			{
-				if( std::strcmp(CurToken, CurFAT.VFSEntries[CurEntry].Name) == 0 )
+				if( std::strcmp(CurToken, CacheBuffer->VFSEntries[CurEntry].Name) == 0 )
 				{
 					if( (CurToken = std::strtok(nullptr, "./")) == nullptr ) // No more tokens to process, done
 					{
-						*Entry = CurFAT.VFSEntries[CurEntry];
+						*Entry = CacheBuffer->VFSEntries[CurEntry];
 						return true;
 					}
 
-					if( CurFAT.VFSEntries[CurEntry].Type != VirtualFileEntry::EntryType::Folder )
+					if( CacheBuffer->VFSEntries[CurEntry].Type != VirtualFileEntry::EntryType::Folder )
 					{
 						// Entry is not a folder, cant go further
 						return false;
 					}
 					GetCluster(
-						CurFAT.VFSEntries[CurEntry].ClusterNumber,
-						&CurFAT
+						CacheBuffer->VFSEntries[CurEntry].ClusterNumber,
+						CacheBuffer
 					);
 					CurEntry = 0;
 					continue;
@@ -134,20 +136,19 @@ namespace sai
 			&& FileStream )
 		{
 			Size = Size > Entry.Size ? Entry.Size : Size;
-			VFSCluster CurCluster;
 			uint8_t *WritePoint = reinterpret_cast<uint8_t*>(Destination);
 			size_t ClusterOffset = 0;
 			while( Size )
 			{
-				GetCluster(Entry.ClusterNumber + ClusterOffset, &CurCluster);
+				GetCluster(Entry.ClusterNumber + ClusterOffset, CacheBuffer);
 				if( Size < ClusterSize ) // Trailing unaligned data
 				{
-					memcpy(WritePoint, CurCluster.u8, Size);
+					memcpy(WritePoint, CacheBuffer->u8, Size);
 					Size = 0;
 				}
 				else // Read full cluster
 				{
-					memcpy(WritePoint, CurCluster.u8, ClusterSize);
+					memcpy(WritePoint, CacheBuffer->u8, ClusterSize);
 					WritePoint += ClusterSize;
 					Size -= ClusterSize;
 					ClusterOffset++;
