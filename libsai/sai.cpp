@@ -29,6 +29,11 @@ namespace sai
 
 	bool VirtualFileSystem::Mount(const char *FileName)
 	{
+		if( FileStream )
+		{
+			FileStream.close();
+		}
+
 		FileStream.open(FileName, std::ios::binary | std::ios::ate);
 
 		if( FileStream )
