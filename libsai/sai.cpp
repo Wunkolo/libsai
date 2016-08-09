@@ -44,8 +44,6 @@ namespace sai
 
 			ClusterCount = static_cast<size_t>(FileSize) / ClusterSize;
 
-			FileStream.seekg(0, std::ios::beg);
-
 			// Verify all clusters
 			for( size_t i = 0; i < ClusterCount; i++ )
 			{
