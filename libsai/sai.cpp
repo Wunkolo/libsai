@@ -49,24 +49,21 @@ namespace sai
 			// Verify all clusters
 			for( size_t i = 0; i < ClusterCount; i++ )
 			{
-				if( !(i & 0x1FF) ) // Cluster is a table
+				GetCluster(i, CacheBuffer);
+				if( i & 0x1FF ) // Cluster is data
 				{
-					GetCluster(i, CacheTable);
-
-					if( CacheTable->TableEntries[0].ClusterChecksum != CacheTable->Checksum(true) )
+					if( CacheTable->TableEntries[i & 0x1FF].ClusterChecksum != CacheBuffer->Checksum(false) )
 					{
-						// Checksum mismatch. Table invalid
+						// Checksum mismatch. Data invalid
 						FileStream.close();
 						return false;
 					}
 				}
-				else if( i & 0x1FF ) // Cluster is data
+				else // Cluster is a table
 				{
-					GetCluster(i, CacheBuffer);
-
-					if( CacheTable->TableEntries[i & 0x1FF].ClusterChecksum != CacheBuffer->Checksum(false) )
+					if( CacheTable->TableEntries[0].ClusterChecksum != CacheTable->Checksum(true) )
 					{
-						// Checksum mismatch. Data invalid
+						// Checksum mismatch. Table invalid
 						FileStream.close();
 						return false;
 					}
@@ -195,25 +192,7 @@ namespace sai
 	{
 		if( ClusterNum < ClusterCount )
 		{
-			if( !(ClusterNum & 0x1FF) ) // Cluster is a table
-			{
-				if( ClusterNum == CacheTableNum ) // Cache hit
-				{
-					memcpy(Cluster->u8, CacheTable->u8, ClusterSize);
-					return true;
-				}
-				// Read and Decrypt Table
-				FileStream.seekg(ClusterNum * ClusterSize);
-				FileStream.read(
-					reinterpret_cast<char*>(CacheTable->u8),
-					ClusterSize
-				);
-				CacheTable->DecryptTable(ClusterNum);
-				CacheTableNum = ClusterNum;
-				memcpy(Cluster->u8, CacheTable->u8, ClusterSize);
-				return true;
-			}
-			else if( ClusterNum & 0x1FF ) // Cluster is data
+			if( ClusterNum & 0x1FF ) // Cluster is data
 			{
 				size_t NearestTable = ClusterNum & ~(0x1FF);
 				uint32_t Key = 0;
@@ -240,6 +219,24 @@ namespace sai
 					ClusterSize
 				);
 				Cluster->DecryptData(Key);
+				return true;
+			}
+			else // Cluster is a table
+			{
+				if( ClusterNum == CacheTableNum ) // Cache hit
+				{
+					memcpy(Cluster->u8, CacheTable->u8, ClusterSize);
+					return true;
+				}
+				// Read and Decrypt Table
+				FileStream.seekg(ClusterNum * ClusterSize);
+				FileStream.read(
+					reinterpret_cast<char*>(CacheTable->u8),
+					ClusterSize
+				);
+				CacheTable->DecryptTable(ClusterNum);
+				CacheTableNum = ClusterNum;
+				memcpy(Cluster->u8, CacheTable->u8, ClusterSize);
 				return true;
 			}
 		}
