@@ -244,7 +244,7 @@ namespace sai
 	void VirtualFileSystem::VFSCluster::DecryptTable(uint32_t ClusterNumber)
 	{
 		uint32_t Key = ClusterNumber & (~0x1FF);
-		for( size_t i = 0; i < 1024; i++ )
+		for( size_t i = 0; i < (ClusterSize / 4); i++ )
 		{
 			uint32_t CurCipher = u32[i];
 			uint32_t X = Key ^ CurCipher ^ (
@@ -262,7 +262,7 @@ namespace sai
 	void VirtualFileSystem::VFSCluster::DecryptData(uint32_t ClusterKey)
 	{
 		uint32_t Key = ClusterKey;
-		for( size_t i = 0; i < 1024; i++ )
+		for( size_t i = 0; i < (ClusterSize / 4); i++ )
 		{
 			uint32_t CurCipher = u32[i];
 			u32[i] =
@@ -279,7 +279,7 @@ namespace sai
 	uint32_t VirtualFileSystem::VFSCluster::Checksum(bool Table)
 	{
 		uint32_t Accumulate = 0;
-		for( size_t i = (Table ? 1 : 0); i < 1024; i++ )
+		for( size_t i = (Table ? 1 : 0); i < (ClusterSize / 4); i++ )
 		{
 			Accumulate = (2 * Accumulate | (Accumulate >> 31)) ^ u32[i];
 		}
