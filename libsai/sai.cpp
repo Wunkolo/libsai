@@ -243,36 +243,35 @@ namespace sai
 
 	void VirtualFileSystem::VFSCluster::DecryptTable(uint32_t ClusterNumber)
 	{
-		uint32_t Key = ClusterNumber & (~0x1FF);
+		ClusterNumber &= (~0x1FF);
 		for( size_t i = 0; i < (ClusterSize / 4); i++ )
 		{
 			uint32_t CurCipher = u32[i];
-			uint32_t X = Key ^ CurCipher ^ (
-				VirtualFileSystem::ClusterKey[(Key >> 24) & 0xFF]
-				+ VirtualFileSystem::ClusterKey[(Key >> 16) & 0xFF]
-				+ VirtualFileSystem::ClusterKey[(Key >> 8) & 0xFF]
-				+ VirtualFileSystem::ClusterKey[Key & 0xFF]);
+			uint32_t X = ClusterNumber ^ CurCipher ^ (
+				VirtualFileSystem::ClusterKey[(ClusterNumber >> 24) & 0xFF]
+				+ VirtualFileSystem::ClusterKey[(ClusterNumber >> 16) & 0xFF]
+				+ VirtualFileSystem::ClusterKey[(ClusterNumber >> 8) & 0xFF]
+				+ VirtualFileSystem::ClusterKey[ClusterNumber & 0xFF]);
 
 			u32[i] = static_cast<uint32_t>((X << 16) | (X >> 16));
 
-			Key = CurCipher;
+			ClusterNumber = CurCipher;
 		};
 	}
 
 	void VirtualFileSystem::VFSCluster::DecryptData(uint32_t ClusterKey)
 	{
-		uint32_t Key = ClusterKey;
 		for( size_t i = 0; i < (ClusterSize / 4); i++ )
 		{
 			uint32_t CurCipher = u32[i];
 			u32[i] =
 				CurCipher
-				- (Key ^ (
-					VirtualFileSystem::ClusterKey[Key & 0xFF]
-					+ VirtualFileSystem::ClusterKey[(Key >> 8) & 0xFF]
-					+ VirtualFileSystem::ClusterKey[(Key >> 16) & 0xFF]
-					+ VirtualFileSystem::ClusterKey[(Key >> 24) & 0xFF]));
-			Key = CurCipher;
+				- (ClusterKey ^ (
+					VirtualFileSystem::ClusterKey[ClusterKey & 0xFF]
+					+ VirtualFileSystem::ClusterKey[(ClusterKey >> 8) & 0xFF]
+					+ VirtualFileSystem::ClusterKey[(ClusterKey >> 16) & 0xFF]
+					+ VirtualFileSystem::ClusterKey[(ClusterKey >> 24) & 0xFF]));
+			ClusterKey = CurCipher;
 		}
 	}
 
