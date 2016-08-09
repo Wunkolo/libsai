@@ -1,7 +1,5 @@
 #include "sai.hpp"
 
-#include <algorithm>
-
 namespace sai
 {
 	VirtualFileSystem::VirtualFileSystem()
@@ -135,7 +133,7 @@ namespace sai
 			&& Entry.Size
 			&& FileStream )
 		{
-			Size = std::min(Size, Entry.Size);
+			Size = Size > Entry.Size ? Entry.Size : Size;
 			VFSCluster CurCluster;
 			uint8_t *WritePoint = reinterpret_cast<uint8_t*>(Destination);
 			size_t ClusterOffset = 0;
