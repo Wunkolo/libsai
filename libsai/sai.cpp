@@ -49,8 +49,8 @@ namespace sai
 		CacheTable(nullptr),
 		CacheBuffer(nullptr)
 	{
-		CacheTable = new VFSCluster();
-		CacheBuffer = new VFSCluster();
+		CacheTable = new FileSystemCluster();
+		CacheBuffer = new FileSystemCluster();
 	}
 
 	VirtualFileSystem::~VirtualFileSystem()
@@ -89,7 +89,7 @@ namespace sai
 				return false;
 			}
 
-			ClusterCount = static_cast<size_t>(FileSize) / ClusterSize;
+			ClusterCount = static_cast<size_t>(FileSize) / FileSystemCluster::ClusterSize;
 
 			// Verify all clusters
 			for( size_t i = 0; i < ClusterCount; i++ )
@@ -126,7 +126,7 @@ namespace sai
 
 	size_t VirtualFileSystem::GetSize() const
 	{
-		return GetClusterCount() * ClusterSize;
+		return GetClusterCount() * FileSystemCluster::ClusterSize;
 	}
 
 	bool VirtualFileSystem::GetEntry(const char *Path, VirtualFileEntry &Entry)
@@ -181,9 +181,9 @@ namespace sai
 
 			while( Size )
 			{
-				size_t CurCluster = Offset / ClusterSize; // Nearest cluster Offset
-				size_t CurClusterOffset = Offset % ClusterSize; // Offset within cluster
-				size_t CurClusterSize = std::min<size_t>(Size, ClusterSize - CurClusterOffset); // Size within cluster
+				size_t CurCluster = Offset / FileSystemCluster::ClusterSize; // Nearest cluster Offset
+				size_t CurClusterOffset = Offset % FileSystemCluster::ClusterSize; // Offset within cluster
+				size_t CurClusterSize = std::min<size_t>(Size, FileSystemCluster::ClusterSize - CurClusterOffset); // Size within cluster
 
 				// Current Cluster to read from
 				GetCluster(Entry.GetCluster() + CurCluster, CacheBuffer);
@@ -210,7 +210,7 @@ namespace sai
 
 	void VirtualFileSystem::VisitCluster(size_t ClusterNumber, VFSVisitor &Visitor)
 	{
-		VFSCluster CurCluster;
+		FileSystemCluster CurCluster;
 		GetCluster(ClusterNumber, &CurCluster);
 		for( size_t i = 0; CurCluster.VFSEntries[i].Flags; i++ )
 		{
@@ -234,7 +234,7 @@ namespace sai
 		}
 	}
 
-	bool VirtualFileSystem::GetCluster(size_t ClusterNum, VFSCluster *Cluster)
+	bool VirtualFileSystem::GetCluster(size_t ClusterNum, VirtualCluster *Cluster)
 	{
 		if( ClusterNum < ClusterCount )
 		{
@@ -249,20 +249,20 @@ namespace sai
 				else // Cache Miss
 				{
 					// Read and Decrypt Table
-					FileStream.seekg(NearestTable * ClusterSize);
+					FileStream.seekg(NearestTable * FileSystemCluster::ClusterSize);
 					FileStream.read(
 						reinterpret_cast<char*>(CacheTable->u8),
-						ClusterSize
+						FileSystemCluster::ClusterSize
 					);
 					CacheTable->DecryptTable(NearestTable);
 					Key = CacheTable->TableEntries[ClusterNum - NearestTable].ClusterChecksum;
 				}
 
 				// Read and Decrypt Data
-				FileStream.seekg(ClusterNum * ClusterSize);
+				FileStream.seekg(ClusterNum * FileSystemCluster::ClusterSize);
 				FileStream.read(
 					reinterpret_cast<char*>(Cluster->u8),
-					ClusterSize
+					FileSystemCluster::ClusterSize
 				);
 				Cluster->DecryptData(Key);
 				return true;
@@ -271,18 +271,18 @@ namespace sai
 			{
 				if( ClusterNum == CacheTableNum ) // Cache hit
 				{
-					memcpy(Cluster->u8, CacheTable->u8, ClusterSize);
+					memcpy(Cluster->u8, CacheTable->u8, FileSystemCluster::ClusterSize);
 					return true;
 				}
 				// Read and Decrypt Table
-				FileStream.seekg(ClusterNum * ClusterSize);
+				FileStream.seekg(ClusterNum * FileSystemCluster::ClusterSize);
 				FileStream.read(
 					reinterpret_cast<char*>(CacheTable->u8),
-					ClusterSize
+					FileSystemCluster::ClusterSize
 				);
 				CacheTable->DecryptTable(ClusterNum);
 				CacheTableNum = ClusterNum;
-				memcpy(Cluster->u8, CacheTable->u8, ClusterSize);
+				memcpy(Cluster->u8, CacheTable->u8, FileSystemCluster::ClusterSize);
 				return true;
 			}
 		}
@@ -291,17 +291,17 @@ namespace sai
 
 	// Cluster
 
-	void VirtualFileSystem::VFSCluster::DecryptTable(uint32_t ClusterNumber)
+	void VirtualCluster::DecryptTable(uint32_t ClusterNumber)
 	{
 		ClusterNumber &= (~0x1FF);
 		for( size_t i = 0; i < (ClusterSize / 4); i++ )
 		{
 			uint32_t CurCipher = u32[i];
 			uint32_t X = ClusterNumber ^ CurCipher ^ (
-				VirtualFileSystem::ClusterKey[(ClusterNumber >> 24) & 0xFF]
-				+ VirtualFileSystem::ClusterKey[(ClusterNumber >> 16) & 0xFF]
-				+ VirtualFileSystem::ClusterKey[(ClusterNumber >> 8) & 0xFF]
-				+ VirtualFileSystem::ClusterKey[ClusterNumber & 0xFF]);
+				ClusterKey[(ClusterNumber >> 24) & 0xFF]
+				+ ClusterKey[(ClusterNumber >> 16) & 0xFF]
+				+ ClusterKey[(ClusterNumber >> 8) & 0xFF]
+				+ ClusterKey[ClusterNumber & 0xFF]);
 
 			u32[i] = static_cast<uint32_t>((X << 16) | (X >> 16));
 
@@ -309,23 +309,23 @@ namespace sai
 		};
 	}
 
-	void VirtualFileSystem::VFSCluster::DecryptData(uint32_t ClusterKey)
+	void VirtualCluster::DecryptData(uint32_t Key)
 	{
 		for( size_t i = 0; i < (ClusterSize / 4); i++ )
 		{
 			uint32_t CurCipher = u32[i];
 			u32[i] =
 				CurCipher
-				- (ClusterKey ^ (
-					VirtualFileSystem::ClusterKey[ClusterKey & 0xFF]
-					+ VirtualFileSystem::ClusterKey[(ClusterKey >> 8) & 0xFF]
-					+ VirtualFileSystem::ClusterKey[(ClusterKey >> 16) & 0xFF]
-					+ VirtualFileSystem::ClusterKey[(ClusterKey >> 24) & 0xFF]));
-			ClusterKey = CurCipher;
+				- (Key ^ (
+					ClusterKey[Key & 0xFF]
+					+ ClusterKey[(Key >> 8) & 0xFF]
+					+ ClusterKey[(Key >> 16) & 0xFF]
+					+ ClusterKey[(Key >> 24) & 0xFF]));
+			Key = CurCipher;
 		}
 	}
 
-	uint32_t VirtualFileSystem::VFSCluster::Checksum(bool Table)
+	uint32_t VirtualCluster::Checksum(bool Table)
 	{
 		uint32_t Accumulate = 0;
 		for( size_t i = (Table ? 1 : 0); i < (ClusterSize / 4); i++ )
@@ -335,7 +335,7 @@ namespace sai
 		return Accumulate | 1;
 	}
 
-	const uint32_t VirtualFileSystem::ClusterKey[1024] =
+	const uint32_t VirtualCluster::ClusterKey[1024] =
 	{
 		0x9913D29E,0x83F58D3D,0xD0BE1526,0x86442EB7,0x7EC69BFB,0x89D75F64,0xFB51B239,0xFF097C56,
 		0xA206EF1E,0x973D668D,0xC383770D,0x1CB4CCEB,0x36F7108B,0x40336BCD,0x84D123BD,0xAFEF5DF3,

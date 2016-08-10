@@ -15,11 +15,13 @@ namespace sai
 
 	// Prototypes
 	class VirtualFileSystem;
+	union VirtualCluster;
 
 	// File Entry
 	class VirtualFileEntry
 	{
 		friend class VirtualFileSystem;
+		friend union VirtualCluster;
 	public:
 		VirtualFileEntry();
 		~VirtualFileEntry();
@@ -69,6 +71,35 @@ namespace sai
 
 	typedef VFSVisitor FileSystemVisitor;
 
+	// File system cluster (4096 bytes)
+	union VirtualCluster
+	{
+		static const size_t ClusterSize = 4096;
+		// Decryption key
+		static const uint32_t ClusterKey[1024];
+
+		// Data
+		uint8_t u8[4096];
+		uint32_t u32[1024];
+
+		// Table
+		struct TableEntry
+		{
+			uint32_t ClusterChecksum;
+			uint32_t ClusterFlags;
+		}TableEntries[512];
+
+		// VFS Entries
+		FileEntry::FATEntry VFSEntries[64];
+
+		void DecryptTable(uint32_t ClusterNumber);
+		void DecryptData(uint32_t Key);
+
+		uint32_t Checksum(bool Table = false);
+	};
+
+	typedef VirtualCluster FileSystemCluster;
+
 	// File System
 	class VirtualFileSystem : public NonCopyable
 	{
@@ -96,37 +127,9 @@ namespace sai
 		void Iterate(VFSVisitor &Visitor);
 
 	private:
-		static const size_t ClusterSize = 4096;
-
 		void VisitCluster(size_t ClusterNumber, VFSVisitor &Visitor);
 
-		// Decryption key
-		static const uint32_t ClusterKey[1024];
-
-		// Virtual File System Cluster (4096 bytes)
-		union VFSCluster
-		{
-			// Data
-			uint8_t u8[4096];
-			uint32_t u32[1024];
-
-			// Table
-			struct TableEntry
-			{
-				uint32_t ClusterChecksum;
-				uint32_t ClusterFlags;
-			}TableEntries[512];
-
-			// VFS Entries
-			VirtualFileEntry::FATEntry VFSEntries[64];
-
-			void DecryptTable(uint32_t ClusterNumber);
-			void DecryptData(uint32_t ClusterKey);
-
-			uint32_t Checksum(bool Table = false);
-		};
-
-		bool GetCluster(size_t ClusterNum, VFSCluster *Cluster);
+		bool GetCluster(size_t ClusterNum, VirtualCluster *Cluster);
 
 		// Current VFS Variables
 		size_t ClusterCount;
@@ -134,8 +137,8 @@ namespace sai
 
 		// Cluster Caching
 		intmax_t CacheTableNum = -1;
-		VFSCluster *CacheTable;
-		VFSCluster *CacheBuffer;
+		VirtualCluster *CacheTable;
+		VirtualCluster *CacheBuffer;
 	};
 
 	typedef VirtualFileSystem FileSystem;
