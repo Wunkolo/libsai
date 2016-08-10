@@ -50,6 +50,12 @@ namespace sai
 
 		bool Read(const VirtualFileEntry &Entry, void *Destination, size_t Offset, size_t Size);
 
+		template< typename T>
+		inline bool Read(const VirtualFileEntry &Entry, size_t Offset, T &Data)
+		{
+			return Read(Entry, &Data, Offset, sizeof(T));
+		}
+
 		class VFSVisitor
 		{
 		public:
