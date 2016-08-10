@@ -1,5 +1,7 @@
 #include "sai.hpp"
 
+#include <algorithm>
+
 namespace sai
 {
 	VirtualFileSystem::VirtualFileSystem()
@@ -126,33 +128,32 @@ namespace sai
 		return false;
 	}
 
-	bool VirtualFileSystem::Read(const VirtualFileEntry &Entry, void *Destination, size_t Size)
+	bool VirtualFileSystem::Read(const VirtualFileEntry &Entry, void *Destination, size_t Offset, size_t Size)
 	{
 		if(
-			Entry.ClusterNumber < ClusterCount
+			FileStream
+			&& Entry.ClusterNumber < ClusterCount
 			&& (Entry.Type == VirtualFileEntry::EntryType::File)
-			&& Size
-			&& Entry.Size
-			&& FileStream )
+			&& ((Offset + Size) <= Entry.Size)
+			)
 		{
-			Size = Size > Entry.Size ? Entry.Size : Size;
 			uint8_t *WritePoint = reinterpret_cast<uint8_t*>(Destination);
-			size_t ClusterOffset = 0;
+
 			while( Size )
 			{
-				GetCluster(Entry.ClusterNumber + ClusterOffset, CacheBuffer);
-				if( Size < ClusterSize ) // Trailing unaligned data
-				{
-					memcpy(WritePoint, CacheBuffer->u8, Size);
-					Size = 0;
-				}
-				else // Read full cluster
-				{
-					memcpy(WritePoint, CacheBuffer->u8, ClusterSize);
-					WritePoint += ClusterSize;
-					Size -= ClusterSize;
-					ClusterOffset++;
-				}
+				size_t CurCluster = Offset / ClusterSize; // Nearest cluster Offset
+				size_t CurClusterOffset = Offset % ClusterSize; // Offset within cluster
+				size_t CurClusterSize = std::min<size_t>(Size, ClusterSize - CurClusterOffset); // Size within cluster
+
+				// Current Cluster to read from
+				GetCluster(Entry.ClusterNumber + CurCluster, CacheBuffer);
+
+				memcpy(WritePoint, CacheBuffer->u8 + (Offset % ClusterSize), CurClusterSize);
+				WritePoint += CurClusterSize;
+				Size -= CurClusterSize;
+				Offset += CurClusterSize;
+
+				CurCluster++;
 			}
 			return true;
 		}

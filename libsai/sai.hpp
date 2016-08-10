@@ -48,7 +48,7 @@ namespace sai
 
 		bool GetEntry(const char *Path, VirtualFileEntry *Entry);
 
-		bool Read(const VirtualFileEntry &Entry, void *Destination, size_t Size);
+		bool Read(const VirtualFileEntry &Entry, void *Destination, size_t Offset, size_t Size);
 
 		class VFSVisitor
 		{
