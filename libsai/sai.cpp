@@ -89,7 +89,7 @@ namespace sai
 		return GetClusterCount() * ClusterSize;
 	}
 
-	bool VirtualFileSystem::GetEntry(const char *Path, VirtualFileEntry *Entry)
+	bool VirtualFileSystem::GetEntry(const char *Path, VirtualFileEntry &Entry)
 	{
 		if( FileStream )
 		{
@@ -106,7 +106,7 @@ namespace sai
 				{
 					if( (CurToken = std::strtok(nullptr, "./")) == nullptr ) // No more tokens to process, done
 					{
-						*Entry = CacheBuffer->VFSEntries[CurEntry];
+						Entry = CacheBuffer->VFSEntries[CurEntry];
 						return true;
 					}
 
