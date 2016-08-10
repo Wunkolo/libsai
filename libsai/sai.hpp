@@ -38,6 +38,7 @@ namespace sai
 		time_t GetTimeStamp() const;
 
 	private:
+#pragma pack(push, 1)
 		struct FATEntry
 		{
 			uint32_t Flags;
@@ -51,6 +52,7 @@ namespace sai
 			uint64_t TimeStamp; // Windows FILETIME
 			uint64_t UnknownB;
 		} Data;
+#pragma pack(pop)
 	};
 
 	typedef VirtualFileEntry FileEntry;
@@ -72,6 +74,7 @@ namespace sai
 	typedef VFSVisitor FileSystemVisitor;
 
 	// File system cluster (4096 bytes)
+#pragma pack(push, 1)
 	union VirtualCluster
 	{
 		static const size_t ClusterSize = 0x1000;
@@ -97,6 +100,7 @@ namespace sai
 
 		uint32_t Checksum(bool Table = false);
 	};
+#pragma pack(pop)
 
 	typedef VirtualCluster FileSystemCluster;
 
