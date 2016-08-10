@@ -148,11 +148,11 @@ namespace sai
 				// Current Cluster to read from
 				GetCluster(Entry.ClusterNumber + CurCluster, CacheBuffer);
 
-				memcpy(WritePoint, CacheBuffer->u8 + (Offset % ClusterSize), CurClusterSize);
-				WritePoint += CurClusterSize;
-				Size -= CurClusterSize;
-				Offset += CurClusterSize;
+				memcpy(WritePoint, CacheBuffer->u8 + CurClusterOffset, CurClusterSize);
 
+				Size -= CurClusterSize;
+				WritePoint += CurClusterSize;
+				Offset += CurClusterSize;
 				CurCluster++;
 			}
 			return true;
