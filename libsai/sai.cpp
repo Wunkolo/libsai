@@ -128,7 +128,7 @@ namespace sai
 		return false;
 	}
 
-	bool VirtualFileSystem::Read(const VirtualFileEntry &Entry, void *Destination, size_t Offset, size_t Size)
+	bool VirtualFileSystem::Read(const VirtualFileEntry &Entry, size_t Offset, size_t Size, void *Destination)
 	{
 		if(
 			FileStream
