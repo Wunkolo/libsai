@@ -74,25 +74,25 @@ namespace sai
 	// File system cluster (4096 bytes)
 	union VirtualCluster
 	{
-		static const size_t ClusterSize = 4096;
+		static const size_t ClusterSize = 0x1000;
 		// Decryption key
-		static const uint32_t ClusterKey[1024];
+		static const uint32_t DecryptionKey[1024];
 
 		// Data
 		uint8_t u8[4096];
 		uint32_t u32[1024];
 
-		// Table
+		// Cluster Table entries
 		struct TableEntry
 		{
-			uint32_t ClusterChecksum;
-			uint32_t ClusterFlags;
-		}TableEntries[512];
+			uint32_t Checksum;
+			uint32_t Flags;
+		} TableEntries[512];
 
-		// VFS Entries
-		FileEntry::FATEntry VFSEntries[64];
+		// File allocation Entries
+		FileEntry::FATEntry FATEntries[64];
 
-		void DecryptTable(uint32_t ClusterNumber);
+		void DecryptTable(uint32_t Index);
 		void DecryptData(uint32_t Key);
 
 		uint32_t Checksum(bool Table = false);
@@ -124,12 +124,12 @@ namespace sai
 			return Read(Entry, Offset, sizeof(T), &Data);
 		}
 
-		void Iterate(VFSVisitor &Visitor);
+		void Iterate(FileSystemVisitor &Visitor);
 
 	private:
-		void VisitCluster(size_t ClusterNumber, VFSVisitor &Visitor);
+		void VisitCluster(size_t ClusterNumber, FileSystemVisitor &Visitor);
 
-		bool GetCluster(size_t ClusterNum, VirtualCluster *Cluster);
+		bool GetCluster(size_t ClusterNum, FileSystemCluster *Cluster);
 
 		// Current VFS Variables
 		size_t ClusterCount;
@@ -137,8 +137,8 @@ namespace sai
 
 		// Cluster Caching
 		intmax_t CacheTableNum = -1;
-		VirtualCluster *CacheTable;
-		VirtualCluster *CacheBuffer;
+		FileSystemCluster *CacheTable;
+		FileSystemCluster *CacheBuffer;
 	};
 
 	typedef VirtualFileSystem FileSystem;
