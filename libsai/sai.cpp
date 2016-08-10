@@ -216,7 +216,7 @@ namespace sai
 		for( size_t i = 0; CurCluster.FATEntries[i].Flags; i++ )
 		{
 			CurEntry.Data = CurCluster.FATEntries[i];
-			switch( CurCluster.FATEntries[i].Type )
+			switch( CurEntry.GetType() )
 			{
 			case FileEntry::EntryType::File:
 			{
@@ -226,7 +226,7 @@ namespace sai
 			case FileEntry::EntryType::Folder:
 			{
 				Visitor.VisitFolderBegin(CurEntry);
-				VisitCluster(CurCluster.FATEntries[i].Cluster, Visitor);
+				VisitCluster(CurEntry.GetCluster(), Visitor);
 				Visitor.VisitFolderEnd();
 				break;
 			}
