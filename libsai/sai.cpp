@@ -4,6 +4,46 @@
 
 namespace sai
 {
+	// File Entry
+	VirtualFileEntry::VirtualFileEntry()
+	{
+	}
+
+	VirtualFileEntry::~VirtualFileEntry()
+	{
+	}
+
+	uint32_t VirtualFileEntry::GetFlags() const
+	{
+		return Data.Flags;
+	}
+
+	const char * VirtualFileEntry::GetName() const
+	{
+		return Data.Name;
+	}
+
+	VirtualFileEntry::EntryType VirtualFileEntry::GetType() const
+	{
+		return Data.Type;
+	}
+
+	uint32_t VirtualFileEntry::GetCluster() const
+	{
+		return Data.Cluster;
+	}
+
+	uint32_t VirtualFileEntry::GetSize() const
+	{
+		return Data.Size;
+	}
+
+	time_t VirtualFileEntry::GetTimeStamp() const
+	{
+		return Data.TimeStamp / 10000000ULL - 11644473600ULL;
+	}
+
+	// File System
 	VirtualFileSystem::VirtualFileSystem()
 		:
 		CacheTable(nullptr),
@@ -106,7 +146,7 @@ namespace sai
 				{
 					if( (CurToken = std::strtok(nullptr, "./")) == nullptr ) // No more tokens to process, done
 					{
-						Entry = CacheBuffer->VFSEntries[CurEntry];
+						Entry.Data = CacheBuffer->VFSEntries[CurEntry];
 						return true;
 					}
 
@@ -116,7 +156,7 @@ namespace sai
 						return false;
 					}
 					GetCluster(
-						CacheBuffer->VFSEntries[CurEntry].ClusterNumber,
+						CacheBuffer->VFSEntries[CurEntry].Cluster,
 						CacheBuffer
 					);
 					CurEntry = 0;
@@ -128,13 +168,13 @@ namespace sai
 		return false;
 	}
 
-	bool VirtualFileSystem::Read(const VirtualFileEntry &Entry, size_t Offset, size_t Size, void *Destination)
+	bool VirtualFileSystem::Read(const FileEntry &Entry, size_t Offset, size_t Size, void *Destination)
 	{
 		if(
 			FileStream
-			&& Entry.ClusterNumber < ClusterCount
-			&& (Entry.Type == VirtualFileEntry::EntryType::File)
-			&& ((Offset + Size) <= Entry.Size)
+			&& Entry.GetCluster() < ClusterCount
+			&& (Entry.GetType() == VirtualFileEntry::EntryType::File)
+			&& ((Offset + Size) <= Entry.GetSize())
 			)
 		{
 			uint8_t *WritePoint = reinterpret_cast<uint8_t*>(Destination);
@@ -146,7 +186,7 @@ namespace sai
 				size_t CurClusterSize = std::min<size_t>(Size, ClusterSize - CurClusterOffset); // Size within cluster
 
 				// Current Cluster to read from
-				GetCluster(Entry.ClusterNumber + CurCluster, CacheBuffer);
+				GetCluster(Entry.GetCluster() + CurCluster, CacheBuffer);
 
 				memcpy(WritePoint, CacheBuffer->u8 + CurClusterOffset, CurClusterSize);
 
@@ -174,17 +214,19 @@ namespace sai
 		GetCluster(ClusterNumber, &CurCluster);
 		for( size_t i = 0; CurCluster.VFSEntries[i].Flags; i++ )
 		{
+			FileEntry CurEntry;
+			CurEntry.Data = CurCluster.VFSEntries[i];
 			switch( CurCluster.VFSEntries[i].Type )
 			{
-			case VirtualFileEntry::EntryType::File:
+			case FileEntry::EntryType::File:
 			{
-				Visitor.VisitFile(CurCluster.VFSEntries[i]);
+				Visitor.VisitFile(CurEntry);
 				break;
 			}
-			case VirtualFileEntry::EntryType::Folder:
+			case FileEntry::EntryType::Folder:
 			{
-				Visitor.VisitFolderBegin(CurCluster.VFSEntries[i]);
-				VisitCluster(CurCluster.VFSEntries[i].ClusterNumber, Visitor);
+				Visitor.VisitFolderBegin(CurEntry);
+				VisitCluster(CurCluster.VFSEntries[i].Cluster, Visitor);
 				Visitor.VisitFolderEnd();
 				break;
 			}
@@ -246,6 +288,8 @@ namespace sai
 		}
 		return false;
 	}
+
+	// Cluster
 
 	void VirtualFileSystem::VFSCluster::DecryptTable(uint32_t ClusterNumber)
 	{

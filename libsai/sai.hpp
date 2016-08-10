@@ -14,6 +14,62 @@ namespace sai
 	};
 
 	// Prototypes
+	class VirtualFileSystem;
+
+	// File Entry
+	class VirtualFileEntry
+	{
+		friend class VirtualFileSystem;
+	public:
+		VirtualFileEntry();
+		~VirtualFileEntry();
+		uint32_t GetFlags() const;
+		const char* GetName() const;
+
+		enum class EntryType : uint8_t
+		{
+			Folder = 0x10,
+			File = 0x80
+		} GetType() const;
+		uint32_t GetCluster() const;
+		uint32_t GetSize() const;
+		time_t GetTimeStamp() const;
+
+	private:
+		struct FATEntry
+		{
+			uint32_t Flags;
+			char Name[32];
+			uint8_t Pad1;
+			uint8_t Pad2;
+			EntryType Type;
+			uint8_t Pad4;
+			uint32_t Cluster;
+			uint32_t Size;
+			uint64_t TimeStamp; // Windows FILETIME
+			uint64_t UnknownB;
+		} Data;
+	};
+
+	typedef VirtualFileEntry FileEntry;
+
+	// File System Visitor
+	class VFSVisitor
+	{
+	public:
+		virtual ~VFSVisitor() {};
+
+		// Visit a Folder
+		virtual void VisitFolderBegin(const FileEntry &Entry) = 0;
+		virtual void VisitFolderEnd() = 0;
+
+		// Visit a File
+		virtual void VisitFile(const FileEntry &Entry) = 0;
+	};
+
+	typedef VFSVisitor FileSystemVisitor;
+
+	// File System
 	class VirtualFileSystem : public NonCopyable
 	{
 	public:
@@ -24,50 +80,18 @@ namespace sai
 		bool Mount(const char *FileName);
 
 		size_t GetClusterCount() const;
+
 		size_t GetSize() const;
 
-		// Virtual File System entry
-		struct VirtualFileEntry
-		{
-			uint32_t Flags;
-			char Name[32];
-			uint8_t Pad1;
-			uint8_t Pad2;
-			enum EntryType : uint8_t
-			{
-				Folder = 0x10,
-				File = 0x80
-			} Type;
-			uint8_t Pad4;
-			uint32_t ClusterNumber;
-			uint32_t Size;// Max file size 4gb
-			// Windows FILETIME
-			uint64_t TimeStamp;
-			uint64_t UnknownB;
-		};
+		bool GetEntry(const char *Path, FileEntry &Entry);
 
-		bool GetEntry(const char *Path, VirtualFileEntry &Entry);
-
-		bool Read(const VirtualFileEntry &Entry, size_t Offset, size_t Size, void *Destination);
+		bool Read(const FileEntry &Entry, size_t Offset, size_t Size, void *Destination);
 
 		template< typename T>
-		inline bool Read(const VirtualFileEntry &Entry, size_t Offset, T &Data)
+		inline bool Read(const FileEntry &Entry, size_t Offset, T &Data)
 		{
 			return Read(Entry, Offset, sizeof(T), &Data);
 		}
-
-		class VFSVisitor
-		{
-		public:
-			virtual ~VFSVisitor() {};
-
-			// Visit a Folder
-			virtual void VisitFolderBegin(const VirtualFileEntry &Entry) = 0;
-			virtual void VisitFolderEnd() = 0;
-
-			// Visit a File
-			virtual void VisitFile(const VirtualFileEntry &Entry) = 0;
-		};
 
 		void Iterate(VFSVisitor &Visitor);
 
@@ -94,7 +118,7 @@ namespace sai
 			}TableEntries[512];
 
 			// VFS Entries
-			VirtualFileEntry VFSEntries[64];
+			VirtualFileEntry::FATEntry VFSEntries[64];
 
 			void DecryptTable(uint32_t ClusterNumber);
 			void DecryptData(uint32_t ClusterKey);
@@ -114,8 +138,5 @@ namespace sai
 		VFSCluster *CacheBuffer;
 	};
 
-	// Typedefs
 	typedef VirtualFileSystem FileSystem;
-	typedef VirtualFileSystem::VirtualFileEntry FileEntry;
-	typedef VirtualFileSystem::VFSVisitor FileSystemVisitor;
 }
