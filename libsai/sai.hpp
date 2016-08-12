@@ -32,7 +32,9 @@ namespace sai
 		{
 			Folder = 0x10,
 			File = 0x80
-		} GetType() const;
+		};
+
+		EntryType GetType() const;
 		uint32_t GetCluster() const;
 		uint32_t GetSize() const;
 		time_t GetTimeStamp() const;
