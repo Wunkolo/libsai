@@ -39,7 +39,11 @@ namespace sai
 		uint32_t GetSize() const;
 		time_t GetTimeStamp() const;
 
+		inline uint32_t Tell() const;
+		inline void Seek(uint32_t Offset);
+
 	private:
+		uint32_t Position;
 #pragma pack(push, 1)
 		struct FATEntry
 		{

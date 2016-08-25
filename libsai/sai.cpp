@@ -6,6 +6,8 @@ namespace sai
 {
 	// File Entry
 	VirtualFileEntry::VirtualFileEntry()
+		:
+		Position(0)
 	{
 	}
 
@@ -41,6 +43,16 @@ namespace sai
 	time_t VirtualFileEntry::GetTimeStamp() const
 	{
 		return Data.TimeStamp / 10000000ULL - 11644473600ULL;
+	}
+
+	inline uint32_t VirtualFileEntry::Tell() const
+	{
+		return Position;
+	}
+
+	inline void VirtualFileEntry::Seek(uint32_t Offset)
+	{
+		Position = Offset;
 	}
 
 	// File System
