@@ -43,7 +43,21 @@ namespace sai
 		inline uint32_t Tell() const;
 		inline void Seek(uint32_t Offset);
 
-		uint32_t Read(void *Destination, uint32_t Size);
+		bool Read(void *Destination, uint32_t Size);
+
+		template< typename T >
+		inline bool Read(T &Data)
+		{
+			return Read(&Data, sizeof(T));
+		}
+
+		template< typename T >
+		inline T Read()
+		{
+			T temp;
+			Read(&temp, sizeof(T));
+			return temp;
+		}
 
 	private:
 		VirtualFileSystem *FileSystem;
@@ -132,7 +146,7 @@ namespace sai
 
 		bool Read(const FileEntry &Entry, uint32_t Offset, uint32_t Size, void *Destination);
 
-		template< typename T>
+		template< typename T >
 		inline bool Read(const FileEntry &Entry, uint32_t Offset, T &Data)
 		{
 			return Read(Entry, Offset, sizeof(T), &Data);

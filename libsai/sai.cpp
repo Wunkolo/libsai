@@ -63,14 +63,13 @@ namespace sai
 		Position = Offset;
 	}
 
-	inline uint32_t VirtualFileEntry::Read(void * Destination, uint32_t Size)
+	bool VirtualFileEntry::Read(void * Destination, uint32_t Size)
 	{
-		if( Position + Size < GetSize() && FileSystem )
+		if( FileSystem )
 		{
-			FileSystem->Read(*this, Position, Size, Destination);
-			return Size;
+			return FileSystem->Read(*this, Position, Size, Destination);
 		}
-		return 0;
+		return false;
 	}
 
 	// File System
@@ -177,6 +176,7 @@ namespace sai
 					if( (CurToken = std::strtok(nullptr, "./")) == nullptr ) // No more tokens to process, done
 					{
 						Entry.Data = CacheBuffer->FATEntries[CurEntry];
+						Entry.FileSystem = this;
 						return true;
 					}
 
