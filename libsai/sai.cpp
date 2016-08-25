@@ -7,7 +7,15 @@ namespace sai
 	// File Entry
 	VirtualFileEntry::VirtualFileEntry()
 		:
-		Position(0)
+		Position(0),
+		FileSystem(nullptr)
+	{
+	}
+
+	VirtualFileEntry::VirtualFileEntry(VirtualFileSystem & FileSystem)
+		:
+		Position(0),
+		FileSystem(&FileSystem)
 	{
 	}
 
@@ -53,6 +61,16 @@ namespace sai
 	inline void VirtualFileEntry::Seek(uint32_t Offset)
 	{
 		Position = Offset;
+	}
+
+	inline uint32_t VirtualFileEntry::Read(void * Destination, uint32_t Size)
+	{
+		if( Position + Size < GetSize() && FileSystem )
+		{
+			FileSystem->Read(*this, Position, Size, Destination);
+			return Size;
+		}
+		return 0;
 	}
 
 	// File System
@@ -180,7 +198,7 @@ namespace sai
 		return false;
 	}
 
-	bool VirtualFileSystem::Read(const FileEntry &Entry, size_t Offset, size_t Size, void *Destination)
+	bool VirtualFileSystem::Read(const FileEntry &Entry, uint32_t Offset, uint32_t Size, void *Destination)
 	{
 		if(
 			FileStream

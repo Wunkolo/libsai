@@ -24,6 +24,7 @@ namespace sai
 		friend union VirtualCluster;
 	public:
 		VirtualFileEntry();
+		VirtualFileEntry(VirtualFileSystem &FileSystem);
 		~VirtualFileEntry();
 		uint32_t GetFlags() const;
 		const char* GetName() const;
@@ -42,7 +43,10 @@ namespace sai
 		inline uint32_t Tell() const;
 		inline void Seek(uint32_t Offset);
 
+		uint32_t Read(void *Destination, uint32_t Size);
+
 	private:
+		VirtualFileSystem *FileSystem;
 		uint32_t Position;
 #pragma pack(push, 1)
 		struct FATEntry
@@ -126,10 +130,10 @@ namespace sai
 
 		bool GetEntry(const char *Path, FileEntry &Entry);
 
-		bool Read(const FileEntry &Entry, size_t Offset, size_t Size, void *Destination);
+		bool Read(const FileEntry &Entry, uint32_t Offset, uint32_t Size, void *Destination);
 
 		template< typename T>
-		inline bool Read(const FileEntry &Entry, size_t Offset, T &Data)
+		inline bool Read(const FileEntry &Entry, uint32_t Offset, T &Data)
 		{
 			return Read(Entry, Offset, sizeof(T), &Data);
 		}
