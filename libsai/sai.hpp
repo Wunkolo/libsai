@@ -40,8 +40,8 @@ namespace sai
 		uint32_t GetSize() const;
 		time_t GetTimeStamp() const;
 
-		inline uint32_t Tell() const;
-		inline void Seek(uint32_t Offset);
+		uint32_t Tell() const;
+		void Seek(uint32_t Offset);
 
 		bool Read(void *Destination, uint32_t Size);
 
@@ -144,12 +144,12 @@ namespace sai
 
 		bool GetEntry(const char *Path, FileEntry &Entry);
 
-		bool Read(const FileEntry &Entry, uint32_t Offset, uint32_t Size, void *Destination);
+		bool Read(uint32_t Offset, uint32_t Size, void *Destination);
 
 		template< typename T >
-		inline bool Read(const FileEntry &Entry, uint32_t Offset, T &Data)
+		inline bool Read(uint32_t Offset, T &Data)
 		{
-			return Read(Entry, Offset, sizeof(T), &Data);
+			return Read(Offset, sizeof(T), &Data);
 		}
 
 		void Iterate(FileSystemVisitor &Visitor);

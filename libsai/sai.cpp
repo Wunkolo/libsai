@@ -53,12 +53,12 @@ namespace sai
 		return Data.TimeStamp / 10000000ULL - 11644473600ULL;
 	}
 
-	inline uint32_t VirtualFileEntry::Tell() const
+	uint32_t VirtualFileEntry::Tell() const
 	{
 		return Position;
 	}
 
-	inline void VirtualFileEntry::Seek(uint32_t Offset)
+	void VirtualFileEntry::Seek(uint32_t Offset)
 	{
 		Position = Offset;
 	}
@@ -67,7 +67,12 @@ namespace sai
 	{
 		if( FileSystem )
 		{
-			return FileSystem->Read(*this, Position, Size, Destination);
+			FileSystem->Read(
+				(Data.Cluster * FileSystemCluster::ClusterSize) + Position,
+				Size,
+				Destination);
+			Position += Size;
+			return true;
 		}
 		return false;
 	}
@@ -198,13 +203,10 @@ namespace sai
 		return false;
 	}
 
-	bool VirtualFileSystem::Read(const FileEntry &Entry, uint32_t Offset, uint32_t Size, void *Destination)
+	bool VirtualFileSystem::Read(uint32_t Offset, uint32_t Size, void *Destination)
 	{
 		if(
 			FileStream
-			&& Entry.GetCluster() < ClusterCount
-			&& (Entry.GetType() == VirtualFileEntry::EntryType::File)
-			&& ((Offset + Size) <= Entry.GetSize())
 			)
 		{
 			uint8_t *WritePoint = reinterpret_cast<uint8_t*>(Destination);
@@ -216,7 +218,10 @@ namespace sai
 				size_t CurClusterSize = std::min<size_t>(Size, FileSystemCluster::ClusterSize - CurClusterOffset); // Size within cluster
 
 				// Current Cluster to read from
-				GetCluster(Entry.GetCluster() + CurCluster, CacheBuffer);
+				GetCluster(
+					CurCluster,
+					CacheBuffer
+				);
 
 				memcpy(WritePoint, CacheBuffer->u8 + CurClusterOffset, CurClusterSize);
 
