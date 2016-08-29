@@ -126,7 +126,7 @@ namespace sai
 			ClusterCount = static_cast<size_t>(FileSize) / FileSystemCluster::ClusterSize;
 
 			// Verify all clusters
-			for( size_t i = 0; i < ClusterCount; i++ )
+			for( uint32_t i = 0; i < ClusterCount; i++ )
 			{
 				GetCluster(i, CacheBuffer);
 				if( i & 0x1FF ) // Cluster is data
@@ -213,9 +213,9 @@ namespace sai
 
 			while( Size )
 			{
-				size_t CurCluster = Offset / FileSystemCluster::ClusterSize; // Nearest cluster Offset
-				size_t CurClusterOffset = Offset % FileSystemCluster::ClusterSize; // Offset within cluster
-				size_t CurClusterSize = std::min<size_t>(Size, FileSystemCluster::ClusterSize - CurClusterOffset); // Size within cluster
+				uint32_t CurCluster = Offset / FileSystemCluster::ClusterSize; // Nearest cluster Offset
+				uint32_t CurClusterOffset = Offset % FileSystemCluster::ClusterSize; // Offset within cluster
+				uint32_t CurClusterSize = std::min<uint32_t>(Size, FileSystemCluster::ClusterSize - CurClusterOffset); // Size within cluster
 
 				// Current Cluster to read from
 				GetCluster(
@@ -243,7 +243,7 @@ namespace sai
 		}
 	}
 
-	void VirtualFileSystem::VisitCluster(size_t ClusterNumber, FileSystemVisitor &Visitor)
+	void VirtualFileSystem::VisitCluster(uint32_t ClusterNumber, FileSystemVisitor &Visitor)
 	{
 		FileSystemCluster CurCluster;
 		GetCluster(ClusterNumber, &CurCluster);
@@ -269,13 +269,13 @@ namespace sai
 		}
 	}
 
-	bool VirtualFileSystem::GetCluster(size_t ClusterNum, FileSystemCluster *Cluster)
+	bool VirtualFileSystem::GetCluster(uint32_t ClusterNum, FileSystemCluster *Cluster)
 	{
 		if( ClusterNum < ClusterCount )
 		{
 			if( ClusterNum & 0x1FF ) // Cluster is data
 			{
-				size_t NearestTable = ClusterNum & ~(0x1FF);
+				uint32_t NearestTable = ClusterNum & ~(0x1FF);
 				uint32_t Key = 0;
 				if( CacheTableNum == NearestTable ) // Table Cache Hit
 				{

@@ -155,9 +155,9 @@ namespace sai
 		void Iterate(FileSystemVisitor &Visitor);
 
 	private:
-		void VisitCluster(size_t ClusterNumber, FileSystemVisitor &Visitor);
+		void VisitCluster(uint32_t ClusterNumber, FileSystemVisitor &Visitor);
 
-		bool GetCluster(size_t ClusterNum, FileSystemCluster *Cluster);
+		bool GetCluster(uint32_t ClusterNum, FileSystemCluster *Cluster);
 
 		// Current VFS Variables
 		size_t ClusterCount;
