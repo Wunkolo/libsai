@@ -6,14 +6,6 @@
 
 namespace sai
 {
-    class NonCopyable
-    {
-    public:
-        NonCopyable() = default;
-        NonCopyable(const NonCopyable&) = delete;
-        NonCopyable& operator=(const NonCopyable&) = delete;
-    };
-
     // Prototypes
     class VirtualFileSystem;
     union VirtualCluster;
@@ -130,10 +122,14 @@ namespace sai
     typedef VirtualCluster FileSystemCluster;
 
     // File System
-    class VirtualFileSystem : public NonCopyable
+    class VirtualFileSystem
     {
     public:
         VirtualFileSystem();
+
+        // Noncopyable
+        VirtualFileSystem(const VirtualFileSystem&) = delete;
+        VirtualFileSystem& operator=(const VirtualFileSystem&) = delete;
 
         ~VirtualFileSystem();
 
