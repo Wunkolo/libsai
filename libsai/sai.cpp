@@ -4,7 +4,56 @@
 
 namespace sai
 {
-    // File Entry
+    /// Internal structures:
+#pragma pack(push, 1)
+    struct LayerTableEntry
+    {
+        uint32_t Identifier;
+        enum class LayerType : uint16_t
+        {
+            RootLayer = 0x00, // Parent Canvas layer object
+            Layer = 0x03, // Regular Layer
+            Unknown4 = 0x4, // Unknown
+            Linework = 0x05, // Vector Linework Layer
+            Mask = 0x06, // Masks applied to any layer object
+            Unknown7 = 0x07, //Unknown
+            Set = 0x08//Layer Folder
+        } Type;
+        // These all get added and sent as a windows message 0x80CA for some reason
+        uint16_t Unknown;
+    };
+
+    struct LayerHeader
+    {
+        enum class Type : uint32_t
+        {
+            RootLayer = 0x00, // Parent Canvas layer object
+            Layer = 0x03, // Regular Layer
+            Unknown4 = 0x4, // Unknown
+            Linework = 0x05, // Vector Linework Layer
+            Mask = 0x06, // Masks applied to any layer object
+            Unknown7 = 0x07, //Unknown
+            Set = 0x08//Layer Folder
+        } Type;
+        uint32_t Identifier;
+        struct LayerBounds
+        {
+            int32_t X; // (X / 32) * 32
+            int32_t Y; // (Y / 32) * 32
+            uint32_t Width; // Width - 31
+            uint32_t Height; // Height - 31
+        } Bounds;
+        uint32_t Unknown;
+        uint8_t Opacity;
+        uint8_t Visible;
+        uint8_t PreserveOpacity;
+        uint8_t Clipping;
+        uint8_t Unknown4;
+        char Blending[4];
+    } LayerHead;
+#pragma pack(pop)
+
+    /// File Entry
     VirtualFileEntry::VirtualFileEntry()
         :
         Position(0),
@@ -77,7 +126,7 @@ namespace sai
         return false;
     }
 
-    // File System
+    /// File System
     VirtualFileSystem::VirtualFileSystem()
         :
         CacheTable(nullptr),
