@@ -29,19 +29,19 @@ namespace sai
         };
 
         EntryType GetType() const;
-        uint32_t GetCluster() const;
-        uint32_t GetSize() const;
+        size_t GetCluster() const;
+        size_t GetSize() const;
         time_t GetTimeStamp() const;
 
-        uint32_t Tell() const;
-        void Seek(uint32_t Offset);
+        size_t Tell() const;
+        void Seek(size_t Offset);
 
-        bool Read(void *Destination, uint32_t Size);
+        bool Read(void *Destination, size_t Size);
 
         template< typename T >
-        inline bool Read(T &Data)
+        inline bool Read(T &Destination)
         {
-            return Read(&Data, sizeof(T));
+            return Read(&Destination, sizeof(T));
         }
 
         template< typename T >
@@ -54,7 +54,8 @@ namespace sai
 
     private:
         VirtualFileSystem *FileSystem;
-        uint32_t Position;
+        size_t Position;
+
 #pragma pack(push, 1)
         struct FATEntry
         {
@@ -141,10 +142,10 @@ namespace sai
 
         bool GetEntry(const char *Path, FileEntry &Entry);
 
-        bool Read(uint32_t Offset, uint32_t Size, void *Destination);
+        bool Read(size_t Offset, size_t Size, void *Destination);
 
         template< typename T >
-        inline bool Read(uint32_t Offset, T &Data)
+        inline bool Read(size_t Offset, T &Data)
         {
             return Read(Offset, sizeof(T), &Data);
         }
@@ -152,8 +153,8 @@ namespace sai
         void Iterate(FileSystemVisitor &Visitor);
 
     private:
-        void VisitCluster(uint32_t ClusterNumber, FileSystemVisitor &Visitor);
-        bool GetCluster(uint32_t ClusterNum, FileSystemCluster *Cluster);
+        void VisitCluster(size_t ClusterNumber, FileSystemVisitor &Visitor);
+        bool GetCluster(size_t ClusterNum, FileSystemCluster *Cluster);
 
         // Current VFS Variables
         size_t ClusterCount;
