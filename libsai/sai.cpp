@@ -62,7 +62,7 @@ namespace sai
     {
     }
 
-    VirtualFileEntry::VirtualFileEntry(VirtualFileSystem & FileSystem)
+    VirtualFileEntry::VirtualFileEntry(VirtualFileSystem &FileSystem)
         :
         Position(0),
         FileSystem(&FileSystem),
@@ -114,7 +114,7 @@ namespace sai
         Position = Offset;
     }
 
-    bool VirtualFileEntry::Read(void * Destination, size_t Size)
+    bool VirtualFileEntry::Read(void *Destination, size_t Size)
     {
         if( FileSystem )
         {
@@ -288,11 +288,21 @@ namespace sai
         }
     }
 
+    void VirtualFileSystem::IterateCanvas(CanvasVisitor &Visitor)
+    {
+        if( FileStream )
+        {
+            Visitor.VisitCanvasBegin();
+
+            Visitor.VisitCanvasEnd();
+        }
+    }
+
     void VirtualFileSystem::VisitBlock(size_t BlockNumber, FileSystemVisitor &Visitor)
     {
         FileSystemBlock CurBlock;
         GetBlock(BlockNumber, &CurBlock);
-        FileEntry CurEntry;
+        FileEntry CurEntry(*this);
         for( size_t i = 0; CurBlock.FATEntries[i].Flags; i++ )
         {
             CurEntry.Data = CurBlock.FATEntries[i];

@@ -6,11 +6,11 @@
 
 namespace sai
 {
-    // Prototypes
+    /// Prototypes
     class VirtualFileSystem;
     union VirtualBlock;
 
-    // File Entry
+    /// File Entry
     class VirtualFileEntry
     {
         friend class VirtualFileSystem;
@@ -75,23 +75,23 @@ namespace sai
 
     typedef VirtualFileEntry FileEntry;
 
-    // File System Visitor
+    /// File System Visitor
     class VFSVisitor
     {
     public:
         virtual ~VFSVisitor() {};
 
         // Visit a Folder
-        virtual void VisitFolderBegin(const FileEntry &Entry) = 0;
+        virtual void VisitFolderBegin(FileEntry &Entry) = 0;
         virtual void VisitFolderEnd() = 0;
 
         // Visit a File
-        virtual void VisitFile(const FileEntry &Entry) = 0;
+        virtual void VisitFile(FileEntry &Entry) = 0;
     };
 
     typedef VFSVisitor FileSystemVisitor;
 
-    // File system Block (4096 bytes)
+    /// File system Block (4096 bytes)
 #pragma pack(push, 1)
     union VirtualBlock
     {
@@ -122,13 +122,34 @@ namespace sai
 
     typedef VirtualBlock FileSystemBlock;
 
-    // File System
+    /// Canvas Visitor
+    class CanvasVisitor
+    {
+    public:
+        virtual ~CanvasVisitor() {};
+
+        // Ran before and after a canvas is being iterated
+        virtual void VisitCanvasBegin() = 0;
+        virtual void VisitCanvasEnd() = 0;
+
+        // Visit a Layer folder/set
+        virtual void VisitFolderBegin() = 0;
+        virtual void VisitFolderEnd() = 0;
+
+        // Visit Layer
+        virtual void VisitLayer() = 0;
+
+        // Visit Lineart
+        virtual void VisitLineart() = 0;
+    };
+
+    /// File System
     class VirtualFileSystem
     {
     public:
         VirtualFileSystem();
 
-        // Noncopyable
+        /// Noncopyable
         VirtualFileSystem(const VirtualFileSystem&) = delete;
         VirtualFileSystem& operator=(const VirtualFileSystem&) = delete;
 
@@ -150,13 +171,15 @@ namespace sai
             return Read(Offset, sizeof(T), &Data);
         }
 
+        /// Iterators
         void IterateFileSystem(FileSystemVisitor &Visitor);
+        void IterateCanvas(CanvasVisitor &Visitor);
 
     private:
         void VisitBlock(size_t BlockNumber, FileSystemVisitor &Visitor);
         bool GetBlock(size_t BlockNum, FileSystemBlock *Block);
 
-        // Current VFS Variables
+        /// Current VFS context
         size_t BlockCount;
         std::ifstream FileStream;
 
