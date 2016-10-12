@@ -280,7 +280,7 @@ namespace sai
         return false;
     }
 
-    void VirtualFileSystem::Iterate(FileSystemVisitor &Visitor)
+    void VirtualFileSystem::IterateFileSystem(FileSystemVisitor &Visitor)
     {
         if( FileStream )
         {

@@ -150,7 +150,7 @@ namespace sai
             return Read(Offset, sizeof(T), &Data);
         }
 
-        void Iterate(FileSystemVisitor &Visitor);
+        void IterateFileSystem(FileSystemVisitor &Visitor);
 
     private:
         void VisitBlock(size_t BlockNumber, FileSystemVisitor &Visitor);
