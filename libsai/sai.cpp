@@ -89,9 +89,9 @@ namespace sai
         return Data.Type;
     }
 
-    size_t VirtualFileEntry::GetCluster() const
+    size_t VirtualFileEntry::GetBlock() const
     {
-        return static_cast<size_t>(Data.Cluster);
+        return static_cast<size_t>(Data.Block);
     }
 
     size_t VirtualFileEntry::GetSize() const
@@ -119,7 +119,7 @@ namespace sai
         if( FileSystem )
         {
             FileSystem->Read(
-                (static_cast<size_t>(Data.Cluster) * FileSystemCluster::ClusterSize)
+                (static_cast<size_t>(Data.Block) * FileSystemBlock::BlockSize)
                 + Position,
                 Size,
                 Destination);
@@ -135,8 +135,8 @@ namespace sai
         CacheTable(nullptr),
         CacheBuffer(nullptr)
     {
-        CacheTable = std::make_unique<FileSystemCluster>();
-        CacheBuffer = std::make_unique<FileSystemCluster>();
+        CacheTable = std::make_unique<FileSystemBlock>();
+        CacheBuffer = std::make_unique<FileSystemBlock>();
     }
 
     VirtualFileSystem::~VirtualFileSystem()
@@ -162,18 +162,18 @@ namespace sai
 
             if( FileSize & 0x1FF )
             {
-                // File size is not cluster-aligned
+                // File size is not Block-aligned
                 FileStream.close();
                 return false;
             }
 
-            ClusterCount = static_cast<size_t>(FileSize) / FileSystemCluster::ClusterSize;
+            BlockCount = static_cast<size_t>(FileSize) / FileSystemBlock::BlockSize;
 
-            // Verify all clusters
-            for( size_t i = 0; i < ClusterCount; i++ )
+            // Verify all Blocks
+            for( size_t i = 0; i < BlockCount; i++ )
             {
-                GetCluster(i, CacheBuffer.get());
-                if( i & 0x1FF ) // Cluster is data
+                GetBlock(i, CacheBuffer.get());
+                if( i & 0x1FF ) // Block is data
                 {
                     if( CacheTable->TableEntries[i & 0x1FF].Checksum != CacheBuffer->Checksum(false) )
                     {
@@ -182,7 +182,7 @@ namespace sai
                         return false;
                     }
                 }
-                else // Cluster is a table
+                else // Block is a table
                 {
                     if( CacheTable->TableEntries[0].Checksum != CacheTable->Checksum(true) )
                     {
@@ -197,21 +197,21 @@ namespace sai
         return false;
     }
 
-    size_t VirtualFileSystem::GetClusterCount() const
+    size_t VirtualFileSystem::GetBlockCount() const
     {
-        return ClusterCount;
+        return BlockCount;
     }
 
     size_t VirtualFileSystem::GetSize() const
     {
-        return GetClusterCount() * FileSystemCluster::ClusterSize;
+        return GetBlockCount() * FileSystemBlock::BlockSize;
     }
 
     bool VirtualFileSystem::GetEntry(const char *Path, FileEntry &Entry)
     {
         if( FileStream )
         {
-            GetCluster(2, CacheBuffer.get());
+            GetBlock(2, CacheBuffer.get());
 
             std::string CurPath(Path);
 
@@ -234,8 +234,8 @@ namespace sai
                         // Entry is not a folder, cant go further
                         return false;
                     }
-                    GetCluster(
-                        CacheBuffer->FATEntries[CurEntry].Cluster,
+                    GetBlock(
+                        CacheBuffer->FATEntries[CurEntry].Block,
                         CacheBuffer.get()
                     );
                     CurEntry = 0;
@@ -255,25 +255,25 @@ namespace sai
 
             while( Size )
             {
-                size_t CurCluster = Offset / FileSystemCluster::ClusterSize; // Nearest cluster Offset
-                size_t CurClusterOffset = Offset % FileSystemCluster::ClusterSize; // Offset within cluster
-                size_t CurClusterSize = std::min<size_t>(
+                size_t CurBlock = Offset / FileSystemBlock::BlockSize; // Nearest Block Offset
+                size_t CurBlockOffset = Offset % FileSystemBlock::BlockSize; // Offset within Block
+                size_t CurBlockSize = std::min<size_t>(
                     Size,
-                    FileSystemCluster::ClusterSize - CurClusterOffset
-                    ); // Size within cluster
+                    FileSystemBlock::BlockSize - CurBlockOffset
+                    ); // Size within Block
 
-                // Current Cluster to read from
-                GetCluster(
-                    CurCluster,
+                // Current Block to read from
+                GetBlock(
+                    CurBlock,
                     CacheBuffer.get()
                 );
 
-                memcpy(WritePoint, CacheBuffer->u8 + CurClusterOffset, CurClusterSize);
+                memcpy(WritePoint, CacheBuffer->u8 + CurBlockOffset, CurBlockSize);
 
-                Size -= CurClusterSize;
-                WritePoint += CurClusterSize;
-                Offset += CurClusterSize;
-                CurCluster++;
+                Size -= CurBlockSize;
+                WritePoint += CurBlockSize;
+                Offset += CurBlockSize;
+                CurBlock++;
             }
             return true;
         }
@@ -284,18 +284,18 @@ namespace sai
     {
         if( FileStream )
         {
-            VisitCluster(2, Visitor);
+            VisitBlock(2, Visitor);
         }
     }
 
-    void VirtualFileSystem::VisitCluster(size_t ClusterNumber, FileSystemVisitor &Visitor)
+    void VirtualFileSystem::VisitBlock(size_t BlockNumber, FileSystemVisitor &Visitor)
     {
-        FileSystemCluster CurCluster;
-        GetCluster(ClusterNumber, &CurCluster);
+        FileSystemBlock CurBlock;
+        GetBlock(BlockNumber, &CurBlock);
         FileEntry CurEntry;
-        for( size_t i = 0; CurCluster.FATEntries[i].Flags; i++ )
+        for( size_t i = 0; CurBlock.FATEntries[i].Flags; i++ )
         {
-            CurEntry.Data = CurCluster.FATEntries[i];
+            CurEntry.Data = CurBlock.FATEntries[i];
             switch( CurEntry.GetType() )
             {
             case FileEntry::EntryType::File:
@@ -306,7 +306,7 @@ namespace sai
             case FileEntry::EntryType::Folder:
             {
                 Visitor.VisitFolderBegin(CurEntry);
-                VisitCluster(CurEntry.GetCluster(), Visitor);
+                VisitBlock(CurEntry.GetBlock(), Visitor);
                 Visitor.VisitFolderEnd();
                 break;
             }
@@ -314,84 +314,84 @@ namespace sai
         }
     }
 
-    bool VirtualFileSystem::GetCluster(size_t ClusterNum, FileSystemCluster *Cluster)
+    bool VirtualFileSystem::GetBlock(size_t BlockNum, FileSystemBlock *Block)
     {
-        if( ClusterNum < ClusterCount )
+        if( BlockNum < BlockCount )
         {
-            if( ClusterNum & 0x1FF ) // Cluster is data
+            if( BlockNum & 0x1FF ) // Block is data
             {
-                size_t NearestTable = ClusterNum & ~(0x1FF);
+                size_t NearestTable = BlockNum & ~(0x1FF);
                 uint32_t Key = 0;
                 if( CacheTableNum == NearestTable ) // Table Cache Hit
                 {
-                    Key = CacheTable->TableEntries[ClusterNum - NearestTable].Checksum;
+                    Key = CacheTable->TableEntries[BlockNum - NearestTable].Checksum;
                 }
                 else // Cache Miss
                 {
                     // Read and Decrypt Table
-                    FileStream.seekg(NearestTable * FileSystemCluster::ClusterSize);
+                    FileStream.seekg(NearestTable * FileSystemBlock::BlockSize);
                     FileStream.read(
                         reinterpret_cast<char*>(CacheTable->u8),
-                        FileSystemCluster::ClusterSize
+                        FileSystemBlock::BlockSize
                     );
                     CacheTable->DecryptTable(static_cast<uint32_t>(NearestTable));
-                    Key = CacheTable->TableEntries[ClusterNum - NearestTable].Checksum;
+                    Key = CacheTable->TableEntries[BlockNum - NearestTable].Checksum;
                 }
 
                 // Read and Decrypt Data
-                FileStream.seekg(ClusterNum * FileSystemCluster::ClusterSize);
+                FileStream.seekg(BlockNum * FileSystemBlock::BlockSize);
                 FileStream.read(
-                    reinterpret_cast<char*>(Cluster->u8),
-                    FileSystemCluster::ClusterSize
+                    reinterpret_cast<char*>(Block->u8),
+                    FileSystemBlock::BlockSize
                 );
-                Cluster->DecryptData(Key);
+                Block->DecryptData(Key);
                 return true;
             }
-            else // Cluster is a table
+            else // Block is a table
             {
-                if( ClusterNum == CacheTableNum ) // Cache hit
+                if( BlockNum == CacheTableNum ) // Cache hit
                 {
-                    memcpy(Cluster->u8, CacheTable->u8, FileSystemCluster::ClusterSize);
+                    memcpy(Block->u8, CacheTable->u8, FileSystemBlock::BlockSize);
                     return true;
                 }
                 // Read and Decrypt Table
-                FileStream.seekg(ClusterNum * FileSystemCluster::ClusterSize);
+                FileStream.seekg(BlockNum * FileSystemBlock::BlockSize);
                 FileStream.read(
                     reinterpret_cast<char*>(CacheTable->u8),
-                    FileSystemCluster::ClusterSize
+                    FileSystemBlock::BlockSize
                 );
-                CacheTable->DecryptTable(static_cast<uint32_t>(ClusterNum));
-                CacheTableNum = ClusterNum;
-                memcpy(Cluster->u8, CacheTable->u8, FileSystemCluster::ClusterSize);
+                CacheTable->DecryptTable(static_cast<uint32_t>(BlockNum));
+                CacheTableNum = BlockNum;
+                memcpy(Block->u8, CacheTable->u8, FileSystemBlock::BlockSize);
                 return true;
             }
         }
         return false;
     }
 
-    // Cluster
+    // Block
 
-    void VirtualCluster::DecryptTable(uint32_t ClusterNumber)
+    void VirtualBlock::DecryptTable(uint32_t BlockNumber)
     {
-        ClusterNumber &= (~0x1FF);
-        for( size_t i = 0; i < (ClusterSize / sizeof(uint32_t)); i++ )
+        BlockNumber &= (~0x1FF);
+        for( size_t i = 0; i < (BlockSize / sizeof(uint32_t)); i++ )
         {
             uint32_t CurCipher = u32[i];
-            uint32_t X = ClusterNumber ^ CurCipher ^ (
-                DecryptionKey[(ClusterNumber >> 24) & 0xFF]
-                + DecryptionKey[(ClusterNumber >> 16) & 0xFF]
-                + DecryptionKey[(ClusterNumber >> 8) & 0xFF]
-                + DecryptionKey[ClusterNumber & 0xFF]);
+            uint32_t X = BlockNumber ^ CurCipher ^ (
+                DecryptionKey[(BlockNumber >> 24) & 0xFF]
+                + DecryptionKey[(BlockNumber >> 16) & 0xFF]
+                + DecryptionKey[(BlockNumber >> 8) & 0xFF]
+                + DecryptionKey[BlockNumber & 0xFF]);
 
             u32[i] = static_cast<uint32_t>((X << 16) | (X >> 16));
 
-            ClusterNumber = CurCipher;
+            BlockNumber = CurCipher;
         };
     }
 
-    void VirtualCluster::DecryptData(uint32_t Key)
+    void VirtualBlock::DecryptData(uint32_t Key)
     {
-        for( size_t i = 0; i < (ClusterSize / sizeof(uint32_t)); i++ )
+        for( size_t i = 0; i < (BlockSize / sizeof(uint32_t)); i++ )
         {
             uint32_t CurCipher = u32[i];
             u32[i] =
@@ -405,17 +405,17 @@ namespace sai
         }
     }
 
-    uint32_t VirtualCluster::Checksum(bool Table)
+    uint32_t VirtualBlock::Checksum(bool Table)
     {
         uint32_t Accumulate = 0;
-        for( size_t i = (Table ? 1 : 0); i < (ClusterSize / sizeof(uint32_t)); i++ )
+        for( size_t i = (Table ? 1 : 0); i < (BlockSize / sizeof(uint32_t)); i++ )
         {
             Accumulate = (2 * Accumulate | (Accumulate >> 31)) ^ u32[i];
         }
         return Accumulate | 1;
     }
 
-    const uint32_t VirtualCluster::DecryptionKey[1024] =
+    const uint32_t VirtualBlock::DecryptionKey[1024] =
     {
         0x9913D29E,0x83F58D3D,0xD0BE1526,0x86442EB7,0x7EC69BFB,0x89D75F64,0xFB51B239,0xFF097C56,
         0xA206EF1E,0x973D668D,0xC383770D,0x1CB4CCEB,0x36F7108B,0x40336BCD,0x84D123BD,0xAFEF5DF3,

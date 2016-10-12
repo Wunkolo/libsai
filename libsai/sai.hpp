@@ -8,13 +8,13 @@ namespace sai
 {
     // Prototypes
     class VirtualFileSystem;
-    union VirtualCluster;
+    union VirtualBlock;
 
     // File Entry
     class VirtualFileEntry
     {
         friend class VirtualFileSystem;
-        friend union VirtualCluster;
+        friend union VirtualBlock;
     public:
         VirtualFileEntry();
         VirtualFileEntry(VirtualFileSystem &FileSystem);
@@ -29,7 +29,7 @@ namespace sai
         };
 
         EntryType GetType() const;
-        size_t GetCluster() const;
+        size_t GetBlock() const;
         size_t GetSize() const;
         time_t GetTimeStamp() const;
 
@@ -65,7 +65,7 @@ namespace sai
             uint8_t Pad2;
             EntryType Type;
             uint8_t Pad4;
-            uint32_t Cluster;
+            uint32_t Block;
             uint32_t Size;
             uint64_t TimeStamp; // Windows FILETIME
             uint64_t UnknownB;
@@ -91,11 +91,11 @@ namespace sai
 
     typedef VFSVisitor FileSystemVisitor;
 
-    // File system cluster (4096 bytes)
+    // File system Block (4096 bytes)
 #pragma pack(push, 1)
-    union VirtualCluster
+    union VirtualBlock
     {
-        static const size_t ClusterSize = 0x1000;
+        static const size_t BlockSize = 0x1000;
         // Decryption key
         static const uint32_t DecryptionKey[1024];
 
@@ -103,7 +103,7 @@ namespace sai
         uint8_t u8[4096];
         uint32_t u32[1024];
 
-        // Cluster Table entries
+        // Block Table entries
         struct TableEntry
         {
             uint32_t Checksum;
@@ -120,7 +120,7 @@ namespace sai
     };
 #pragma pack(pop)
 
-    typedef VirtualCluster FileSystemCluster;
+    typedef VirtualBlock FileSystemBlock;
 
     // File System
     class VirtualFileSystem
@@ -136,7 +136,7 @@ namespace sai
 
         bool Mount(const char *FileName);
 
-        size_t GetClusterCount() const;
+        size_t GetBlockCount() const;
 
         size_t GetSize() const;
 
@@ -153,17 +153,17 @@ namespace sai
         void Iterate(FileSystemVisitor &Visitor);
 
     private:
-        void VisitCluster(size_t ClusterNumber, FileSystemVisitor &Visitor);
-        bool GetCluster(size_t ClusterNum, FileSystemCluster *Cluster);
+        void VisitBlock(size_t BlockNumber, FileSystemVisitor &Visitor);
+        bool GetBlock(size_t BlockNum, FileSystemBlock *Block);
 
         // Current VFS Variables
-        size_t ClusterCount;
+        size_t BlockCount;
         std::ifstream FileStream;
 
-        // Cluster Caching
+        // Block Caching
         intmax_t CacheTableNum = -1;
-        std::unique_ptr<FileSystemCluster> CacheTable;
-        std::unique_ptr<FileSystemCluster> CacheBuffer;
+        std::unique_ptr<FileSystemBlock> CacheTable;
+        std::unique_ptr<FileSystemBlock> CacheBuffer;
     };
 
     typedef VirtualFileSystem FileSystem;
