@@ -97,7 +97,7 @@ namespace sai
     {
         static const size_t BlockSize = 0x1000;
         // Decryption key
-        static const uint32_t DecryptionKey[1024];
+        static const uint32_t DecryptionKey[256];
 
         // Data
         uint8_t u8[4096];
@@ -129,18 +129,18 @@ namespace sai
         virtual ~CanvasVisitor() {};
 
         // Ran before and after a canvas is being iterated
-        virtual void VisitCanvasBegin() = 0;
+        virtual void VisitCanvasBegin(size_t Width, size_t Height) = 0;
         virtual void VisitCanvasEnd() = 0;
 
         // Visit a Layer folder/set
-        virtual void VisitFolderBegin() = 0;
+        virtual void VisitFolderBegin(const char* FolderName, bool Open) = 0;
         virtual void VisitFolderEnd() = 0;
 
         // Visit Layer
-        virtual void VisitLayer() = 0;
+        virtual void VisitLayer(const char* LayerName) = 0;
 
         // Visit Lineart
-        virtual void VisitLineart() = 0;
+        virtual void VisitLineart(const char* LayerName) = 0;
     };
 
     /// File System
