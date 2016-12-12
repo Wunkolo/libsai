@@ -124,7 +124,7 @@ decrypt block 513    2 |0xChecksum|0xPrelimin|     |XXXX|XXXX|
 
 ```
 
-The checksum for `Data-Blocks` and `Table-Blocks` is a simple exclusive-or and bit-rotate which interprets all 4096 bytes as 1024 32-bit integers, with the exception that the checksum of a `Table-Block` does not include the first word(which is the checksum of the block itself). All 1024 integers are exclusive-ored with an initial checksum of zero, which is rotated left 1 bit before the exclusive-or operation. Finally the lowest bit is set, making all checksums an odd number.
+The checksum for `Data-Blocks` and `Table-Blocks` is a simple exclusive-or and bit-rotate which interprets all 4096 bytes as 1024 32-bit integers, with the exception that the checksum for `Table-Block` in entry 0 which does not include the first word(the checksum integer of the block itself). All 1024 integers are exclusive-ored with an initial checksum of zero, which is rotated left 1 bit before the exclusive-or operation. Finally the lowest bit is set, making all checksums an odd number.
 
 ```cpp
 // If your block number is a multiple of 512, set `Table` to true.
@@ -160,7 +160,7 @@ Sai uses a buffer of block checksums for its cache table entries. Sai internally
 
 # File System
 
-Now that the cipher can be fully read, the virual file system actually implemented can be deciphered. The file system found will be described as a `Virtual File system` or `VFS`. Files are described by a `File Allocation Table` entries that describe the name, timestamp, starting block index, and the size(in bytes) of the data. A `Data-Block` can contain a max of `64` `FATEntries`. Folders have their `Type` set to `Folder` and the `Block` integer instead points to another `Data-Block` of `FATEntries`. 
+Now that the cipher can be fully read, the virual file system actually implemented can be deciphered. The file system found will be described as a `Virtual File system` or `VFS`. Files are described by `File Allocation Table` entries that describe the name, timestamp, starting block index, and the size(in bytes) of the data. A `Data-Block` can contain a max of `64` `FATEntries`. Folders have their `Type` set to `Folder` and the `Block` integer instead points to another `Data-Block` of 64 `FATEntries`. 
 
 ```cpp
 enum class EntryType : uint8_t
@@ -168,9 +168,7 @@ enum class EntryType : uint8_t
 	Folder = 0x10,
 	File = 0x80
 };
-```
 
-```cpp
 struct FATEntry
 {
 	uint32_t Flags;
@@ -202,13 +200,13 @@ time_t filetime_to_time_t(uint64_t Time)
 }
 ```
 
-The `root` directory of the `VFS` will always be in block index `2`. This will always be the position of the first `FATBlock`. If the `Flags` variable of the `FATEntry` structure is zero, the entry is considered to be unused. The full hierarchy of files can be traversed simply by iterating through all 64 entries of block `2`, stopping at the entry whose `Flags` variable is set to `0`, and recursively iterating the 64 `FATEntries` at the appropriate `Block` should the entry turn out to be a directory. If the entry is a file then simply go to the starting block index and read `Size` amount of bytes continuously, decrypting appropriate `Data-Blocks` along the way should `Size` be larger than 1 block(`0x1000` bytes). Padded bytes within a block will always be `0`.
+The `root` directory of the `VFS` will always be in block index `2`. This will always be the position of the first `FATBlock`. If the `Flags` variable of the `FATEntry` structure is zero, the entry is considered to be unused. The full hierarchy of files can be traversed simply by iterating through all 64 entries of block `2`, stopping at the entry whose `Flags` variable is set to `0`, and recursively iterating the 64 `FATEntries` at the appropriate `Block` should the entry turn out to be a directory. If the entry is a file then simply go to the starting block index and read `Size` amount of bytes continuously, decrypting appropriate `Data-Blocks` along the way should `Size` be larger than 1 block(`0x1000` bytes). Padded bytes within a block will always be `0`. 
 
-It's assumed that now you have some way of interpeting individual file entries of the VFS from now on.
+It's assumed that now you have some way of interpreting individual file entries of the `VFS` from now on.
 
 # Folder structure
 
-The actual file/folder structure found within `.sai` files describes information on the canvas, layers, a thumbnail image, and other meta-data. Here is a sample folder structure of a `.sai` file created in October.
+The actual file/folder structure found within `.sai` files describes information on the canvas, layers, a thumbnail image, and other meta-data. Here is a sample file structure of a `.sai` file created in October.
 
 ```
 /.a1541b366925e034 |     32 bytes | 2016/10/12 03:53:53
@@ -253,8 +251,8 @@ struct ResData
 {
 	...
 	uint32_t DPI;//0x14C bytes within some class/struct/etc
-	uint16_t UnknownA;
-	uint16_t UnknownB;
+	uint16_t Unknown150;
+	uint16_t Unknown152;
 	...
 };
 
@@ -262,8 +260,8 @@ uint32_t ResDataStream[] =
 {
 	sizeof(ResData.DPI),
 	offsetof(ResData.DPI),
-	sizeof(ResData.UnknownA),
-	offsetof(ResData.UnknownB)
+	sizeof(ResData.Unknown150),
+	offsetof(ResData.Unknown152)
 };
 ```
 
@@ -281,9 +279,9 @@ Output written by the Serial-Table for some arbitrary runtime ResData object
 ```cpp
 const uint32_t ResDataMagic = `reso`;
 ```
-`Size` is simply the sum of all `Size` integers for each Serial Entry. This integer gets written specifically so that entire streams of data may be skipped. Such as if two streams `reso` and `lyid` were next to each other, one could skip to the `lyid` stream by reading 4-byte identifiers and skipping by `Size` amount of bytes until the identifier matches up. A tag identifier of `0` delimites the end of a serial stream.
+`Size` is simply the sum of all `Size` integers for each Serial Entry. This integer gets written so that entire streams of possibly unhandled data may be skipped. If two streams `reso` and `lyid` were next to each other, one could skip to the `lyid` stream by reading 4-byte identifier `reso` and the 4-byte size and then skip by `Size` amount of bytes until the identifier matches up. A tag identifier of `0` delimites the end of a serial stream.
 
-C++-like Pesudo code for reading a serial stream.
+Sample code for reading a serial stream.
 ```cpp
 uint32_t CurTag;
 uint32_t CurTagSize;
@@ -336,7 +334,7 @@ This file contains metadata involving the dimensions of the canvas. The first th
 ```cpp
 struct CanvasInfo
 {
-	uint32_t Unknown0; // Always 0x10, possibly bpp
+	uint32_t Unknown0; // Always 0x10, possibly bpc
 	uint32_t Width;
 	uint32_t Height
 };
@@ -418,10 +416,11 @@ enum BlendingModes : uint32_t
 
 struct LayerBounds
 {
-	int32_t X; // (X / 32) * 32
-	int32_t Y; // (Y / 32) * 32
-	uint32_t Width; // Width - 31
-	uint32_t Height; // Height - 31
+	// Can be negative, rounded to nearest multiple of 32
+	int32_t X;
+	int32_t Y;
+	uint32_t Width;
+	uint32_t Height;
 };
 
 struct LayerHeader
