@@ -412,7 +412,7 @@ while( LayerCount-- ) // Read each layer entry
 ---
 ## "/layers" "/sublayers"
 
-The individual layer files within these folders match the numerical hexidecimal identifiers found in `laytbl` or `subtbl`. These files contain the actual raster or vector data and such of the layer file. The header of the file is a static struture identifying the layer's opacity, size, blending mode, etc.
+The individual layer files within these folders match the numerical hexidecimal identifiers found in `laytbl` or `subtbl`. These files contain the actual raster or vector data(or none) of the specified layer entry. The header of the file is a static struture identifying the layer's opacity, size, blending mode, etc.
 
 ```cpp
 enum BlendingModes : uint32_t
@@ -428,6 +428,9 @@ enum BlendingModes : uint32_t
 	Binary = 'cbin'
 };
 
+// Rectangular structure
+// Position + Size,
+// 0,0 is top-left corner of image
 struct LayerBounds
 {
 	// Can be negative, rounded to nearest multiple of 32
@@ -452,7 +455,7 @@ struct LayerHeader
 };
 ```
 
-Immediately after the `LayerHeader` is a `Serial Stream`. Note that not all streams might be present depending on the layer type:
+Immediately after the `LayerHeader` is a `Serial Stream`. Note that not all streams might be present depending on the type of layer the file is refering to:
 
  - `lorg`
 ```cpp
