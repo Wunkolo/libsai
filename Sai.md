@@ -243,7 +243,7 @@ Format of the Serial-Table found within Sai.exe for the `reso` identifier.
   0x00000152 <-----------+   \ |  Runtime Offset        |
   0x00000000 End               +------------------------+
 ```
-`Runtime Offset` is the offset within the runtime object where `Size` amount of data gets written to in memory. In C code this would be the `offsetof` and `sizeof` macro of specific fields of an object. One could trace what an unknown serial entry does by finding what runtime object gets written to and finding out when that specific field gets used again.
+`Runtime Offset` is the offset within the runtime object where `Size` amount of data gets written to in memory after reading from the file. In C++ code this would be the `offsetof` and `sizeof` macro of specific fields of an object being stored in an array. One could trace what an unknown serial entry does by finding what runtime object gets written to and finding out when that specific field gets used again.
 
 SYSTEMAX Source code, probably
 ```cpp
@@ -259,9 +259,9 @@ struct ResData
 uint32_t ResDataStream[] =
 {
 	sizeof(ResData.DPI),
-	offsetof(ResData.DPI),
+	offsetof(ResData, DPI),
 	sizeof(ResData.Unknown150),
-	offsetof(ResData.Unknown152)
+	offsetof(ResData, Unknown152)
 };
 ```
 
@@ -293,9 +293,9 @@ while( File.Read<uint32_t>(CurTag) && CurTag )
 		case 'reso':
 		{
 			//Handle 'reso' data
-			File..Read<uint32_t>(...);
-			File..Read<uint16_t>(...);
-			File..Read<uint16_t>();(...);
+			File.Read<uint32_t>(...);
+			File.Read<uint16_t>(...);
+			File.Read<uint16_t>(...);
 			break;
 		}
 		case 'lyid':
@@ -334,7 +334,7 @@ This file contains metadata involving the dimensions of the canvas. The first th
 ```cpp
 struct CanvasInfo
 {
-	uint32_t Unknown0; // Always 0x10, possibly bpc
+	uint32_t Unknown0; // Always 0x10(16), possibly bpc
 	uint32_t Width;
 	uint32_t Height
 };
