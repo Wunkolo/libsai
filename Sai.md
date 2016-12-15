@@ -398,10 +398,13 @@ struct LayerTableEntry
 
 Sample routine:
 ```cpp
+// First integer is number of layer entires
 uint32_t LayerCount = File.Read<uint32_t>();
-while( LayerCount )
+while( LayerCount-- ) // Read each layer entry
 {
+	// Read current layer entry into above structure
 	LayerTableEntry CurrentLayer = File.Read<LayerTableEntry>();
+	// Do something with this layer
 	//...
 }
 
