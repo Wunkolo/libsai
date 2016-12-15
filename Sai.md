@@ -1,8 +1,29 @@
+<!-- TOC -->
+
+- [Cracking PaintTool Sai's .sai](#cracking-painttool-sais-sai)
+- [Software info](#software-info)
+- [Decryption](#decryption)
+	- [Caching](#caching)
+- [File System](#file-system)
+- [Folder structure](#folder-structure)
+	- [Serialization Streams](#serialization-streams)
+- [Files](#files)
+	- [".a1541b366925e034"](#a1541b366925e034)
+	- ["canvas"](#canvas)
+	- ["laytbl" "subtbl"](#laytbl-subtbl)
+	- ["/layers" "/sublayers"](#layers-sublayers)
+	- [Raster Layers](#raster-layers)
+	- [Linework Layers](#linework-layers)
+- [Decryption Keys](#decryption-keys)
+	- [System Files](#system-files)
+
+<!-- /TOC -->
+
 # Cracking PaintTool Sai's .sai
 
 This document represents about a year and a half of hobby-research on reverse engineering the digitizing raster/vector art program PaintTool Sai. This write-up in particular is focused on the technical specifications of the user-created `.sai` file format used to archive artwork and the layers of abstraction involved in extracting this data outside of the context of the original software. This is moreso directed at anyone out there that wants to implement their own library to read or interface with `.sai` files. If you find anything in this document to be misleading, incomplete, or flat-out incorrect feel free to shoot me an email at `Wunkolo at gmail.com`. Previous work includes my now-abandoned run-time exploitation framework [SaiPal](https://github.com/Wunkolo/SaiPal/releases). This document assumes you have some knowledge of the C/C++ syntax as data structures and algorithms will be presented in the form of C structures and subroutines. 
 
----
+# Software info
 
 ![](https://www.systemax.jp/image/sai_logo.jpg)
 
@@ -323,11 +344,11 @@ Serial streams from here on out will be described as a table of expected identif
 
 # Files
 
-### `.a1541b366925e034`
+## ".a1541b366925e034"
 
 Todo
 
-### `canvas`
+## "canvas"
 
 This file contains metadata involving the dimensions of the canvas. The first three integers are a static structure:
 
@@ -358,8 +379,8 @@ uint32_t Unknown0;
 ```cpp
 uint32_t SelectedLayerID;
 ```
----
-### `laytbl` `subtbl`
+
+## "laytbl" "subtbl"
 
 These files contains a description of all layers that make up an image. `subtbl` contains preliminary layers such as masks. Both `laytbl` and `subtbl` have the same format and describe the contents within the `layers` and `sublayers` folder.
 
@@ -396,7 +417,7 @@ while( LayerCount )
 
 ```
 ---
-### `/layers` `/sublayers`
+## "/layers" "/sublayers"
 
 The individual layer files within these folders match the numerical hexidecimal identifiers found in `laytbl` or `subtbl`. These files contain the actual raster or vector data and such of the layer file. The header of the file is a static struture identifying the layer's opacity, size, blending mode, etc.
 
@@ -542,8 +563,8 @@ else if( CurHeader.Type == LayerType::Linework )
 
 ```
 
----
-### Raster Layers
+
+## Raster Layers
 
 Raster data is stored in a tiled format immediately after the header structure above. There is an array of `(LayerWidth / 32) * (LayerHeight / 32)` 8-bit boolean integer values stored before the compressed channel pixel data. Each boolean value within this `BlockMap` determines if the appropriately positioned `32x32` tile of bitmap data contains pixel data that varies from pure black transparency. If a tile is active, it's pixel data is stored as four or more streams of Run-Length-Encoding compressed data for each color channel for that `32x32` tile. If more than four streams exist, the extra streams may be safely ignored and skipped. Note that the RLE routine is the very same algorithm that Photoshop uses when compressing layer data and the same as the [PackBits](https://en.wikipedia.org/wiki/PackBits) algorithm that apple uses.
 
@@ -722,7 +743,7 @@ for( size_t y = 0; y < (LayerHead.Bounds.Height / 32); y++ )
 ```
 
 ---
-### Linework Layers
+## Linework Layers
 
 Todo
 
