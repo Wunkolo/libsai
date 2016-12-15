@@ -174,7 +174,7 @@ Sai internally uses a Direct Mapped cache table to speed up the random access an
 
 # File System
 
-Now that the cipher can be fully read, the virual file system actually implemented can be deciphered. The file system found will be described as a `Virtual File system` or `VFS`. Files are described by `File Allocation Table` entries that describe the name, timestamp, starting block index, and the size(in bytes) of the data. A `Data-Block` can contain a max of `64` `FATEntries`. Folders have their `Type` set to `Folder` and the `Block` integer instead points to another `Data-Block` of 64 `FATEntries`. 
+Now that the cipher can be fully randomly accessed and decrypted, the virual file system actually implemented can be deciphered. The file system found after decrypting will be described as a `Virtual File system` or `VFS`(Internally sai refers to them as a `VFS` along with termonology such as "mounting" within its error messages). Individual files are described by a `File Allocation Table` that describe the name, timestamp, starting block index, and the size(in bytes) of the data. A `Data-Block` can contain a max of `64` `FATEntries`. Folders are described by having their `Type` variable set to `Folder` and the starting `Block` variable instead points to another `Data-Block` of 64 `FATEntries` depicting the contents of the folder.
 
 ```cpp
 enum class EntryType : uint8_t
@@ -205,7 +205,7 @@ struct FATBlock
 }
 ```
 
-Some info on `TimeStamp`. To convert this 64 bit integer to a `time_t` variable simply divide the integer by `10000000UL` and subtract by `11644473600ULL`. `FILETIME` is the number of 100-nanosecond intervals since January 1, 1601. `time_t` is the number of 1-second intervals since January 1, 1970. If you're writing a multiplatform library it's best to use the more standardized `time_t` when available.
+Some info on `TimeStamp`: To convert this 64 bit integer to the more standardized `time_t` variable simply divide the 64-bit integer by `10000000UL` and subtract by `11644473600ULL`. `FILETIME` is the number of 100-nanosecond intervals since January 1, 1601 while `time_t` is the number of 1-second intervals since January 1, 1970. If you're writing a multiplatform library it's best to use the more standardized `time_t` format when available as most functions converting timestamps into strings use the `time_t` format.
 
 ```cpp
 time_t filetime_to_time_t(uint64_t Time)
@@ -214,9 +214,9 @@ time_t filetime_to_time_t(uint64_t Time)
 }
 ```
 
-The `root` directory of the `VFS` will always be in block index `2`. This will always be the position of the first `FATBlock`. If the `Flags` variable of the `FATEntry` structure is zero, the entry is considered to be unused. The full hierarchy of files can be traversed simply by iterating through all 64 entries of block `2`, stopping at the entry whose `Flags` variable is set to `0`, and recursively iterating the 64 `FATEntries` at the appropriate `Block` should the entry turn out to be a directory. If the entry is a file then simply go to the starting block index and read `Size` amount of bytes continuously, decrypting appropriate `Data-Blocks` along the way should `Size` be larger than 1 block(`0x1000` bytes). Padded bytes within a block will always be `0`. 
+The `root` directory of the `VFS` will always start at block index `2`. This will always be the position of the first `FATBlock` containing 64 `FatEntries`. If the `Flags` variable of the `FATEntry` structure is `0`, the entry is considered to be unused. The full hierarchy of files can be traversed simply by iterating through all 64 entries starting block `2`, stopping at the entry whose `Flags` variable is set to `0`, and iterating all folders the 64 `FATEntries` at the appropriate `Block` even further. If the entry is a file then simply go to the starting block index and read `Size` amount of bytes continuously, decrypting appropriate `Data-Blocks` along the way should `Size` be larger than 1 block(`0x1000` bytes). Padded bytes within a block will always be `0`. 
 
-It's assumed that now you have some way of interpreting individual file entries of the `VFS` from now on.
+From this point on it is assumed you are capable of decrypting the file for random access and can interpret the internal file system format. Now we will look at the actual files and the strucutre in which they are placed within this virtual file system.
 
 # Folder structure
 
