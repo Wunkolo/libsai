@@ -14,7 +14,10 @@
 	- [Raster Layers](#raster-layers)
 	- [Linework Layers](#linework-layers)
 - [Decryption Keys](#decryption-keys)
-	- [System Files](#system-files)
+	- [UserKey](#userkey)
+	- [NotRemoveMe](#notremoveme)
+	- [LocalState](#localstate)
+	- [sai.ssd](#saissd)
 
 <!-- /TOC -->
 
@@ -430,8 +433,10 @@ enum BlendingModes : uint32_t
 	Binary = 'cbin'
 };
 
-// Rectangular structure
-// Position + Size,
+// Rectangular bounds
+// Can be off-canvas or larger than canvas if the user moves
+// The layer outside of the "canvas window" without cropping
+// similar to photoshop
 // 0,0 is top-left corner of image
 struct LayerBounds
 {
@@ -630,7 +635,7 @@ void RLEDecompress32(void* Destination, const uint8_t *Source, size_t SourceSize
 ```cpp
 
 // Read BlockMap
-// Do not use a vector<bool> as this is commonly a specialized type that does not use 8-bit integers
+// Do not use a vector<bool> as this is commonly implemented a specialized type that does not implement individual bool values as bytes
 std::vector<uint8_t> BlockMap;
 TileData.resize((LayerHead.Bounds.Width / 32) * (LayerHead.Bounds.Height / 32));
 
@@ -644,7 +649,7 @@ std::vector<uint8_t> LayerImage;
 LayerImage.resize(LayerHead.Bounds.Width * LayerHead.Bounds.Height * 4);
 
 
-// iterate 32x32 tiles row by row
+// iterate 32x32 tile chunks row by row
 for( size_t y = 0; y < (LayerHead.Bounds.Height / 32); y++ )
 {
 	for( size_t x = 0; x < (LayerHead.Bounds.Width / 32); x++ )
@@ -671,7 +676,7 @@ for( size_t y = 0; y < (LayerHead.Bounds.Height / 32); y++ )
 					Channel
 				);
 				Channel++; // Move on to next channel
-				if( Channel >= 4 ) // skip all other channels besides the ones we care about
+				if( Channel >= 4 ) // skip all other channels besides the RGBA ones we care about
 				{
 					for( size_t i = 0; i < 4; i++ )
 					{
@@ -702,7 +707,7 @@ for( size_t y = 0; y < (LayerHead.Bounds.Height / 32); y++ )
 				);
 
 				/// Alpha is pre-multiplied, convert to straight
-				// Get Alpha-scale
+				// Get Alpha into [0.0,1.0] range
 				__m128 Scale = _mm_div_ps(
 					_mm_cvtepi32_ps(
 						_mm_shuffle_epi8(
@@ -716,7 +721,8 @@ for( size_t y = 0; y < (LayerHead.Bounds.Height / 32); y++ )
 						)
 					), _mm_set1_ps(255.0f));
 
-				for( uint8_t i = 0; i < 3; i++ ) // re-scale each channel
+				// Normalize each channel into straight color
+				for( uint8_t i = 0; i < 3; i++ )
 				{
 					__m128i CurChannel = _mm_srli_epi32(QuadPixel, i * 8);
 					CurChannel = _mm_and_si128(CurChannel, _mm_set1_epi32(0xFF));
@@ -753,9 +759,10 @@ Todo
 ---
 # Decryption Keys
 
-```cpp
-//This is the key that we care for. Used for user-made files to decrypt/encrypt .sai files
+## UserKey
+This is the key that we care for. Used to encrypt/decrypt all user-created files.
 
+```cpp
 const uint32_t UserKey[256] =
 {
 	0x9913D29E,0x83F58D3D,0xD0BE1526,0x86442EB7,0x7EC69BFB,0x89D75F64,0xFB51B239,0xFF097C56,
@@ -793,11 +800,12 @@ const uint32_t UserKey[256] =
 };
 ```
 
+## NotRemoveMe
+Seems to only be used for the "Notremoveme.ssd" file located in `"C:\ProgramData\SYSTEMAX Software Development\SAI"`
+
+Appears to contain log data similar to `sai.ssd`
 
 ```cpp
-// Seems to only be used for the "Notremoveme.ssd" file located in "C:\ProgramData\SYSTEMAX Software Development\SAI"
-// Appears to be a Log file.
-
 const uint32_t NotRemoveMeKey[256] =
 {
 	0xA0C62B54,0x0374CB94,0xB3A53F76,0x5B772C6B,0xF2B92931,0x80F923A9,0x7A22EF7A,0x216C7582,
@@ -835,10 +843,11 @@ const uint32_t NotRemoveMeKey[256] =
 };
 ```
 
-```cpp
-// Used for thumbnail files located in "C:\ProgramData\SYSTEMAX Software Development\SAI\thumbnail"
-// Thumbnail filenames use sprintf pattern "%08x.ssd"
+## LocalState
+Used for thumbnail files located in `"C:\ProgramData\SYSTEMAX Software Development\SAI\thumbnail"`
 
+Thumbnail filenames use sprintf pattern `"%08x.ssd"`. Named `LocalState` as everything in that folder describes a context that is locally relative to the current user.
+```cpp
 const uint32_t LocalStateKey[256] =
 {
 	0x021CF107,0xE9253648,0x8AFBA619,0x8CF31842,0xBF40F860,0xA672F03E,0xFA2756AC,0x927B2E7E,
@@ -876,25 +885,21 @@ const uint32_t LocalStateKey[256] =
 };
 ```
 
-## System Files
+## sai.ssd
+
+Used only for `sai.ssd`
+Handled the same as user-files but with a different block size of `1024`, having `Table-blocks` at block indexes at every multiple of 128 block with all 127 blocks after being "Data-Blocks". 
+Needs more research.
+
+`sai.ssd` seems to have multiple log files stored in here symbolic headers:
+- "++FSIF logfile++"
+  - Seems to be related to file-security and encryption
+- "++VFS logfile++"
+  - Everything related to the virtual file system
+- "++SCDF logfile++"
+  - Unknown
 
 ```cpp
-// Used for sai.ssd
-// Decryption function seems totally different, having table blocks every 128-th block with
-// all 127 blocks after being "data". Decryption involves subtraction of each word?
-// Needs more research.
-
-/*
-	sai.ssd seems to have multiple log files:
-	 - "++FSIF logfile++"
-	   - Seems to be related to file-security
-	 - "++VFS logfile++"
-	   - Everything related to the virtual file system
-	 - "++SCDF logfile++"
-	   - 
-
-	1024 byte blocks/ 256 4-byte words
-*/
 const uint32_t SystemKey[256] =
 {
 	0x724FB987,0x4A3E70BE,0xCA549C50,0x34E263E1,0x2D5ED2FF,0x127F0E11,0x58A42B78,0x5F6D14AE,
@@ -930,49 +935,4 @@ const uint32_t SystemKey[256] =
 	0xC8D1CEBB,0x325CD3E2,0xF1928739,0x9355AE8E,0x2FC05EC4,0x4E0735E7,0xDE3B10D9,0x8E18C61A,
 	0xE29AEF25,0x4984D7A2,0x051F247B,0x29AB9055,0xFD2101F4,0x96FB2E1C,0x5BF04327,0x3C8F1BEB,
 };
-```
-
-Every 128th block is a table block,
-
-```cpp
-size_t NearestTable(size_t BlockNumber)
-{
-  return BlockNumber >> 7; // Division by 128
-}
-```
-
-```cpp
-void Decrypt(uint32_t BlockNumber, uint32_t* Data)
-{
-	// Use this to get the appropriate Table-Block number from
-	// any table block. 
-	// BlockNumber &= (~0x1FF);
-
-	for( size_t i = 0; i < (4096 / sizeof(uint32_t)); i++ )
-	{
-		uint32_t CurCipher = Data[i];
-		uint32_t X = BlockNumber ^ CurCipher ^ (
-			UserKey[(BlockNumber >> 24) & 0xFF]
-			+ UserKey[(BlockNumber >> 16) & 0xFF]
-			+ UserKey[(BlockNumber >> 8) & 0xFF]
-			+ UserKey[BlockNumber & 0xFF]);
-
-		Data[i] = static_cast<uint32_t>((X << 16) | (X >> 16));
-
-		BlockNumber = CurCipher;
-	};
-}
-```
-
-```cpp
-// When doing this to a table, the first word is set to 0
-uint32_t Checksum(uint32_t* Data)
-{
-  uint32_t Result = 0;
-  for(size_t i = 0; i < 256; ++i)
-  {
-    Result = ( (Result << 1) | (Result >> 31) ) ^ Data[i];
-  }
-  return Result;
-}
 ```
