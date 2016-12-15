@@ -73,9 +73,7 @@ void DecryptTable(uint32_t BlockIndex, uint32_t* Data)
 	// see "IsTableBlock" above on making sure BlockIndex
 	// is a table or use:
 	// BlockNumber &= (~0x1FF);
-
-	// Explicit division added for clarity
-	for( size_t i = 0; i < (4096 / sizeof(uint32_t)); i++ )
+	for( size_t i = 0; i < 1024; i++ )
 	{
 		uint32_t CurCipher = Data[i];
 		uint32_t X = BlockIndex ^ CurCipher ^ (
@@ -92,8 +90,7 @@ void DecryptTable(uint32_t BlockIndex, uint32_t* Data)
 
 void DecryptData(uint32_t Vector, uint32_t* Data)
 {
-	// Explicit division added for clarity
-	for( size_t i = 0; i < (4096 / sizeof(uint32_t)); i++ )
+	for( size_t i = 0; i < 1024; i++ )
 	{
 		uint32_t CurCipher = Data[i];
 		Data[i] =
@@ -146,7 +143,7 @@ The checksum for `Data-Blocks` and `Table-Blocks` is a simple exclusive-or and b
 uint32_t Checksum(bool Table, uint32_t* Data)
 {
 	uint32_t Sum = 0;
-	for( size_t i = (Table ? 1 : 0); i < (4096 / sizeof(uint32_t)); i++ )
+	for( size_t i = (Table ? 1 : 0); i < 1024; i++ )
 	{
 		Sum = ( ( Sum << 1 ) | (Sum >> 31)) ^ Data[i];
 	}
@@ -158,7 +155,7 @@ uint32_t Checksum(bool Table, uint32_t* Data)
 uint32_t Checksum(uint32_t* Data)
 {
 	uint32_t Sum = 0;
-	for( size_t i = 0; i < (4096 / sizeof(uint32_t)); i++ )
+	for( size_t i = 0; i < 1024; i++ )
 	{
 		Sum = ( ( Sum << 1 ) | (Sum >> 31)) ^ Data[i];
 	}
