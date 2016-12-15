@@ -139,7 +139,7 @@ decrypt block 513    2 |0xChecksum|0xPrelimin|     |XXXX|XXXX|
 
 ```
 
-The checksum for `Data-Blocks` and `Table-Blocks` is a simple exclusive-or and bit-rotate which interprets all 4096 bytes as 1024 32-bit integers, with the exception that the checksum for `Table-Block` in entry 0 which does not include the first word(the checksum integer of the block itself). All 1024 integers are exclusive-ored with an initial checksum of zero, which is rotated left 1 bit before the exclusive-or operation. Finally the lowest bit is set, making all checksums an odd number.
+The checksum for `Data-Blocks` and `Table-Blocks` is a simple exclusive-or and bit-rotate which interprets all 4096 bytes of the block as 1024 32-bit integers, with the exception that the checksum for `Table-Blocks` does not include the first four bytes(the checksum integer of the block itself). All 1024 integers are exclusive-ored with an initial checksum of zero, which is rotated left 1 bit before the exclusive-or operation. Finally the lowest bit is set, making all checksums an odd number.
 
 ```cpp
 // If your block number is a multiple of 512, set `Table` to true.
@@ -150,7 +150,7 @@ uint32_t Checksum(bool Table, uint32_t* Data)
 	{
 		Sum = ( ( Sum << 1 ) | (Sum >> 31)) ^ Data[i];
 	}
-	return Sum | 1; // Checksums will always be an odd number
+	return Sum | 1; 
 }
 
 // Generic version for both Table-Blocks and Data-Blocks
@@ -166,12 +166,11 @@ uint32_t Checksum(uint32_t* Data)
 }
 ```
 
-A block-level corruption can be detected by a checksum mismatch. If the `Data-Block`'s checksum does not match the checksum found at the appropriate table entry within the `Table-Block` then the `Data-Block` is considered corrupted.
-
+A block-level corruption can be detected by a checksum mismatch. If the `Data-Block`'s generated checksum does not match the checksum found at the appropriate table entry within the `Table-Block` then the `Data-Block` is considered corrupted.
 
 ## Caching
 
-Sai uses a buffer of block checksums for its cache table entries. Sai internally uses a Direct Mapped cache table to speed up the random access and decryption of a file by caching both the `Table-Blocks` and `Data-Blocks`. An arbitrary block number will have its appropriate cache entry looked up by first shifting the `BlockNumber` integer right by 14 bits and comparing both the upper 18 bits of the block ID to the lower 31 bits of the cache entry found within the virtual file system object. Should these two numbers match then a cache-hit has occurred. Otherwise the block is fully loaded and decrypted into the cache. The `VFSObject` has exactly 32 cache lines for Table-Blocks. The 32st bit of the cache table line is the `dirty` bit which notes if the block is due for a write-back before a new block is to overwrite the entry. Cache entry size seems to generally be the block-size divided by 8. This cache is Sai's mechanism to minimize the need for constant file IO stalls at run-time. Changes are fully "flushed" simply by writing any remaining `dirty` cache lines to the file(and adjusting appropriate checksums within the Table-Blocks). If you plan to implement a library that reads from `.sai` files, you should probably follow the same cache routine to speed up your file access. `Table-Blocks` should at the very least be cached as almost every random access will require you to read the appropriate `Table-Block`.
+Sai internally uses a Direct Mapped cache table to speed up the random access and decryption of a file by caching both `Table-Blocks` and `Data-Blocks`. An arbitrary block number will have its appropriate cache entry looked up by first shifting the `BlockNumber` integer right by 14 bits and comparing both the upper 18 bits of the block ID to the lower 31 bits of the cache entry found within the internally mounted file object. Should these two numbers match then a cache-hit has occurred. Otherwise the block is to fully loaded and decrypted into the cache. The the mounted file context object(I've called it `VFSObject` in IDA Pro, has exactly 32 cache lines for `Table-Blocks`. The 32st bit of the cache table line is the `dirty` bit which notes if the block is due for a write-back before a new block is to overwrite the entry. Cache size seems to generally be the block-size divided by 8 and will be a different size depending on the file being handled. This cache mechanism is Sai's mechanism to minimize the need for constant file IO stalls at run-time and for efficient file-writing and flushing. Changes are fully "flushed" simply by writing any remaining  cache lines to the file with the upper `dirty` bit set(and adjusting appropriate checksums within appropriate `Table-Blocks` if needed). If you plan to implement a library that reads from `.sai` files, you should probably follow the same cache routine to speed up your file access as Sai. `Table-Blocks` should at the very least be cached as almost every random access of a `.sai` file will require you to read the appropriate `Table-Block` before being able to decrypt the `Data-Block`.
 
 # File System
 
