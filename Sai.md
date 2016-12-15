@@ -1,6 +1,6 @@
 <!-- TOC -->
 
-- [Cracking PaintTool Sai's .sai](#cracking-painttool-sais-sai)
+- [Cracking PaintTool Sai documents](#cracking-painttool-sai-documents)
 - [Software info](#software-info)
 - [Decryption](#decryption)
 	- [Caching](#caching)
@@ -19,9 +19,9 @@
 
 <!-- /TOC -->
 
-# Cracking PaintTool Sai's .sai
+# Cracking PaintTool Sai documents
 
-This document represents about a year and a half of hobby-research on reverse engineering the digitizing raster/vector art program PaintTool Sai. This write-up in particular is focused on the technical specifications of the user-created `.sai` file format used to archive artwork and the layers of abstraction involved in extracting this data outside of the context of the original software. This is moreso directed at anyone out there that wants to implement their own library to read or interface with `.sai` files. If you find anything in this document to be misleading, incomplete, or flat-out incorrect feel free to shoot me an email at `Wunkolo at gmail.com`. Previous work includes my now-abandoned run-time exploitation framework [SaiPal](https://github.com/Wunkolo/SaiPal/releases). This document assumes you have some knowledge of the C/C++ syntax as data structures and algorithms will be presented in the form of C structures and subroutines. 
+This document represents about a year and a half of hobby-research on reverse engineering the digitizing raster/vector art program PaintTool Sai. This write-up in particular is focused on the technical specifications of the user-created `.sai` file format used to archive a user's artwork and the layers of abstraction involved in extracting this data outside of the context of the original software. This document is moreso directed at anyone out there that wants to implement their own library to read or interface with `.sai` files or just to get a comprehensive understanding of the decisions that SystemMax has chosen to make for their file format. If you find anything in this document to be misleading, incomplete, or flat-out incorrect feel free to shoot me an email at `Wunkolo at gmail.com`. Previous work includes my now-abandoned run-time exploitation framework [SaiPal](https://github.com/Wunkolo/SaiPal/releases). This document assumes you have some knowledge of the C/C++ syntax as data structures and algorithms will be presented in the form of C structures and subroutines. 
 
 # Software info
 
@@ -39,14 +39,11 @@ Details:
 - Fully support Intel MMX Technology.
 - Data protection function to avoid abnormal termination such as bugs.
 
----
-
-
 # Decryption
 
-Sai uses the file type `.sai` as its document format for storing both raster and vector layers as well as other canvas meta-data. The `.sai` file among with other files such as thumbnails, `sai.ssd` and other itself is but an archive containing a _file-system-like_ structure. Each layer, mask, and meta data is stored in an individual pseudo-file. The file itself is encrypted in [ECB](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Electronic_Codebook_.28ECB.29) blocks in which any randomly accessed block can be decrypted by also decrypting the appropriate `Table-Block` and accessing its 32-bit key. It's been found that some preliminary files such as thumbnails and the archive responsible for swatches/palettes use a different key, block size, and Table-Block location. This document will mostly cover the method used for sai's user created `.sai` documents.
+Sai uses the file type `.sai` as its document format for storing both raster and vector layers as well as other canvas related meta-data. The `.sai` file among with other files such as thumbnails, the `sai.ssd` file and others is but an archive containing a _file-system-like_ structure once decrypted. Each layer, mask, and related meta data is stored in an individual pseudo-file which also has a layer of block-level encryption. The file itself is encrypted in [ECB](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Electronic_Codebook_.28ECB.29) blocks in which any randomly accessed block can be decrypted by also decrypting the appropriate `Table-Block` and accessing its 32-bit key found within. It's been found that some preliminary files such as thumbnails and the archive responsible for swatches/palettes use a different decryption key, block size, and `Table-Block` location. This document will mostly cover the method used for sai's user created `.sai` documents and very partially show related information for the other files.
 
-An individual block is `4096` bytes of data. Every block that is a multiple of `512`(`0, 512, 1024, etc`) is a `Table-Block` containing meta-data about the block itself and the `511` blocks after it. Every other block is a `Data-Block`:
+An individual block in a `.sai` file is `4096` bytes of data. Every block index that is a multiple of `512`(`0, 512, 1024, etc`) is a `Table-Block` containing meta-data about the block itself and the `511` blocks after it. Every other block that is not a `Table-Block` is a `Data-Block`:
 
 ```cpp
 // Gets the Table-Block index appropriate for the current block index
@@ -54,9 +51,6 @@ size_t NearestTable(size_t BlockIndex)
 {
   return BlockIndex & ~(0x1FF);
 }
-```
-
-```cpp
 // Demonstrating how to quickly determine if a block Index is a data-block or a table-block
 bool IsTableBlock(size_t BlockIndex)
 {
@@ -68,9 +62,9 @@ bool IsDataBlock(size_t BlockIndex)
 }
 ```
 
-All blocks are encrypted using a xor-cipher referring to an atlus of 256 4-byte integers found at the end of this text. Different files related to Sai use different keysvaults. The keyvault used for the `.sai` file will be referred to as the `UserKey` since this key is only used for files generated by the user. `Table-Blocks` and `Data-Blocks` are encrypted differently. 
+All blocks are encrypted and decrypted symmetrically using a simple exclusive-or-based encryption which referrs to a static atlus of 256 32-bit integers which can be found at the end of this text. Different files related to Sai use different static keys. The keyvault used for the `.sai` file will be referred to as the `UserKey` since this is the only symmetrical key used to decrypt and encrypt files generated by the end-ser. `Table-Blocks` and `Data-Blocks` are encrypted differently using the same `UserKey`.
 
-`Table-Blocks` can be decrypted by random access using only their multiple-of-512 block index and the the `UserKey`. The first block of a `.sai` file (block index 0) will be a `Table-Block` for the `511` blocks after it. When decrypting a `Table-Block`, four of the 256 keys are indexed by the 4-bytes of block-index and then summed together. This sum is exclusive-ored with the current 4-byte cipher-word and the block-index followed by a 16-bit left rotation of the result. When decrypting a `Data-Block`, an initial decryption vector is given which selects the appropriate integers from `UserKey` and xors with the vector integer itself, and subtracts this value from the cipher to get the plaintext before passing on the vector to the next round(integer-level pseudo block-chaining). The input `Vector` is the checksum integer found in the `Table-Block`.
+`Table-Blocks` can be decrypted by random access using only their multiple-of-512 block index and the the `UserKey`. The first block of a `.sai` file (block index 0) will be a `Table-Block` storing related data for the `511` blocks after it. When decrypting a `Table-Block`, four of the 256 keys within `UserKey` are indexed by the four bytes of the 32-bit block-index and then summed together. This sum is exclusive-ored with the current 4-byte cipher-word and the block-index followed by a 16-bit left rotation of the result. When decrypting a `Data-Block`, an initial decryption vector is given which selects the appropriate integers from `UserKey` using the individual bytes of the 32-bit vecor integer and xors with the vector integer itself, and subtracts this value from the cipher to get the plaintext before passing on the vector to the next round using the cipher integer. The input `Vector` is the checksum integer found in the `Table-Block`.
 
 ```cpp
 // Ensure BlockIndex is a valid Table-Block index
@@ -114,13 +108,13 @@ void DecryptData(uint32_t Vector, uint32_t* Data)
 }
 ```
 
-These `Table-Blocks` contain 512 8-byte structures containing a a 4-byte checksum and a 4-byte integer used to store preliminary data for the block. The first entry of this table contains a checksum-flag structure for the table block itself in which the checksum is for all the words of the `Table-Block` except the first four bytes. A table entry with a checksum of `0` is considered to be an unallocated/unused block.
+`Table-Blocks` contain 512 8-byte structures containing a a 32-bit checksum and a 32-bit integer used to store preliminary data for the block that I have yet to fully decipher. Each index of table-entries corresponds to the appropriate block index after the table index. The first checksum entry found within the `Table-Block` is a checksum of the table itself, excluding the first 32-bit integer. Setting the first checksum to 0 and calculating the checksum of the entire table produces the same results as if the first entry was skipped. A table entry with a checksum of `0` is considered to be an unallocated/unused block.
 
 ```cpp
 struct TableEntry
 {
 	uint32_t Checksum;
-	uint32_t Flags; // Yet to be fully mapped out
+	uint32_t Flags; // Yet to be fully deciphered
 } TableEntries[512];
 ```
 
