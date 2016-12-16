@@ -7,7 +7,7 @@
 - [Folder structure](#folder-structure)
 	- [Serialization Streams](#serialization-streams)
 - [Files](#files)
-	- [".a1541b366925e034"](#a1541b366925e034)
+	- [".XXXXXXXXXXXXXXXX"](#xxxxxxxxxxxxxxxx)
 	- ["canvas"](#canvas)
 	- ["laytbl" "subtbl"](#laytbl-subtbl)
 	- ["/layers" "/sublayers"](#layers-sublayers)
@@ -241,6 +241,8 @@ The actual file/folder structure found within `.sai` files describes information
 /thumbnail         |  90012 bytes | 2016/10/12 03:53:53
 ```
 
+the first entry `.a1541b366925e034` will vary in name but will always be the first entry.
+
 ## Serialization Streams
 
 Before going into the file formats a specific format of serialization needs to be explained that is found across the internal files.
@@ -338,9 +340,9 @@ Serial streams from here on out will be depicted as an enumeration of the four-b
 
 # Files
 
-## ".a1541b366925e034"
+## ".XXXXXXXXXXXXXXXX"
 
-Todo
+This file follows the [printf](http://en.cppreference.com/w/cpp/io/c/fprintf) format `/%s.%016I64x` with the first parameter usually being blank. This file seems to store information of the computer that created the `.sai` file.
 
 ## "canvas"
 
@@ -379,7 +381,7 @@ uint32_t SelectedLayerID;
 
 These files contains a description of all layers that make up an image stored from "lowest" layer to "highest". `subtbl` contains preliminary layers such as masks. Both `laytbl` and `subtbl` have the same format and describe the contents within their respective `layers` and `sublayers` folder.
 
-The first integer of either file is a is a 32bit integer for the number of layers followed by an equivalent amount of `LayerTableEntries`. Layers are identified by 32 bit integers with their appropriate filename found in the `layers` and `sublayers` folder using an 8 digit lowercase hexidecimal file name. The full path for any given layer or sublayer identifier can be generated given the identifying integer and the printf format `/layers/%08x` or `/sublayers/%08x`.
+The first integer of either file is a is a 32bit integer for the number of layers followed by an equivalent amount of `LayerTableEntries`. Layers are identified by 32 bit integers with their appropriate filename found in the `layers` and `sublayers` folder using an 8 digit lowercase hexidecimal file name. The full path for any given layer or sublayer identifier can be generated given the identifying integer and the [printf](http://en.cppreference.com/w/cpp/io/c/fprintf) format `/layers/%08x` or `/sublayers/%08x`.
 
 ```cpp
 enum class LayerType : uint16_t
@@ -846,7 +848,7 @@ const uint32_t NotRemoveMeKey[256] =
 ## LocalState
 Used for thumbnail files located in `"C:\ProgramData\SYSTEMAX Software Development\SAI\thumbnail"`
 
-Thumbnail filenames use sprintf pattern `"%08x.ssd"`. Named `LocalState` as everything in that folder describes a context that is locally relative to the current user.
+Thumbnail filenames use [printf](http://en.cppreference.com/w/cpp/io/c/fprintf) pattern `"%08x.ssd"`. Named `LocalState` as everything in that folder describes a context that is locally relative to the current user.
 ```cpp
 const uint32_t LocalStateKey[256] =
 {
