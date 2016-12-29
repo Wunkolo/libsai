@@ -241,7 +241,7 @@ The actual file/folder structure found within `.sai` files describes information
 /thumbnail         |  90012 bytes | 2016/10/12 03:53:53
 ```
 
-the first entry `.a1541b366925e034` will vary in name but will always be the first entry.
+the first entry `.a1541b366925e034` will vary in name but will always be the first entry. See [.xxxxxxxxxxxxxxxx](#xxxxxxxxxxxxxxxx) for more info on this file.
 
 ## Serialization Streams
 
