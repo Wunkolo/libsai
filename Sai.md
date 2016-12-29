@@ -712,16 +712,19 @@ void RLEDecompress32(void* Destination, const uint8_t *Source, size_t SourceSize
 ```cpp
 
 // Read BlockMap
-// Do not use a vector<bool> as this is commonly implemented a specialized type that does not implement individual bool values as bytes
+// Do not use a vector<bool> as this is commonly implemented a specialized type that does not implement individual bool values as bytes but rather as packed bits within a word
 std::vector<uint8_t> BlockMap;
 TileData.resize((LayerHead.Bounds.Width / 32) * (LayerHead.Bounds.Height / 32));
 
 // Read Block Map
 LayerFile.Read(BlockMap.data(), (LayerHead.Bounds.Width / 32) * (LayerHead.Bounds.Height / 32));
 
-
 // the resulting raster image data for this layer, RGBA 32bpp interleaved
-// Use a vector to ensure data is initially 0
+// Use a vector to ensure that tiles with no data are still initialized
+// to #00000000
+// Also note that the claim that SystemMax has made involving 16bit ARGB
+// may actually only be true at run-time. Almost all raster data is stored as
+// 8bpc while only some run-time raster arithmetic uses 16-bit via MMX
 std::vector<uint8_t> LayerImage;
 LayerImage.resize(LayerHead.Bounds.Width * LayerHead.Bounds.Height * 4);
 
