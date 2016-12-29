@@ -342,15 +342,22 @@ Serial streams from here on out will be depicted as an enumeration of the four-b
 
 ## ".XXXXXXXXXXXXXXXX"
 
-This file name is procedurally generated based on the system that wrote the file. It is a 64 bit hash integer generated from a string involving the information of the motherboard formatted into a `%s/%s/%s` string. Three strings are queried from Windows Management Instrumentation(WMI) with the query
+This file name is procedurally generated based on the system that wrote the file. It is a 64 bit hash integer generated from a string involving the information of the motherboard formatted into a `%s/%s/%s` string.
 
-	SELECT * FROM Win32_BaseBoard
+Three strings are queried from Windows Management Instrumentation(WMI) first with the query
 
-It then selects the `Manufacturer`,`Product`,and `SerialNumber` entries and converts the strings into UTF8 before being formatted into a `%s/%s/%s` string such as:
+```
+SELECT * FROM Win32_BaseBoard
+```
 
-	ASUSTeK COMPUTER INC./Z87-DELUXE/130410781704124
+and then taking the `Manufacturer`, `Product`, and `SerialNumber` table entries (making sure to convert the UTF16 into UTF8) and formatting them together into a string identifying the user's chipset(formatted `%s/%s/%s`). An example chipset:
 
-This null-terminated string is then repeated continuously until it fits a 256 byte span.
+```
+ASUSTeK COMPUTER INC./Z87-DELUXE/130410781704124
+```
+
+The machine-identifying hash is then calculated with this from this string.
+Within the hash function this null-terminated string is repeated continuously until it fits a 256 byte span.
 
 ```
 ASUSTeK COMPUTER INC./Z87-DELUXE
@@ -363,17 +370,17 @@ TER INC./Z87-DELUXE/130410781704
 LUXE/130410781704124\0ASUSTeK COM
 ```
 
-This 256 byte array of characters is then interpreted as 64 32-bit integers in the following 64-bit hash function:
+This 256 byte array of characters is then interpreted as 64 32-bit integers for a chained rotate-and-xor hashing function, generating a 64 bit hash.
 
 ```cpp
-uint64_t HashBaseboard(const char* MachineID)
+uint64_t MachineHash(const char* MachineIdentifier)
 {
     uint32_t StringBlock[64];
-    const char* ReadPoint = MachineID;
+    const char* ReadPoint = MachineIdentifier;
     for(size_t i = 0; i < 256; i++)
     {
         reinterpret_cast<uint8_t*>(StringBlock)[i] = *ReadPoint;
-        ReadPoint = *ReadPoint ? ++ReadPoint : MachineID;
+        ReadPoint = *ReadPoint ? ++ReadPoint : MachineIdentifier;
     }
     uint32_t UpperHash = 0;
     uint32_t LowerHash = 0;
@@ -396,6 +403,21 @@ uint64_t HashBaseboard(const char* MachineID)
 ```
 
 The resulting hash for the above formatted string is `a1541b366925e034` which would make the filename `.a1541b366925e034` using the internal format `/%s.%016I64x`. The first string seems to always be null leaving the hash to simply have a period character prepended to it.
+
+The file itself is only 32 bytes long.
+
+```cpp
+struct SystemInfo
+{
+	uint32_t BitFlag; // always 0x08000000
+	uint32_t Unknown4;
+	uint64_t DateCreated; // Date Created
+	uint64_t DateModified; // Date Modified
+	uint64_t MachineHash; // Calculated using the above routine
+}
+```
+
+Timestamps are 64 bit integer counts of seconds since `January 1, 1601`. This value is calculated using [GetSystemTimeAsFileTime](https://msdn.microsoft.com/en-us/library/windows/desktop/ms724397%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396) and then dividing the 64-bit result by `10000000` to convert from 100-nanosecond-intervals into seconds.
 
 ## "canvas"
 
