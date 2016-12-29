@@ -407,7 +407,7 @@ The resulting hash for the above formatted string is `a1541b366925e034` which wo
 The file itself is only 32 bytes long.
 
 ```cpp
-struct SystemInfo
+struct AuthorSystemInfo
 {
 	uint32_t BitFlag; // always 0x08000000
 	uint32_t Unknown4;
