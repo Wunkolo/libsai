@@ -59,9 +59,9 @@ ifstreambuf::ifstreambuf(const std::uint32_t *Key)
 	BlockCount(0)
 {
 	setg(
-		reinterpret_cast<char*>(Buffer.u8),
-		reinterpret_cast<char*>(Buffer.u8),
-		reinterpret_cast<char*>(Buffer.u8) + VirtualPage::PageSize
+		nullptr,
+		nullptr,
+		nullptr
 	);
 
 	setp(
@@ -131,6 +131,11 @@ bool ifstreambuf::is_open() const
 
 std::streambuf::int_type ifstreambuf::underflow()
 {
+	if( FileIn.eof() )
+	{
+		return traits_type::eof();
+	}
+
 	if( gptr() == egptr() )
 	{
 		// buffer depleated, get next block
@@ -141,11 +146,6 @@ std::streambuf::int_type ifstreambuf::underflow()
 			// Seek position error
 			return traits_type::eof();
 		}
-	}
-
-	if( FileIn.eof() )
-	{
-		return traits_type::eof();
 	}
 
 	return traits_type::to_int_type(*gptr());
