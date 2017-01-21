@@ -101,9 +101,10 @@ public:
 private:
 	std::ifstream FileIn;
 
-	std::size_t BlockCount;
+	std::size_t PageCount;
 
 	VirtualPage Buffer;
+	std::size_t CurrentPage;
 
 	// Decryption Key
 	const std::uint32_t *Key;

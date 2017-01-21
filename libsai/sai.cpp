@@ -52,11 +52,12 @@ std::uint32_t VirtualPage::Checksum()
 ifstreambuf::ifstreambuf(const std::uint32_t *Key)
 	:
 	Key(Key),
+	CurrentPage(-1),
 	PageCache(nullptr),
 	PageCacheIndex(-1),
 	TableCache(nullptr),
 	TableCacheIndex(-1),
-	BlockCount(0)
+	PageCount(0)
 {
 	setg(
 		nullptr,
@@ -100,7 +101,7 @@ ifstreambuf* ifstreambuf::open(const char *Name)
 		return nullptr;
 	}
 
-	BlockCount = FileSize / VirtualPage::PageSize;
+	PageCount = FileSize / VirtualPage::PageSize;
 
 	seekpos(
 		0
@@ -135,8 +136,9 @@ std::streambuf::int_type ifstreambuf::underflow()
 	{
 		// buffer depleated, get next block
 		if( seekpos(
-			FileIn.tellg() + std::streamoff(1)
-			) == std::streampos(std::streamoff(-1)) )
+			(CurrentPage + 1) * VirtualPage::PageSize
+			) == std::streampos(std::streamoff(-1))
+			)
 		{
 			// Seek position error
 			return traits_type::eof();
@@ -152,29 +154,9 @@ std::streambuf::pos_type ifstreambuf::seekoff(
 	std::ios_base::openmode Mode
 )
 {
-	if( Mode & std::ios_base::in )
-	{
-		FileIn.seekg(
-			Offset,
-			Direction
-		);
-		if(
-			Prefetch(
-			FileIn.tellg() / VirtualPage::PageSize,
-			&Buffer
-			) == false )
-		{
-			return std::streampos(std::streamoff(-1));
-		}
-
-		setg(
-			reinterpret_cast<char*>(Buffer.u8),
-			reinterpret_cast<char*>(Buffer.u8) + FileIn.tellg() % VirtualPage::PageSize,
-			reinterpret_cast<char*>(Buffer.u8) + VirtualPage::PageSize
-		);
-	}
-	FileIn.seekg(Offset);
-	return FileIn.tellg();
+	return seekpos(
+		(CurrentPage * VirtualPage::PageSize) + (gptr() - egptr())
+	);
 }
 
 std::streambuf::pos_type ifstreambuf::seekpos(
@@ -184,22 +166,32 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 {
 	if( Mode & std::ios_base::in )
 	{
-		if(
-			Prefetch(
-			Position / VirtualPage::PageSize,
-			&Buffer
-			) == false )
+		CurrentPage = Position / VirtualPage::PageSize;
+
+		if( CurrentPage < PageCount )
 		{
-			return std::streampos(std::streamoff(-1));
+			if(
+				Prefetch(
+				CurrentPage,
+				&Buffer
+				)
+				)
+			{
+				setg(
+					reinterpret_cast<char*>(Buffer.u8),
+					reinterpret_cast<char*>(Buffer.u8) + Position % VirtualPage::PageSize,
+					reinterpret_cast<char*>(Buffer.u8) + VirtualPage::PageSize
+				);
+				return true;
+			}
 		}
-		setg(
-			reinterpret_cast<char*>(Buffer.u8),
-			reinterpret_cast<char*>(Buffer.u8) + Position % VirtualPage::PageSize,
-			reinterpret_cast<char*>(Buffer.u8) + VirtualPage::PageSize
-		);
 	}
-	FileIn.seekg(Position);
-	return FileIn.tellg();
+	setg(
+		nullptr,
+		nullptr,
+		nullptr
+	);
+	return std::streampos(std::streamoff(-1));
 }
 
 bool ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
