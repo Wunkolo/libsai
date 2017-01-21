@@ -53,7 +53,9 @@ ifstreambuf::ifstreambuf(const std::uint32_t *Key)
 	:
 	Key(Key),
 	PageCache(nullptr),
+	PageCacheIndex(-1),
 	TableCache(nullptr),
+	TableCacheIndex(-1),
 	BlockCount(0)
 {
 	setg(
