@@ -218,7 +218,7 @@ bool ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
 		return false;
 	}
 
-	if( PageIndex % 512 == 0 ) // Table Block
+	if( PageIndex % VirtualPage::TableSpan == 0 ) // Table Block
 	{
 		if( PageIndex == TableCacheIndex )
 		{
@@ -274,7 +274,10 @@ bool ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
 		}
 		// Prefetch nearest table
 		// Ensure it is in the cache
-		if( Prefetch(PageIndex & ~(0x1FF), nullptr) == false )
+		const std::uint32_t NearestTable
+			= (PageIndex / VirtualPage::TableSpan) * VirtualPage::TableSpan;
+
+		if( Prefetch(NearestTable, nullptr) == false )
 		{
 			// Failed to fetch table
 			return false;
@@ -292,10 +295,14 @@ bool ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
 			return false;
 		}
 		PageCache.get()->DecryptData(
-			TableCache.get()->PageEntries[PageIndex % 512].Checksum
+			TableCache.get()->PageEntries[PageIndex % VirtualPage::TableSpan].Checksum
 		);
 
-		if( PageCache.get()->Checksum() != TableCache.get()->PageEntries[PageIndex % 512].Checksum )
+		if(
+			PageCache.get()->Checksum()
+			!=
+			TableCache.get()->PageEntries[PageIndex % VirtualPage::TableSpan].Checksum
+			)
 		{
 			// Checksum mismatch, file corrupt
 			return false;

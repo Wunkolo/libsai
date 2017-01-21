@@ -34,7 +34,8 @@ namespace sai
 #pragma pack(push, 1)
 union VirtualPage
 {
-	static const std::size_t PageSize = 0x1000;
+	static constexpr std::size_t PageSize = 0x1000;
+	static constexpr std::size_t TableSpan = PageSize / 8;
 
 	// Data
 	std::uint8_t u8[PageSize];
