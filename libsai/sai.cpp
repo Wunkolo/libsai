@@ -224,6 +224,10 @@ bool ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
 			reinterpret_cast<char*>(TableCache.get()),
 			VirtualPage::PageSize
 		);
+		if( !FileIn.good() )
+		{
+			return false;
+		}
 		TableCache.get()->DecryptTable(PageIndex);
 		TableCacheIndex = PageIndex;
 		if( Dest != nullptr )
@@ -248,6 +252,10 @@ bool ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
 			reinterpret_cast<char*>(PageCache.get()),
 			VirtualPage::PageSize
 		);
+		if( !FileIn.good() )
+		{
+			return false;
+		}
 		PageCache.get()->DecryptData(
 			TableCache.get()->PageEntries[PageIndex % 512].Checksum
 		);
@@ -268,7 +276,7 @@ bool ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
 			);
 		}
 	}
-	return FileIn.good();
+	return true;
 }
 
 /// Keys
