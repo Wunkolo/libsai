@@ -157,10 +157,14 @@ std::streambuf::pos_type ifstreambuf::seekoff(
 			Offset,
 			Direction
 		);
-		Prefetch(
+		if(
+			Prefetch(
 			FileIn.tellg() / VirtualPage::PageSize,
 			&Buffer
-		);
+			) == false )
+		{
+			return std::streampos(std::streamoff(-1));
+		}
 
 		setg(
 			reinterpret_cast<char*>(Buffer.u8),
@@ -181,10 +185,14 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 		FileIn.seekg(
 			Position
 		);
-		Prefetch(
+		if(
+			Prefetch(
 			FileIn.tellg() / VirtualPage::PageSize,
 			&Buffer
-		);
+			) == false )
+		{
+			return std::streampos(std::streamoff(-1));
+		}
 		setg(
 			reinterpret_cast<char*>(Buffer.u8),
 			reinterpret_cast<char*>(Buffer.u8) + FileIn.tellg() % VirtualPage::PageSize,
@@ -194,7 +202,7 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 	return FileIn.tellg();
 }
 
-void ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
+bool ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
 {
 	if( PageIndex == PageCacheIndex || PageIndex == TableCacheIndex )
 	{
@@ -237,6 +245,13 @@ void ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
 		PageCache.get()->DecryptData(
 			TableCache.get()->PageEntries[PageIndex % 512].Checksum
 		);
+
+		if( PageCache.get()->Checksum() != TableCache.get()->PageEntries[PageIndex % 512].Checksum )
+		{
+			// Checksum mismatch, file corrupt
+			return false;
+		}
+
 		PageCacheIndex = PageIndex;
 		if( Dest != nullptr )
 		{
@@ -247,6 +262,7 @@ void ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
 			);
 		}
 	}
+	return FileIn.good();
 }
 
 /// Keys

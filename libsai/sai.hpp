@@ -111,7 +111,7 @@ private:
 
 	// Caching
 
-	void Prefetch(std::uint32_t PageIndex, VirtualPage *Dest);
+	bool Prefetch(std::uint32_t PageIndex, VirtualPage *Dest);
 
 	std::unique_ptr<VirtualPage> PageCache;
 	std::uint32_t PageCacheIndex;
