@@ -154,8 +154,25 @@ std::streambuf::pos_type ifstreambuf::seekoff(
 	std::ios_base::openmode Mode
 )
 {
+	std::streambuf::pos_type Position;
+
+	if( Direction & std::ios_base::beg )
+	{
+		Position = (CurrentPage * VirtualPage::PageSize); // Current Page
+		Position += (gptr() - egptr()); // Offset within page
+		Position += Offset;
+	}
+	if( Direction & std::ios_base::cur )
+	{
+		Position = Offset;
+	}
+	if( Direction & std::ios_base::end )
+	{
+		Position = (PageCount * VirtualPage::PageSize) + Offset;
+	}
+
 	return seekpos(
-		(CurrentPage * VirtualPage::PageSize) + (gptr() - egptr())
+		Position
 	);
 }
 
