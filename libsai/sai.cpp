@@ -134,9 +134,13 @@ std::streambuf::int_type ifstreambuf::underflow()
 	if( gptr() == egptr() )
 	{
 		// buffer depleated, get next block
-		seekpos(
+		if( seekpos(
 			FileIn.tellg() + std::streamoff(1)
-		);
+			) == std::streampos(std::streamoff(-1)) )
+		{
+			// Seek position error
+			return traits_type::eof();
+		}
 	}
 
 	if( FileIn.eof() )
