@@ -73,7 +73,7 @@ ifstreambuf::ifstreambuf(const std::uint32_t *Key)
 	TableCache = std::make_unique<VirtualPage>();
 }
 
-ifstreambuf* ifstreambuf::open(const char *Name, std::ios_base::openmode Mode)
+ifstreambuf* ifstreambuf::open(const char *Name)
 {
 	if( is_open() == true )
 	{
@@ -82,7 +82,7 @@ ifstreambuf* ifstreambuf::open(const char *Name, std::ios_base::openmode Mode)
 
 	FileIn.open(
 		Name,
-		Mode | std::ios_base::binary | std::ios_base::ate
+		std::ios_base::binary | std::ios_base::ate
 	);
 
 	if( FileIn.is_open() == false )
@@ -102,23 +102,9 @@ ifstreambuf* ifstreambuf::open(const char *Name, std::ios_base::openmode Mode)
 
 	BlockCount = FileSize / VirtualPage::PageSize;
 
-	if( Mode & std::ios_base::ate )
-	{
-		FileIn.seekg(
-			0,
-			std::ios::end
-		);
-	}
-	else
-	{
-		FileIn.seekg(
-			0,
-			std::ios::beg
-		);
-		seekpos(
-			FileIn.tellg()
-		);
-	}
+	seekpos(
+		0
+	);
 
 	return this;
 }
@@ -187,6 +173,7 @@ std::streambuf::pos_type ifstreambuf::seekoff(
 			reinterpret_cast<char*>(Buffer.u8) + VirtualPage::PageSize
 		);
 	}
+	FileIn.seekg(Offset);
 	return FileIn.tellg();
 }
 
@@ -211,6 +198,7 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 			reinterpret_cast<char*>(Buffer.u8) + VirtualPage::PageSize
 		);
 	}
+	FileIn.seekg(Position);
 	return FileIn.tellg();
 }
 

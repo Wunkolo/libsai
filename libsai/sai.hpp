@@ -82,8 +82,7 @@ public:
 
 	// Adhere similarly to std::basic_filebuf
 	ifstreambuf* open(
-		const char *Name,
-		std::ios_base::openmode Mode
+		const char *Name
 	);
 	ifstreambuf* close();
 	bool is_open() const;
