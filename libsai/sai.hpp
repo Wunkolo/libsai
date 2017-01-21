@@ -37,15 +37,17 @@ union VirtualPage
 	static const std::size_t PageSize = 0x1000;
 
 	// Data
-	std::uint8_t u8[4096];
-	std::uint32_t u32[1024];
+	std::uint8_t u8[PageSize];
+	std::int8_t i8[PageSize];
+	std::uint32_t u32[PageSize / sizeof(std::uint32_t)];
+	std::int32_t i32[PageSize / sizeof(std::int32_t)];
 
 	// Page Table entries
 	struct PageEntry
 	{
 		std::uint32_t Checksum;
 		std::uint32_t Flags;
-	} PageEntries[512];
+	} PageEntries[PageSize / sizeof(PageEntry)];
 
 	void DecryptTable(std::uint32_t PageIndex);
 	void DecryptData(std::uint32_t PageChecksum);
