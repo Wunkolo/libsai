@@ -93,11 +93,11 @@ public:
 	virtual std::streambuf::pos_type seekoff(
 		std::streambuf::off_type Offset,
 		std::ios_base::seekdir Direction,
-		std::ios_base::openmode Mode = std::ios_base::in | std::ios_base::out
+		std::ios_base::openmode Mode = std::ios_base::in
 	) override;
 	virtual std::streambuf::pos_type seekpos(
 		std::streambuf::pos_type Position,
-		std::ios_base::openmode Mode = std::ios_base::in | std::ios_base::out
+		std::ios_base::openmode Mode = std::ios_base::in
 	) override;
 private:
 	std::ifstream FileIn;
