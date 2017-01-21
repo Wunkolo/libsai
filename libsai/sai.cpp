@@ -188,7 +188,7 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 		if( CurrentPage < PageCount )
 		{
 			if(
-				Prefetch(
+				FetchPage(
 				CurrentPage,
 				&Buffer
 				)
@@ -211,7 +211,7 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 	return std::streampos(std::streamoff(-1));
 }
 
-bool ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
+bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage *Dest)
 {
 	if( FileIn.fail() )
 	{
@@ -277,7 +277,7 @@ bool ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
 		const std::uint32_t NearestTable
 			= (PageIndex / VirtualPage::TableSpan) * VirtualPage::TableSpan;
 
-		if( Prefetch(NearestTable, nullptr) == false )
+		if( FetchPage(NearestTable, nullptr) == false )
 		{
 			// Failed to fetch table
 			return false;
