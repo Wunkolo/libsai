@@ -102,14 +102,23 @@ ifstreambuf* ifstreambuf::open(const char *Name, std::ios_base::openmode Mode)
 
 	BlockCount = FileSize / VirtualPage::PageSize;
 
-	FileIn.seekg(
-		0,
-		(Mode & std::ios_base::ate) ? std::ios::end : std::ios::beg
-	);
-
-	seekpos(
-		FileIn.tellg()
-	);
+	if( Mode & std::ios_base::ate )
+	{
+		FileIn.seekg(
+			0,
+			std::ios::end
+		);
+	}
+	else
+	{
+		FileIn.seekg(
+			0,
+			std::ios::beg
+		);
+		seekpos(
+			FileIn.tellg()
+		);
+	}
 
 	return this;
 }
@@ -188,12 +197,9 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 {
 	if( Mode & std::ios_base::in )
 	{
-		FileIn.seekg(
-			Position
-		);
 		if(
 			Prefetch(
-			FileIn.tellg() / VirtualPage::PageSize,
+			Position / VirtualPage::PageSize,
 			&Buffer
 			) == false )
 		{
@@ -201,7 +207,7 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 		}
 		setg(
 			reinterpret_cast<char*>(Buffer.u8),
-			reinterpret_cast<char*>(Buffer.u8) + FileIn.tellg() % VirtualPage::PageSize,
+			reinterpret_cast<char*>(Buffer.u8) + Position % VirtualPage::PageSize,
 			reinterpret_cast<char*>(Buffer.u8) + VirtualPage::PageSize
 		);
 	}
@@ -210,12 +216,27 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 
 bool ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
 {
-	if( PageIndex == PageCacheIndex || PageIndex == TableCacheIndex )
+	if( FileIn.fail() )
 	{
-		// Already in cache
+		return false;
 	}
+
 	if( PageIndex % 512 == 0 ) // Table Block
 	{
+		if( PageIndex == TableCacheIndex )
+		{
+			// Cache Hit
+			if( Dest != nullptr )
+			{
+				std::memcpy(
+					Dest,
+					TableCache.get(),
+					VirtualPage::PageSize
+				);
+			}
+			return true;
+		}
+
 		FileIn.seekg(
 			PageIndex * VirtualPage::PageSize,
 			std::ios_base::beg
@@ -224,7 +245,7 @@ bool ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
 			reinterpret_cast<char*>(TableCache.get()),
 			VirtualPage::PageSize
 		);
-		if( !FileIn.good() )
+		if( FileIn.fail() )
 		{
 			return false;
 		}
@@ -241,9 +262,26 @@ bool ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
 	}
 	else // Data Block
 	{
+		if( PageIndex == PageCacheIndex )
+		{
+			// Cache Hit
+			if( Dest != nullptr )
+			{
+				std::memcpy(
+					Dest,
+					PageCache.get(),
+					VirtualPage::PageSize
+				);
+			}
+			return true;
+		}
 		// Prefetch nearest table
 		// Ensure it is in the cache
-		Prefetch(PageIndex & ~(0x1FF), nullptr);
+		if( Prefetch(PageIndex & ~(0x1FF), nullptr) == false )
+		{
+			// Failed to fetch table
+			return false;
+		}
 		FileIn.seekg(
 			PageIndex * VirtualPage::PageSize,
 			std::ios_base::beg
@@ -252,7 +290,7 @@ bool ifstreambuf::Prefetch(std::uint32_t PageIndex, VirtualPage *Dest)
 			reinterpret_cast<char*>(PageCache.get()),
 			VirtualPage::PageSize
 		);
-		if( !FileIn.good() )
+		if( FileIn.fail() )
 		{
 			return false;
 		}
