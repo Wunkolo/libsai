@@ -122,4 +122,25 @@ private:
 	std::unique_ptr<VirtualPage> TableCache;
 	std::uint32_t TableCacheIndex;
 };
+
+class ifstream : public std::istream
+{
+public:
+	ifstream(
+		const std::string& Path
+	);
+
+	ifstream(
+		const char *Path
+	);
+
+	// Similar to ifstream member functions
+	void open(const char* FilePath);
+	void open(const std::string &FilePath);
+	bool is_open() const;
+
+	virtual ~ifstream();
+
+private:
+};
 }

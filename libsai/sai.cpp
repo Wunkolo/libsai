@@ -321,6 +321,51 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage *Dest)
 	return true;
 }
 
+/// ifstream
+ifstream::ifstream(const std::string &FilePath)
+	:
+	std::istream(new ifstreambuf())
+{
+	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
+		FilePath.c_str()
+	);
+}
+
+ifstream::ifstream(const char *FilePath)
+	:
+	std::istream(new ifstreambuf())
+{
+	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
+		FilePath
+	);
+}
+
+void ifstream::open(const char* FilePath)
+{
+	reinterpret_cast<ifstreambuf*>(rdbuf())->close();
+
+	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
+		FilePath
+	);
+}
+
+void ifstream::open(const std::string &FilePath)
+{
+	open(FilePath.c_str());
+}
+
+bool ifstream::is_open() const
+{
+	return reinterpret_cast<ifstreambuf*>(rdbuf())->is_open();
+}
+
+ifstream::~ifstream()
+{
+	if( rdbuf() )
+	{
+		delete rdbuf();
+	}
+}
 /// Keys
 namespace Keys
 {
