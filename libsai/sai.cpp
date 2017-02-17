@@ -48,6 +48,55 @@ std::uint32_t VirtualPage::Checksum()
 	return Sum | 1;
 }
 
+/// VirtualFileEntry
+VirtualFileEntry::VirtualFileEntry()
+	:
+	ReadPoint(0),
+	FATData()
+{
+
+}
+
+VirtualFileEntry::~VirtualFileEntry()
+{
+
+}
+
+VirtualFileEntry::EntryType VirtualFileEntry::GetType() const
+{
+	return FATData.Type;
+}
+
+std::time_t VirtualFileEntry::GetTimeStamp() const
+{
+	return FATData.TimeStamp / 10000000ULL - 11644473600ULL;
+}
+
+std::size_t VirtualFileEntry::GetSize() const
+{
+	return static_cast<std::size_t>(FATData.Size);
+}
+
+std::size_t VirtualFileEntry::GetPageIndex() const
+{
+	return static_cast<size_t>(FATData.PageIndex);
+}
+
+std::size_t VirtualFileEntry::Tell() const
+{
+	return ReadPoint;
+}
+
+void VirtualFileEntry::Seek(std::size_t Offset)
+{
+	ReadPoint = Offset;
+}
+
+std::size_t VirtualFileEntry::Read(void * Destination, std::size_t Size)
+{
+	return std::size_t();
+}
+
 /// ifstreambuf
 ifstreambuf::ifstreambuf(const std::uint32_t *Key)
 	:
