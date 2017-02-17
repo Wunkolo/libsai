@@ -67,6 +67,10 @@ public:
 	VirtualFileEntry();
 	~VirtualFileEntry();
 
+	// No Copy
+	VirtualFileEntry(const VirtualFileEntry&) = delete;
+	VirtualFileEntry& operator=(const VirtualFileEntry&) = delete;
+
 	const char* GetName() const;
 
 	enum class EntryType : uint8_t
