@@ -150,7 +150,7 @@ ifstreambuf* ifstreambuf::open(const char *Name)
 		return nullptr;
 	}
 
-	PageCount = FileSize / VirtualPage::PageSize;
+	PageCount = static_cast<std::uint32_t>(FileSize) / VirtualPage::PageSize;
 
 	seekpos(
 		0
@@ -232,7 +232,7 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 {
 	if( Mode & std::ios_base::in )
 	{
-		CurrentPage = Position / VirtualPage::PageSize;
+		CurrentPage = static_cast<std::uint32_t>(Position) / VirtualPage::PageSize;
 
 		if( CurrentPage < PageCount )
 		{
