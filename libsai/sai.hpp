@@ -61,71 +61,6 @@ union VirtualPage
 };
 #pragma pack(pop)
 
-class VirtualFileEntry
-{
-public:
-	VirtualFileEntry();
-	~VirtualFileEntry();
-
-	// No Copy
-	VirtualFileEntry(const VirtualFileEntry&) = delete;
-	VirtualFileEntry& operator=(const VirtualFileEntry&) = delete;
-
-	const char* GetName() const;
-
-	enum class EntryType : uint8_t
-	{
-		Folder = 0x10,
-		File = 0x80
-	};
-
-	EntryType GetType() const;
-	std::time_t GetTimeStamp() const;
-	std::size_t GetSize() const;
-	std::size_t GetPageIndex() const;
-
-	std::size_t Tell() const;
-	void Seek(std::size_t Offset);
-
-	std::size_t Read(void *Destination, std::size_t Size);
-
-	template< typename T >
-	inline std::size_t Read(T &Destination)
-	{
-		return Read(&Destination, sizeof(T));
-	}
-
-	template< typename T >
-	inline T Read()
-	{
-		T temp;
-		Read(&temp, sizeof(T));
-		return temp;
-	}
-
-private:
-
-	std::size_t ReadPoint;
-
-	// Actual structure within VFS
-#pragma pack(push, 1)
-	struct FATEntry
-	{
-		uint32_t Flags;
-		char Name[32];
-		uint8_t Pad1;
-		uint8_t Pad2;
-		EntryType Type;
-		uint8_t Pad4;
-		uint32_t PageIndex;
-		uint32_t Size;
-		uint64_t TimeStamp; // Windows FILETIME
-		uint64_t UnknownB;
-	} FATData;
-#pragma pack(pop)
-
-};
-
 /*
 Symmetric keys for decrupting and encrypting the virtual file system
 */
@@ -209,4 +144,89 @@ public:
 
 private:
 };
+
+class VirtualFileEntry
+{
+public:
+	VirtualFileEntry();
+	~VirtualFileEntry();
+
+	// No Copy
+	VirtualFileEntry(const VirtualFileEntry&) = delete;
+	VirtualFileEntry& operator=(const VirtualFileEntry&) = delete;
+
+	const char* GetName() const;
+
+	enum class EntryType : uint8_t
+	{
+		Folder = 0x10,
+		File = 0x80
+	};
+
+	EntryType GetType() const;
+	std::time_t GetTimeStamp() const;
+	std::size_t GetSize() const;
+	std::size_t GetPageIndex() const;
+
+	std::size_t Tell() const;
+	void Seek(std::size_t Offset);
+
+	std::size_t Read(void *Destination, std::size_t Size);
+
+	template< typename T >
+	inline std::size_t Read(T &Destination)
+	{
+		return Read(&Destination, sizeof(T));
+	}
+
+	template< typename T >
+	inline T Read()
+	{
+		T temp;
+		Read(&temp, sizeof(T));
+		return temp;
+	}
+
+private:
+
+	std::weak_ptr<class VirtualFileSystem> FileSystem;
+
+	std::size_t ReadPoint;
+
+	// Actual structure within VFS
+#pragma pack(push, 1)
+	struct FATEntry
+	{
+		uint32_t Flags;
+		char Name[32];
+		uint8_t Pad1;
+		uint8_t Pad2;
+		EntryType Type;
+		uint8_t Pad4;
+		uint32_t PageIndex;
+		uint32_t Size;
+		uint64_t TimeStamp; // Windows FILETIME
+		uint64_t UnknownB;
+	} FATData;
+#pragma pack(pop)
+
+};
+
+class VirtualFileSystem : std::enable_shared_from_this<VirtualFileSystem>
+{
+public:
+	VirtualFileSystem(const char* FileName);
+	~VirtualFileSystem();
+
+	// No Copy
+	VirtualFileSystem(const VirtualFileSystem&) = delete;
+	VirtualFileSystem& operator=(const VirtualFileSystem&) = delete;
+
+	bool IsOpen() const;
+
+	bool Exists(const char* Path);
+	
+	VirtualFileEntry GetEntry(const char* Path);
+};
+
 }
