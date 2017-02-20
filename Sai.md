@@ -561,9 +561,8 @@ Parent Set id. If this layer is a child of a folder this will be a layer identif
 uint32_t ParentLayer;
 ```
 - `lmfl`
-
 ```cpp
-uint32_t Unknown0;
+uint32_t Unknown0; // Bitflag 
 ```
 
 - `fopn`
@@ -576,7 +575,7 @@ uint8_t Open;
 
 - `texn`
 ```cpp
-uint8_t Unknown0[64];
+uint8_t Unknown0[64]; // UTF16 string
 ```
 
 - `texp`
