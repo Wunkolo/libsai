@@ -30,10 +30,10 @@ void VirtualPage::DecryptData(std::uint32_t PageChecksum)
 		u32[i] =
 			CurCipher
 			- (PageChecksum ^ (
-			Keys::User[PageChecksum & 0xFF]
-			+ Keys::User[(PageChecksum >> 8) & 0xFF]
-			+ Keys::User[(PageChecksum >> 16) & 0xFF]
-			+ Keys::User[(PageChecksum >> 24) & 0xFF]));
+				Keys::User[PageChecksum & 0xFF]
+				+ Keys::User[(PageChecksum >> 8) & 0xFF]
+				+ Keys::User[(PageChecksum >> 16) & 0xFF]
+				+ Keys::User[(PageChecksum >> 24) & 0xFF]));
 		PageChecksum = CurCipher;
 	}
 }
@@ -137,7 +137,7 @@ std::streambuf::int_type ifstreambuf::underflow()
 		// buffer depleated, get next block
 		if( seekpos(
 			(CurrentPage + 1) * VirtualPage::PageSize
-			) == std::streampos(std::streamoff(-1))
+		) == std::streampos(std::streamoff(-1))
 			)
 		{
 			// Seek position error
@@ -189,8 +189,8 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 		{
 			if(
 				FetchPage(
-				CurrentPage,
-				&Buffer
+					CurrentPage,
+					&Buffer
 				)
 				)
 			{
@@ -367,18 +367,60 @@ ifstream::~ifstream()
 	}
 }
 
+/// Virtual File System
+
+VirtualFileSystem::VirtualFileSystem(const char* FileName)
+	:
+	SaiStream(FileName)
+{
+}
+
+VirtualFileSystem::~VirtualFileSystem()
+{
+}
+
+bool VirtualFileSystem::IsOpen() const
+{
+	return SaiStream.is_open();
+}
+
+bool VirtualFileSystem::Exists(const char* Path)
+{
+	return false;
+}
+
+VirtualFileEntry* VirtualFileSystem::GetEntry(const char* Path)
+{
+	VirtualFileEntry* Entry = new VirtualFileEntry();
+
+	Entry->FileSystem = shared_from_this();
+
+	return nullptr;
+}
+
+std::size_t VirtualFileSystem::Read(
+	std::size_t Offset,
+	void* Destination,
+	std::size_t Size)
+{
+	SaiStream.seekg(Offset);
+	SaiStream.read(
+		reinterpret_cast<char*>(Destination),
+		Size
+	);
+	return Size;
+}
+
 /// VirtualFileEntry
 VirtualFileEntry::VirtualFileEntry()
 	:
 	ReadPoint(0),
 	FATData()
 {
-
 }
 
 VirtualFileEntry::~VirtualFileEntry()
 {
-
 }
 
 VirtualFileEntry::EntryType VirtualFileEntry::GetType() const

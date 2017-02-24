@@ -145,10 +145,45 @@ public:
 private:
 };
 
+class VirtualFileSystem : std::enable_shared_from_this<VirtualFileSystem>
+{
+public:
+	VirtualFileSystem(const char* FileName);
+	~VirtualFileSystem();
+
+	// No Copy
+	VirtualFileSystem(const VirtualFileSystem&) = delete;
+	VirtualFileSystem& operator=(const VirtualFileSystem&) = delete;
+
+	bool IsOpen() const;
+
+	bool Exists(const char* Path);
+
+	class VirtualFileEntry* GetEntry(const char* Path);
+
+	std::size_t Read(
+		std::size_t Offset,
+		void* Destination,
+		std::size_t Size);
+
+	template< typename T >
+	inline std::size_t Read(std::size_t Offset, T& Destination)
+	{
+		return Read(
+			Offset,
+			&Destination,
+			sizeof(T)
+		);
+	}
+
+private:
+
+	ifstream SaiStream;
+};
+
 class VirtualFileEntry
 {
 public:
-	VirtualFileEntry();
 	~VirtualFileEntry();
 
 	// No Copy
@@ -171,10 +206,10 @@ public:
 	std::size_t Tell() const;
 	void Seek(std::size_t Offset);
 
-	std::size_t Read(void *Destination, std::size_t Size);
+	std::size_t Read(void* Destination, std::size_t Size);
 
 	template< typename T >
-	inline std::size_t Read(T &Destination)
+	inline std::size_t Read(T& Destination)
 	{
 		return Read(&Destination, sizeof(T));
 	}
@@ -188,8 +223,15 @@ public:
 	}
 
 private:
+	// Only friends with "GetEntry"
+	friend VirtualFileEntry* VirtualFileSystem::GetEntry(
+		const char* Path
+	);
 
-	std::weak_ptr<class VirtualFileSystem> FileSystem;
+	// Can only be created within "GetEntry" factory method
+	VirtualFileEntry();
+
+	std::weak_ptr<VirtualFileSystem> FileSystem;
 
 	std::size_t ReadPoint;
 
@@ -209,24 +251,5 @@ private:
 		uint64_t UnknownB;
 	} FATData;
 #pragma pack(pop)
-
 };
-
-class VirtualFileSystem : std::enable_shared_from_this<VirtualFileSystem>
-{
-public:
-	VirtualFileSystem(const char* FileName);
-	~VirtualFileSystem();
-
-	// No Copy
-	VirtualFileSystem(const VirtualFileSystem&) = delete;
-	VirtualFileSystem& operator=(const VirtualFileSystem&) = delete;
-
-	bool IsOpen() const;
-
-	bool Exists(const char* Path);
-	
-	VirtualFileEntry GetEntry(const char* Path);
-};
-
 }
