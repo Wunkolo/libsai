@@ -33,6 +33,27 @@ LICENSE
 namespace sai
 {
 #pragma pack(push, 1)
+
+struct FATEntry
+{
+	enum class EntryType : uint8_t
+	{
+		Folder = 0x10,
+		File = 0x80
+	};
+
+	uint32_t Flags;
+	char Name[32];
+	uint8_t Pad1;
+	uint8_t Pad2;
+	EntryType Type;
+	uint8_t Pad4;
+	uint32_t PageIndex;
+	uint32_t Size;
+	uint64_t TimeStamp; // Windows FILETIME
+	uint64_t UnknownB;
+};
+
 union VirtualPage
 {
 	static constexpr std::size_t PageSize = 0x1000;
@@ -54,11 +75,15 @@ union VirtualPage
 	void DecryptTable(std::uint32_t PageIndex);
 	void DecryptData(std::uint32_t PageChecksum);
 
+	// FAT Table Entries
+	FATEntry FATEntries[64];
+
 	/*
 	To checksum a table be sure to do "u32[0] = 0" first
 	*/
 	std::uint32_t Checksum();
 };
+
 #pragma pack(pop)
 
 /*
@@ -145,7 +170,39 @@ public:
 private:
 };
 
-class VirtualFileSystem : std::enable_shared_from_this<VirtualFileSystem>
+// Forward declarations
+
+class VirtualFileEntry;
+class VirtualFileSystem;
+
+// Visitors
+
+class VirtualFileVisitor
+{
+public:
+	virtual ~VirtualFileVisitor()
+	{
+	}
+
+	// Return false to stop iteration
+
+	virtual bool VisitFolderBegin(VirtualFileEntry& Entry)
+	{
+		return true;
+	};
+
+	virtual bool VisitFolderEnd(VirtualFileEntry& Entry)
+	{
+		return true;
+	};
+
+	virtual bool VisitFile(VirtualFileEntry& Entry)
+	{
+		return true;
+	};
+};
+
+class VirtualFileSystem
 {
 public:
 	VirtualFileSystem(const char* FileName);
@@ -159,7 +216,7 @@ public:
 
 	bool Exists(const char* Path);
 
-	class VirtualFileEntry* GetEntry(const char* Path);
+	VirtualFileEntry* GetEntry(const char* Path);
 
 	std::size_t Read(
 		std::size_t Offset,
@@ -176,9 +233,16 @@ public:
 		);
 	}
 
+	void IterateFileSystem(VirtualFileVisitor& Visitor);
+
 private:
 
-	ifstream SaiStream;
+	void IterateFATBlock(
+		std::size_t Index,
+		VirtualFileVisitor& Visitor
+	);
+
+	std::shared_ptr<ifstream> SaiStream;
 };
 
 class VirtualFileEntry
@@ -192,13 +256,7 @@ public:
 
 	const char* GetName() const;
 
-	enum class EntryType : uint8_t
-	{
-		Folder = 0x10,
-		File = 0x80
-	};
-
-	EntryType GetType() const;
+	FATEntry::EntryType GetType() const;
 	std::time_t GetTimeStamp() const;
 	std::size_t GetSize() const;
 	std::size_t GetPageIndex() const;
@@ -223,33 +281,14 @@ public:
 	}
 
 private:
-	// Only friends with "GetEntry"
-	friend VirtualFileEntry* VirtualFileSystem::GetEntry(
-		const char* Path
-	);
+	friend VirtualFileSystem;
 
-	// Can only be created within "GetEntry" factory method
 	VirtualFileEntry();
 
-	std::weak_ptr<VirtualFileSystem> FileSystem;
+	std::weak_ptr<ifstream> FileSystem;
 
 	std::size_t ReadPoint;
 
-	// Actual structure within VFS
-#pragma pack(push, 1)
-	struct FATEntry
-	{
-		uint32_t Flags;
-		char Name[32];
-		uint8_t Pad1;
-		uint8_t Pad2;
-		EntryType Type;
-		uint8_t Pad4;
-		uint32_t PageIndex;
-		uint32_t Size;
-		uint64_t TimeStamp; // Windows FILETIME
-		uint64_t UnknownB;
-	} FATData;
-#pragma pack(pop)
+	FATEntry FATData;
 };
 }

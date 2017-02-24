@@ -371,7 +371,7 @@ ifstream::~ifstream()
 
 VirtualFileSystem::VirtualFileSystem(const char* FileName)
 	:
-	SaiStream(FileName)
+	SaiStream(std::make_shared<ifstream>(FileName))
 {
 }
 
@@ -381,7 +381,7 @@ VirtualFileSystem::~VirtualFileSystem()
 
 bool VirtualFileSystem::IsOpen() const
 {
-	return SaiStream.is_open();
+	return SaiStream->is_open();
 }
 
 bool VirtualFileSystem::Exists(const char* Path)
@@ -393,7 +393,7 @@ VirtualFileEntry* VirtualFileSystem::GetEntry(const char* Path)
 {
 	VirtualFileEntry* Entry = new VirtualFileEntry();
 
-	Entry->FileSystem = shared_from_this();
+	Entry->FileSystem = SaiStream;
 
 	return nullptr;
 }
@@ -403,12 +403,57 @@ std::size_t VirtualFileSystem::Read(
 	void* Destination,
 	std::size_t Size)
 {
-	SaiStream.seekg(Offset);
-	SaiStream.read(
+	SaiStream->seekg(Offset);
+	SaiStream->read(
 		reinterpret_cast<char*>(Destination),
 		Size
 	);
 	return Size;
+}
+
+void VirtualFileSystem::IterateFileSystem(VirtualFileVisitor& Visitor)
+{
+	IterateFATBlock(
+		2,
+		Visitor
+	);
+}
+
+void VirtualFileSystem::IterateFATBlock(
+	std::size_t PageIndex,
+	VirtualFileVisitor& Visitor
+)
+{
+	VirtualPage CurPage;
+	Read(
+		PageIndex * VirtualPage::PageSize,
+		CurPage
+	);
+
+	for( std::size_t i = 0; CurPage.FATEntries[i].Flags; i++ )
+	{
+		VirtualFileEntry CurEntry;
+		CurEntry.FATData = CurPage.FATEntries[i];
+		CurEntry.FileSystem = SaiStream;
+		switch( CurEntry.GetType() )
+		{
+		case FATEntry::EntryType::File:
+		{
+			Visitor.VisitFile(CurEntry);
+			break;
+		}
+		case FATEntry::EntryType::Folder:
+		{
+			Visitor.VisitFolderBegin(CurEntry);
+			IterateFATBlock(
+				CurEntry.GetPageIndex(),
+				Visitor
+			);
+			Visitor.VisitFolderEnd(CurEntry);
+			break;
+		}
+		}
+	}
 }
 
 /// VirtualFileEntry
@@ -423,7 +468,12 @@ VirtualFileEntry::~VirtualFileEntry()
 {
 }
 
-VirtualFileEntry::EntryType VirtualFileEntry::GetType() const
+const char* VirtualFileEntry::GetName() const
+{
+	return FATData.Name;
+}
+
+FATEntry::EntryType VirtualFileEntry::GetType() const
 {
 	return FATData.Type;
 }
