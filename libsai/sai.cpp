@@ -386,14 +386,53 @@ bool VirtualFileSystem::IsOpen() const
 
 bool VirtualFileSystem::Exists(const char* Path)
 {
-	return false;
+	return static_cast<bool>(GetEntry(Path));
 }
 
-VirtualFileEntry* VirtualFileSystem::GetEntry(const char* Path)
+std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 {
-	VirtualFileEntry* Entry = new VirtualFileEntry();
+	VirtualPage CurPage;
+	Read(
+		2 * VirtualPage::PageSize,
+		CurPage
+	);
 
-	Entry->FileSystem = SaiStream;
+	std::string CurPath(Path);
+	constexpr char* PathDelim = "./";
+
+	const char* CurToken = std::strtok(&CurPath[0], PathDelim);
+
+	std::size_t CurEntry = 0;
+
+	while( CurEntry < 64 && CurPage.FATEntries[CurEntry].Flags && CurToken )
+	{
+		if( std::strcmp(CurToken, CurPage.FATEntries[CurEntry].Name) == 0 )
+		{
+			// Match
+			if( (CurToken = std::strtok(nullptr, PathDelim)) == nullptr )
+			{
+				// No more tokens, done
+				std::unique_ptr<VirtualFileEntry> Entry(new VirtualFileEntry());
+
+				Entry->FATData = CurPage.FATEntries[CurEntry];
+				Entry->FileSystem = SaiStream;
+				return Entry;
+			}
+			// Try to go further
+			if( CurPage.FATEntries[CurEntry].Type != FATEntry::EntryType::Folder )
+			{
+				// Part of the path was not a folder, cant go further
+				return nullptr;
+			}
+			Read(
+				CurPage.FATEntries[CurEntry].PageIndex * VirtualPage::PageSize,
+				CurPage
+			);
+			CurEntry = 0;
+			continue;
+		}
+		CurEntry++;
+	}
 
 	return nullptr;
 }

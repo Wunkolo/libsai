@@ -216,7 +216,7 @@ public:
 
 	bool Exists(const char* Path);
 
-	VirtualFileEntry* GetEntry(const char* Path);
+	std::unique_ptr<VirtualFileEntry> GetEntry(const char* Path);
 
 	std::size_t Read(
 		std::size_t Offset,
