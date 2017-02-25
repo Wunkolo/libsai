@@ -1,5 +1,7 @@
 #include "sai.hpp"
+
 #include <fstream>
+#include <algorithm>
 
 namespace sai
 {
@@ -544,7 +546,20 @@ void VirtualFileEntry::Seek(std::size_t Offset)
 
 std::size_t VirtualFileEntry::Read(void * Destination, std::size_t Size)
 {
-	return std::size_t();
+	const std::size_t NormalizedSize
+		= std::min<std::size_t>((ReadPoint + Size) - GetSize(), Size);
+
+	if( auto SaiStream = FileSystem.lock() )
+	{
+		SaiStream->seekg(ReadPoint + (FATData.PageIndex * VirtualPage::PageSize));
+		ReadPoint += NormalizedSize;
+		SaiStream->read(
+			reinterpret_cast<char*>(Destination),
+			NormalizedSize
+		);
+		return NormalizedSize;
+	}
+	return 0;
 }
 
 /// Keys
