@@ -531,7 +531,7 @@ std::size_t VirtualFileEntry::GetSize() const
 
 std::size_t VirtualFileEntry::GetPageIndex() const
 {
-	return static_cast<size_t>(FATData.PageIndex);
+	return static_cast<std::size_t>(FATData.PageIndex);
 }
 
 std::size_t VirtualFileEntry::Tell() const
