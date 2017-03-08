@@ -541,18 +541,14 @@ void VirtualFileEntry::Seek(std::size_t Offset)
 
 std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 {
-	const std::size_t NormalizedSize
-		= std::min<std::size_t>((ReadPoint + Size) - GetSize(), Size);
-
 	if( auto SaiStream = FileSystem.lock() )
 	{
 		SaiStream->seekg(ReadPoint + (FATData.PageIndex * VirtualPage::PageSize));
-		ReadPoint += NormalizedSize;
 		SaiStream->read(
 			reinterpret_cast<char*>(Destination),
-			NormalizedSize
+			Size
 		);
-		return NormalizedSize;
+		return Size;
 	}
 	return 0;
 }
