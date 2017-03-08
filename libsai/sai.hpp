@@ -36,22 +36,22 @@ namespace sai
 
 struct FATEntry
 {
-	enum class EntryType : uint8_t
+	enum class EntryType : std::uint8_t
 	{
 		Folder = 0x10,
 		File = 0x80
 	};
 
-	uint32_t Flags;
+	std::uint32_t Flags;
 	char Name[32];
-	uint8_t Pad1;
-	uint8_t Pad2;
+	std::uint8_t Pad1;
+	std::uint8_t Pad2;
 	EntryType Type;
 	uint8_t Pad4;
-	uint32_t PageIndex;
-	uint32_t Size;
-	uint64_t TimeStamp; // Windows FILETIME
-	uint64_t UnknownB;
+	std::uint32_t PageIndex;
+	std::uint32_t Size;
+	std::uint64_t TimeStamp; // Windows FILETIME
+	std::uint64_t UnknownB;
 };
 
 union VirtualPage
