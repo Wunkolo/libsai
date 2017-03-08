@@ -51,7 +51,7 @@ std::uint32_t VirtualPage::Checksum()
 }
 
 /// ifstreambuf
-ifstreambuf::ifstreambuf(const std::uint32_t *Key)
+ifstreambuf::ifstreambuf(const std::uint32_t* Key)
 	:
 	Key(Key),
 	CurrentPage(-1),
@@ -76,7 +76,7 @@ ifstreambuf::ifstreambuf(const std::uint32_t *Key)
 	TableCache = std::make_unique<VirtualPage>();
 }
 
-ifstreambuf* ifstreambuf::open(const char *Name)
+ifstreambuf* ifstreambuf::open(const char* Name)
 {
 	if( is_open() == true )
 	{
@@ -189,16 +189,11 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 
 		if( CurrentPage < PageCount )
 		{
-			if(
-				FetchPage(
-					CurrentPage,
-					&Buffer
-				)
-				)
+			if( FetchPage(CurrentPage, &Buffer) )
 			{
 				setg(
 					reinterpret_cast<char*>(Buffer.u8),
-					reinterpret_cast<char*>(Buffer.u8) + Position % VirtualPage::PageSize,
+					reinterpret_cast<char*>(Buffer.u8) + (Position % VirtualPage::PageSize),
 					reinterpret_cast<char*>(Buffer.u8) + VirtualPage::PageSize
 				);
 				return true;
@@ -213,7 +208,7 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 	return std::streampos(std::streamoff(-1));
 }
 
-bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage *Dest)
+bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 {
 	if( FileIn.fail() )
 	{
@@ -324,7 +319,7 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage *Dest)
 }
 
 /// ifstream
-ifstream::ifstream(const std::string &FilePath)
+ifstream::ifstream(const std::string& FilePath)
 	:
 	std::istream(new ifstreambuf())
 {
@@ -333,7 +328,7 @@ ifstream::ifstream(const std::string &FilePath)
 	);
 }
 
-ifstream::ifstream(const char *FilePath)
+ifstream::ifstream(const char* FilePath)
 	:
 	std::istream(new ifstreambuf())
 {
@@ -351,7 +346,7 @@ void ifstream::open(const char* FilePath)
 	);
 }
 
-void ifstream::open(const std::string &FilePath)
+void ifstream::open(const std::string& FilePath)
 {
 	open(FilePath.c_str());
 }
@@ -544,7 +539,7 @@ void VirtualFileEntry::Seek(std::size_t Offset)
 	ReadPoint = Offset;
 }
 
-std::size_t VirtualFileEntry::Read(void * Destination, std::size_t Size)
+std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 {
 	const std::size_t NormalizedSize
 		= std::min<std::size_t>((ReadPoint + Size) - GetSize(), Size);
