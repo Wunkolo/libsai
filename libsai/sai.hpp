@@ -29,6 +29,7 @@ LICENSE
 #include <fstream>
 #include <array>
 #include <memory>
+#include <tuple>
 
 namespace sai
 {
@@ -302,10 +303,11 @@ public:
 	SaiDocument(const SaiDocument&) = delete;
 	SaiDocument& operator=(const SaiDocument&) = delete;
 
-	std::unique_ptr<std::uint8_t[]> GetThumbnail(
-		std::uint32_t* Width,
-		std::uint32_t* Height
-	);
+	std::tuple<
+		std::unique_ptr<std::uint8_t[]>,
+		std::uint32_t,
+		std::uint32_t
+	> GetThumbnail();
 
 private:
 };

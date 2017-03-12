@@ -574,10 +574,11 @@ SaiDocument::~SaiDocument()
 {
 }
 
-std::unique_ptr<std::uint8_t[]> SaiDocument::GetThumbnail(
-	std::uint32_t* Width,
-	std::uint32_t* Height
-)
+std::tuple<
+	std::unique_ptr<std::uint8_t[]>,
+	std::uint32_t,
+	std::uint32_t
+> SaiDocument::GetThumbnail()
 {
 	if( auto Thumbnail = GetEntry("thumbnail") )
 	{
@@ -588,11 +589,8 @@ std::unique_ptr<std::uint8_t[]> SaiDocument::GetThumbnail(
 
 		if( Header.Magic != '23MB' )
 		{
-			return nullptr;
+			return std::make_tuple(nullptr, 0, 0);
 		}
-
-		*Width = Header.Width;
-		*Height = Header.Height;
 
 		const std::size_t PixelCount = Header.Height * Header.Width * sizeof(std::uint32_t);
 
@@ -612,9 +610,9 @@ std::unique_ptr<std::uint8_t[]> SaiDocument::GetThumbnail(
 			std::swap<std::uint8_t>(Pixels[i], Pixels[i + 2]);
 		}
 
-		return Pixels;
+		return std::make_tuple(std::move(Pixels), Header.Width, Header.Height);
 	}
-	return nullptr;
+	return std::make_tuple(nullptr, 0, 0);
 }
 
 /// Keys
