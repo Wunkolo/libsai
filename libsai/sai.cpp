@@ -557,6 +557,7 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 			reinterpret_cast<char*>(Destination),
 			Size
 		);
+		ReadPoint += Size;
 		return Size;
 	}
 	return 0;
