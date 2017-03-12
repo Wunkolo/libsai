@@ -594,14 +594,23 @@ std::unique_ptr<std::uint8_t[]> SaiDocument::GetThumbnail(
 		*Width = Header.Width;
 		*Height = Header.Height;
 
+		const std::size_t PixelCount = Header.Height * Header.Width * sizeof(std::uint32_t);
+
 		std::unique_ptr<std::uint8_t[]> Pixels(
-			new std::uint8_t[Header.Width * Header.Height * 4]
+			new std::uint8_t[PixelCount * sizeof(std::uint32_t)]
 		);
 
 		Thumbnail->Read(
 			Pixels.get(),
-			Header.Width * Header.Height * 4
+			Header.Width * Header.Height * sizeof(std::uint32_t)
 		);
+
+		// BGRA to RGBA
+
+		for( std::size_t i = 0; i < PixelCount * sizeof(std::uint32_t); i += sizeof(std::uint32_t) )
+		{
+			std::swap<std::uint8_t>(Pixels[i], Pixels[i + 2]);
+		}
 
 		return Pixels;
 	}
