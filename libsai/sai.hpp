@@ -291,4 +291,22 @@ private:
 
 	FATEntry FATData;
 };
+
+class SaiDocument : public VirtualFileSystem
+{
+public:
+	SaiDocument(const char* FileName);
+	~SaiDocument();
+
+	// No Copy
+	SaiDocument(const SaiDocument&) = delete;
+	SaiDocument& operator=(const SaiDocument&) = delete;
+
+	std::unique_ptr<std::uint8_t[]> GetThumbnail(
+		std::uint32_t* Width,
+		std::uint32_t* Height
+	);
+
+private:
+};
 }

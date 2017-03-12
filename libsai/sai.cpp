@@ -5,6 +5,15 @@
 
 namespace sai
 {
+/// Internal Structures
+
+struct ThumbnailHeader
+{
+	std::uint32_t Width;
+	std::uint32_t Height;
+	std::uint32_t Magic;
+};
+
 /// VirtualPage
 void VirtualPage::DecryptTable(std::uint32_t PageIndex)
 {
@@ -551,6 +560,51 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 		return Size;
 	}
 	return 0;
+}
+
+/// SaiDocument
+SaiDocument::SaiDocument(const char * FileName)
+	:
+	VirtualFileSystem(FileName)
+{
+}
+
+SaiDocument::~SaiDocument()
+{
+}
+
+std::unique_ptr<std::uint8_t[]> SaiDocument::GetThumbnail(
+	std::uint32_t* Width,
+	std::uint32_t* Height
+)
+{
+	if( auto Thumbnail = GetEntry("thumbnail") )
+	{
+		ThumbnailHeader Header;
+		Thumbnail->Read(Header.Width);
+		Thumbnail->Read(Header.Height);
+		Thumbnail->Read(Header.Magic);
+
+		if( Header.Magic != '23MB' )
+		{
+			return nullptr;
+		}
+
+		*Width = Header.Width;
+		*Height = Header.Height;
+
+		std::unique_ptr<std::uint8_t[]> Pixels(
+			new std::uint8_t[Header.Width * Header.Height * 4]
+		);
+
+		Thumbnail->Read(
+			Pixels.get(),
+			Header.Width * Header.Height * 4
+		);
+
+		return Pixels;
+	}
+	return nullptr;
 }
 
 /// Keys
