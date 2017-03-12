@@ -592,7 +592,7 @@ std::tuple<
 			return std::make_tuple(nullptr, 0, 0);
 		}
 
-		const std::size_t PixelCount = Header.Height * Header.Width * sizeof(std::uint32_t);
+		const std::size_t PixelCount = Header.Height * Header.Width;
 
 		std::unique_ptr<std::uint8_t[]> Pixels(
 			new std::uint8_t[PixelCount * sizeof(std::uint32_t)]
