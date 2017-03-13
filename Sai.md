@@ -455,7 +455,6 @@ uint32_t Unknown0;
 ```
 
 - `layr`
-This variable only seems to change when the user selects a layer and saves the document so I am assuming it is saving the selected layer's 32-bit identifier.
 ```cpp
 uint32_t SelectedLayerID;
 ```
