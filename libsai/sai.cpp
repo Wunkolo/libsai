@@ -621,6 +621,21 @@ Document::~Document()
 {
 }
 
+std::tuple<std::uint32_t, std::uint32_t> Document::GetCanvasSize()
+{
+	if( auto Canvas = GetEntry("canvas") )
+	{
+		std::uint32_t Alignment; // Always seems to be 0x10, bpc? Alignment?
+		std::uint32_t Width, Height;
+
+		Canvas->Read(Alignment);
+		Canvas->Read(Width);
+		Canvas->Read(Height);
+		return std::make_tuple(Width, Height);
+	}
+	return std::make_tuple(0, 0);
+}
+
 std::tuple<
 	std::unique_ptr<std::uint8_t[]>,
 	std::uint32_t,

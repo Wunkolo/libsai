@@ -303,6 +303,13 @@ public:
 	Document(const Document&) = delete;
 	Document& operator=(const Document&) = delete;
 
+	// Returns (Width, Height)
+	// Returns (0,0) if an error has occured
+	std::tuple<
+		std::uint32_t,
+		std::uint32_t
+	> GetCanvasSize();
+
 	// Returns (RGBA Pixel Data, Width, Height).
 	// Returns (null,0,0) if an error has occured.
 	std::tuple<
