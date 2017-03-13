@@ -611,13 +611,13 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 }
 
 /// SaiDocument
-SaiDocument::SaiDocument(const char * FileName)
+Document::Document(const char * FileName)
 	:
 	VirtualFileSystem(FileName)
 {
 }
 
-SaiDocument::~SaiDocument()
+Document::~Document()
 {
 }
 
@@ -625,7 +625,7 @@ std::tuple<
 	std::unique_ptr<std::uint8_t[]>,
 	std::uint32_t,
 	std::uint32_t
-> SaiDocument::GetThumbnail()
+> Document::GetThumbnail()
 {
 	if( auto Thumbnail = GetEntry("thumbnail") )
 	{

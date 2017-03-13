@@ -293,15 +293,15 @@ private:
 	FATEntry FATData;
 };
 
-class SaiDocument : public VirtualFileSystem
+class Document : public VirtualFileSystem
 {
 public:
-	SaiDocument(const char* FileName);
-	~SaiDocument();
+	Document(const char* FileName);
+	~Document();
 
 	// No Copy
-	SaiDocument(const SaiDocument&) = delete;
-	SaiDocument& operator=(const SaiDocument&) = delete;
+	Document(const Document&) = delete;
+	Document& operator=(const Document&) = delete;
 
 	// Returns (RGBA Pixel Data, Width, Height).
 	// Returns (null,0,0) if an error has occured.
