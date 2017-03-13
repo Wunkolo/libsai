@@ -436,9 +436,12 @@ After this, a `Serial Stream` with the following sub-streams:
 
 - `reso`
 ```cpp
-uint32_t Unknown0;
-uint16_t Unknown4;
-uint16_t Unknown6;
+// 16.16 fixed point integer
+uint32_t DotsPerInch;
+// 0 = pixels, 1 = inch, 2 = cm, 3 = mm
+uint16_t SizeUnits;
+// 0 = pixel/inch, 1 = pixel/cm
+uint16_t ResolutionUnits;
 ```
 
 - `lyid`
