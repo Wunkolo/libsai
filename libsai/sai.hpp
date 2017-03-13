@@ -303,6 +303,8 @@ public:
 	SaiDocument(const SaiDocument&) = delete;
 	SaiDocument& operator=(const SaiDocument&) = delete;
 
+	// Returns (RGBA Pixel Data, Width, Height).
+	// Returns (null,0,0) if an error has occured.
 	std::tuple<
 		std::unique_ptr<std::uint8_t[]>,
 		std::uint32_t,
