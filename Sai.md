@@ -444,6 +444,11 @@ uint16_t SizeUnits;
 uint16_t ResolutionUnits;
 ```
 
+- `wsrc`
+```cpp
+uint32_t Unknown0;
+```
+
 - `lyid`
 ```cpp
 uint32_t Unknown0; 
