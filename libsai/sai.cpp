@@ -10,12 +10,55 @@ namespace sai
 /// Internal Structures
 
 #pragma pack(push, 1)
+
 struct ThumbnailHeader
 {
 	std::uint32_t Width;
 	std::uint32_t Height;
 	std::uint32_t Magic; // BM32
 };
+
+enum class LayerClass
+{
+	RootLayer = 0x00, // Parent Canvas layer object
+	Layer = 0x03,
+	Unknown4 = 0x4,
+	Linework = 0x05,
+	Mask = 0x06,
+	Unknown7 = 0x07,
+	Set = 0x08
+};
+
+struct LayerReference
+{
+	std::uint32_t Identifier;
+	std::uint16_t LayerClass;
+	// These all get added and sent as a windows message 0x80CA for some reason
+	std::uint16_t Unknown;
+};
+
+struct LayerBounds
+{
+	std::int32_t X; // (X / 32) * 32
+	std::int32_t Y; // (Y / 32) * 32
+	std::uint32_t Width; // Width - 31
+	std::uint32_t Height; // Height - 31
+};
+
+struct LayerHeader
+{
+	std::uint32_t LayerClass;
+	std::uint32_t Identifier;
+	LayerBounds Bounds;
+	std::uint32_t Unknown;
+	std::uint8_t Opacity;
+	std::uint8_t Visible;
+	std::uint8_t PreserveOpacity;
+	std::uint8_t Clipping;
+	std::uint8_t Unknown4;
+	std::uint32_t Blending;
+};
+
 #pragma pack(pop)
 
 /// VirtualPage
