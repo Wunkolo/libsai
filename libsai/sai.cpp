@@ -9,12 +9,14 @@ namespace sai
 {
 /// Internal Structures
 
+#pragma pack(push, 1)
 struct ThumbnailHeader
 {
 	std::uint32_t Width;
 	std::uint32_t Height;
-	std::uint32_t Magic;
+	std::uint32_t Magic; // BM32
 };
+#pragma pack(pop)
 
 /// VirtualPage
 void VirtualPage::DecryptTable(std::uint32_t PageIndex)
