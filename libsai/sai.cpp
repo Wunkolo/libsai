@@ -194,9 +194,9 @@ std::streambuf::int_type ifstreambuf::underflow()
 	{
 		// buffer depleated, get next block
 		if( seekpos(
-			(CurrentPage + 1) * VirtualPage::PageSize
-		) == std::streampos(std::streamoff(-1))
-			)
+				(CurrentPage + 1) * VirtualPage::PageSize
+			) == std::streampos(std::streamoff(-1))
+		)
 		{
 			// Seek position error
 			return traits_type::eof();
@@ -355,7 +355,7 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 			PageCache.get()->Checksum()
 			!=
 			TableCache.get()->PageEntries[PageIndex % VirtualPage::TableSpan].Checksum
-			)
+		)
 		{
 			// Checksum mismatch, file corrupt
 			return false;
@@ -418,6 +418,25 @@ ifstream::~ifstream()
 	{
 		delete rdbuf();
 	}
+}
+
+VirtualFileVisitor::~VirtualFileVisitor()
+{
+}
+
+bool VirtualFileVisitor::VisitFolderBegin(VirtualFileEntry& Entry)
+{
+	return true;
+}
+
+bool VirtualFileVisitor::VisitFolderEnd(VirtualFileEntry& Entry)
+{
+	return true;
+}
+
+bool VirtualFileVisitor::VisitFile(VirtualFileEntry& Entry)
+{
+	return true;
 }
 
 /// Virtual File System
@@ -493,7 +512,7 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 std::size_t VirtualFileSystem::Read(
 	std::size_t Offset,
 	void* Destination,
-	std::size_t Size)
+	std::size_t Size) const
 {
 	SaiStream->seekg(Offset);
 	SaiStream->read(
@@ -611,7 +630,7 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 }
 
 /// SaiDocument
-Document::Document(const char * FileName)
+Document::Document(const char* FileName)
 	:
 	VirtualFileSystem(FileName)
 {

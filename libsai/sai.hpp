@@ -24,7 +24,6 @@ LICENSE
 #pragma once
 #include <cstdint>
 #include <cstddef>
-#include <cstdio>
 #include <ctime>
 #include <fstream>
 #include <array>
@@ -48,7 +47,7 @@ struct FATEntry
 	std::uint8_t Pad1;
 	std::uint8_t Pad2;
 	EntryType Type;
-	uint8_t Pad4;
+	std::uint8_t Pad4;
 	std::uint32_t PageIndex;
 	std::uint32_t Size;
 	std::uint64_t TimeStamp; // Windows FILETIME
@@ -103,7 +102,7 @@ class ifstreambuf : public std::streambuf
 {
 public:
 	ifstreambuf(
-		const std::uint32_t *Key = Keys::User
+		const std::uint32_t* Key = Keys::User
 	);
 
 	// No copy
@@ -112,7 +111,7 @@ public:
 
 	// Adhere similarly to std::basic_filebuf
 	ifstreambuf* open(
-		const char *Name
+		const char* Name
 	);
 	ifstreambuf* close();
 	bool is_open() const;
@@ -137,11 +136,11 @@ private:
 	std::uint32_t CurrentPage;
 
 	// Decryption Key
-	const std::uint32_t *Key;
+	const std::uint32_t* Key;
 
 	// Caching
 
-	bool FetchPage(std::uint32_t PageIndex, VirtualPage *Dest);
+	bool FetchPage(std::uint32_t PageIndex, VirtualPage* Dest);
 
 	std::unique_ptr<VirtualPage> PageCache;
 	std::uint32_t PageCacheIndex;
@@ -158,12 +157,12 @@ public:
 	);
 
 	ifstream(
-		const char *Path
+		const char* Path
 	);
 
 	// Similar to ifstream member functions
 	void open(const char* FilePath);
-	void open(const std::string &FilePath);
+	void open(const std::string& FilePath);
 	bool is_open() const;
 
 	virtual ~ifstream();
@@ -181,26 +180,15 @@ class VirtualFileSystem;
 class VirtualFileVisitor
 {
 public:
-	virtual ~VirtualFileVisitor()
-	{
-	}
+	virtual ~VirtualFileVisitor();
 
 	// Return false to stop iteration
 
-	virtual bool VisitFolderBegin(VirtualFileEntry& Entry)
-	{
-		return true;
-	};
+	virtual bool VisitFolderBegin(VirtualFileEntry& Entry);;
 
-	virtual bool VisitFolderEnd(VirtualFileEntry& Entry)
-	{
-		return true;
-	};
+	virtual bool VisitFolderEnd(VirtualFileEntry& Entry);;
 
-	virtual bool VisitFile(VirtualFileEntry& Entry)
-	{
-		return true;
-	};
+	virtual bool VisitFile(VirtualFileEntry& Entry);;
 };
 
 class VirtualFileSystem
@@ -222,7 +210,7 @@ public:
 	std::size_t Read(
 		std::size_t Offset,
 		void* Destination,
-		std::size_t Size);
+		std::size_t Size) const;
 
 	template< typename T >
 	inline std::size_t Read(std::size_t Offset, T& Destination)
