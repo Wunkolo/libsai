@@ -393,7 +393,7 @@ ifstream::ifstream(const char* FilePath)
 	);
 }
 
-void ifstream::open(const char* FilePath)
+void ifstream::open(const char* FilePath) const
 {
 	reinterpret_cast<ifstreambuf*>(rdbuf())->close();
 
@@ -402,9 +402,9 @@ void ifstream::open(const char* FilePath)
 	);
 }
 
-void ifstream::open(const std::string& FilePath)
+void ifstream::open(const std::string& FilePath) const
 {
-	open(FilePath.c_str());
+	open(FilePath);
 }
 
 bool ifstream::is_open() const

@@ -161,8 +161,8 @@ public:
 	);
 
 	// Similar to ifstream member functions
-	void open(const char* FilePath);
-	void open(const std::string& FilePath);
+	void open(const char* FilePath) const;
+	void open(const std::string& FilePath) const;
 	bool is_open() const;
 
 	virtual ~ifstream();
