@@ -674,10 +674,8 @@ std::tuple<
 		}
 
 		const std::size_t PixelCount = Header.Height * Header.Width;
-
-		std::unique_ptr<std::uint8_t[]> Pixels(
-			new std::uint8_t[PixelCount * sizeof(std::uint32_t)]
-		);
+		std::unique_ptr<std::uint8_t[]> Pixels
+			= std::make_unique<std::uint8_t[]>(PixelCount * sizeof(std::uint32_t));
 
 		Thumbnail->Read(
 			Pixels.get(),
