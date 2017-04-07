@@ -404,7 +404,7 @@ void ifstream::open(const char* FilePath) const
 
 void ifstream::open(const std::string& FilePath) const
 {
-	open(FilePath);
+	open(FilePath.c_str());
 }
 
 bool ifstream::is_open() const
