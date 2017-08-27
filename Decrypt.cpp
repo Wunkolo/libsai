@@ -7,7 +7,7 @@ Sample code to decrypt any user-created .sai file
 #include <iostream>
 #include <chrono>
 #include <utility>
-#include "libsai/sai.hpp"
+#include <sai.hpp>
 
 const char* const Help =
 "Decrypt user-created .sai files:\n"
