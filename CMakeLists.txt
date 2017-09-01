@@ -32,7 +32,7 @@ add_library(
 
 add_executable(
 	Decrypt
-	Decrypt.cpp
+	samples/Decrypt.cpp
 )
 
 target_link_libraries(
