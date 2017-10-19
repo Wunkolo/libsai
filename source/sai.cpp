@@ -683,38 +683,38 @@ std::tuple<
 			PixelCount * sizeof(std::uint32_t)
 		);
 
-		// BGRA to RGBA
-		std::size_t i = 0;
+		//// BGRA to RGBA
+		//std::size_t i = 0;
 
-		// Simd speedup, four pixels at a time
-		while( i < ((PixelCount * sizeof(std::uint32_t)) & ~0xF) )
-		{
-			const __m128i Swizzle =
-				_mm_set_epi8(
-					15, 12, 13, 14,
-					11, 8, 9, 10,
-					7, 4, 5, 6,
-					3, 0, 1, 2
-				);
+		//// Simd speedup, four pixels at a time
+		//while( i < ((PixelCount * sizeof(std::uint32_t)) & ~0xF) )
+		//{
+		//	const __m128i Swizzle =
+		//		_mm_set_epi8(
+		//			15, 12, 13, 14,
+		//			11, 8, 9, 10,
+		//			7, 4, 5, 6,
+		//			3, 0, 1, 2
+		//		);
 
-			__m128i QuadPixel = _mm_loadu_si128(
-				reinterpret_cast<__m128i*>(&Pixels[i])
-			);
+		//	__m128i QuadPixel = _mm_loadu_si128(
+		//		reinterpret_cast<__m128i*>(&Pixels[i])
+		//	);
 
-			QuadPixel = _mm_shuffle_epi8(QuadPixel, Swizzle);
+		//	QuadPixel = _mm_shuffle_epi8(QuadPixel, Swizzle);
 
-			_mm_store_si128(
-				reinterpret_cast<__m128i*>(&Pixels[i]),
-				QuadPixel
-			);
+		//	_mm_store_si128(
+		//		reinterpret_cast<__m128i*>(&Pixels[i]),
+		//		QuadPixel
+		//	);
 
-			i += (sizeof(std::uint32_t) * 4);
-		}
+		//	i += (sizeof(std::uint32_t) * 4);
+		//}
 
-		for( ; i < PixelCount * sizeof(std::uint32_t); i += sizeof(std::uint32_t) )
-		{
-			std::swap<std::uint8_t>(Pixels[i], Pixels[i + 2]);
-		}
+		//for( ; i < PixelCount * sizeof(std::uint32_t); i += sizeof(std::uint32_t) )
+		//{
+		//	std::swap<std::uint8_t>(Pixels[i], Pixels[i + 2]);
+		//}
 
 		return std::make_tuple(std::move(Pixels), Header.Width, Header.Height);
 	}

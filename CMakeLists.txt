@@ -10,8 +10,6 @@ set( CMAKE_VERBOSE_MAKEFILE ON )
 set( CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
 if( MSVC )
-	add_compile_options( /Oxs )
-	add_compile_options( /arch:AVX2 )
 	add_compile_options( /W3 )
 elseif( CMAKE_COMPILER_IS_GNUCXX )
 	add_compile_options( -m64 )
@@ -24,6 +22,10 @@ endif()
 include_directories(
 	include
 )
+
+set( LIBSAI_INCLUDE_DIRS 
+    ${PROJECT_SOURCE_DIR}/include
+    CACHE INTERNAL "${PROJECT_NAME}: Include Directories" FORCE)
 
 add_library(
 	${PROJECT_NAME}
