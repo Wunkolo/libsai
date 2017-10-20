@@ -101,7 +101,7 @@ extern const std::uint32_t System[256];
 class ifstreambuf : public std::streambuf
 {
 public:
-	ifstreambuf(
+	explicit ifstreambuf(
 		const std::uint32_t* Key = Keys::User
 	);
 
@@ -152,11 +152,11 @@ private:
 class ifstream : public std::istream
 {
 public:
-	ifstream(
+	explicit ifstream(
 		const std::string& Path
 	);
 
-	ifstream(
+	explicit ifstream(
 		const char* Path
 	);
 
@@ -194,7 +194,7 @@ public:
 class VirtualFileSystem
 {
 public:
-	VirtualFileSystem(const char* FileName);
+	explicit VirtualFileSystem(const char* FileName);
 	~VirtualFileSystem();
 
 	// No Copy
@@ -284,7 +284,7 @@ private:
 class Document : public VirtualFileSystem
 {
 public:
-	Document(const char* FileName);
+	explicit Document(const char* FileName);
 	~Document();
 
 	// No Copy
