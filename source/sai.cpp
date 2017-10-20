@@ -4,8 +4,6 @@
 #include <algorithm>
 #include <cstring>
 
-#include <tmmintrin.h>
-
 namespace sai
 {
 /// Internal Structures
@@ -615,12 +613,46 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 {
 	if( std::shared_ptr<ifstream> SaiStream = FileSystem.lock() )
 	{
-		SaiStream->seekg(ReadPoint + (FATData.PageIndex * VirtualPage::PageSize));
-		SaiStream->read(
-			reinterpret_cast<char*>(Destination),
-			Size
-		);
-		ReadPoint += Size;
+		// Because this is a high-level file-level read:
+		// all table blocks must be abstracted away and "skipped"
+		// or else we will be reading table-block data as file-data
+		// this is a mess right now until I become more aware of some more sound
+		// logic to do this.
+		// What this is basically trying to do is skip reading every table block(blocks with index 0,512,1024,etc)
+		// so this would need to SKIP all byte-ranges:
+		// [0,4096],[2097152,2101248],[4194304,4198400],[TableIndex * 4096,TableIndex * 4096 + 4096]
+		// and by skipping this then file-reads will appear to be perfectly continuous.
+		// If you're reading this and have to work with this I'm so sorry.
+		//												- Wunkolo, 10/19/17
+		std::uint8_t* CurDest = reinterpret_cast<std::uint8_t*>(Destination);
+		std::size_t NextTableIndex = ((ReadPoint + (FATData.PageIndex * VirtualPage::PageSize))/VirtualPage::PageSize & ~(0x1FF)) + VirtualPage::TableSpan;
+		while( Size )
+		{
+			// Requested offset that we want to read from
+			const std::size_t CurOffset = ReadPoint + (FATData.PageIndex * VirtualPage::PageSize);
+			const std::size_t CurrentIndex = CurOffset / VirtualPage::PageSize;
+			// If we find ourselves within a table block, skip.
+			if( NextTableIndex == CurrentIndex )
+			{
+				// Align to immediately at end of current block
+				ReadPoint += VirtualPage::PageSize - (ReadPoint % VirtualPage::PageSize);
+				NextTableIndex += VirtualPage::TableSpan;
+				continue;
+			}
+			const std::size_t NextTableOffset = NextTableIndex * VirtualPage::PageSize;
+			const std::size_t CurStride = std::min<std::size_t>(
+				Size,
+				NextTableOffset - CurOffset
+			);
+			SaiStream->seekg(CurOffset);
+			SaiStream->read(
+				reinterpret_cast<char*>(CurDest),
+				CurStride
+			);
+			ReadPoint += CurStride;
+			CurDest += CurStride;
+			Size -= CurStride;
+		}
 		return Size;
 	}
 	return 0;
