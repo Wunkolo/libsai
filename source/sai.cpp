@@ -21,7 +21,8 @@ struct ThumbnailHeader
 
 enum class LayerClass
 {
-	RootLayer = 0x00, // Parent Canvas layer object
+	RootLayer = 0x00,
+	// Parent Canvas layer object
 	Layer = 0x03,
 	Unknown4 = 0x4,
 	Linework = 0x05,
@@ -68,8 +69,8 @@ void VirtualPage::DecryptTable(std::uint32_t PageIndex)
 	PageIndex &= (~0x1FF);
 	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i++ )
 	{
-		std::uint32_t CurCipher = u32[i];
-		std::uint32_t X = PageIndex ^ CurCipher ^ (
+		const std::uint32_t CurCipher = u32[i];
+		const std::uint32_t X = PageIndex ^ CurCipher ^ (
 			Keys::User[(PageIndex >> 24) & 0xFF]
 			+ Keys::User[(PageIndex >> 16) & 0xFF]
 			+ Keys::User[(PageIndex >> 8) & 0xFF]
@@ -85,7 +86,7 @@ void VirtualPage::DecryptData(std::uint32_t PageChecksum)
 {
 	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i++ )
 	{
-		std::uint32_t CurCipher = u32[i];
+		const std::uint32_t CurCipher = u32[i];
 		u32[i] =
 			CurCipher
 			- (PageChecksum ^ (
@@ -109,8 +110,7 @@ std::uint32_t VirtualPage::Checksum()
 
 /// ifstreambuf
 ifstreambuf::ifstreambuf(const std::uint32_t* Key)
-	:
-	Key(Key),
+	: Key(Key),
 	CurrentPage(-1),
 	PageCache(nullptr),
 	PageCacheIndex(-1),
@@ -151,7 +151,7 @@ ifstreambuf* ifstreambuf::open(const char* Name)
 		return nullptr;
 	}
 
-	std::ifstream::pos_type FileSize = FileIn.tellg();
+	const std::ifstream::pos_type FileSize = FileIn.tellg();
 
 	if( FileSize % VirtualPage::PageSize != 0 )
 	{
@@ -377,8 +377,7 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 
 /// ifstream
 ifstream::ifstream(const std::string& FilePath)
-	:
-	std::istream(new ifstreambuf())
+	: std::istream(new ifstreambuf())
 {
 	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
 		FilePath.c_str()
@@ -386,8 +385,7 @@ ifstream::ifstream(const std::string& FilePath)
 }
 
 ifstream::ifstream(const char* FilePath)
-	:
-	std::istream(new ifstreambuf())
+	: std::istream(new ifstreambuf())
 {
 	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
 		FilePath
@@ -443,8 +441,7 @@ bool VirtualFileVisitor::VisitFile(VirtualFileEntry& Entry)
 /// Virtual File System
 
 VirtualFileSystem::VirtualFileSystem(const char* FileName)
-	:
-	SaiStream(std::make_shared<ifstream>(FileName))
+	: SaiStream(std::make_shared<ifstream>(FileName))
 {
 }
 
@@ -570,8 +567,7 @@ void VirtualFileSystem::IterateFATBlock(
 
 /// VirtualFileEntry
 VirtualFileEntry::VirtualFileEntry()
-	:
-	ReadPoint(0),
+	: ReadPoint(0),
 	FATData()
 {
 }
@@ -617,7 +613,7 @@ void VirtualFileEntry::Seek(std::size_t Offset)
 
 std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 {
-	if( auto SaiStream = FileSystem.lock() )
+	if( std::shared_ptr<ifstream> SaiStream = FileSystem.lock() )
 	{
 		SaiStream->seekg(ReadPoint + (FATData.PageIndex * VirtualPage::PageSize));
 		SaiStream->read(
@@ -632,8 +628,7 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 
 /// SaiDocument
 Document::Document(const char* FileName)
-	:
-	VirtualFileSystem(FileName)
+	: VirtualFileSystem(FileName)
 {
 }
 
@@ -643,7 +638,7 @@ Document::~Document()
 
 std::tuple<std::uint32_t, std::uint32_t> Document::GetCanvasSize()
 {
-	if( auto Canvas = GetEntry("canvas") )
+	if( std::unique_ptr<VirtualFileEntry> Canvas = GetEntry("canvas") )
 	{
 		std::uint32_t Alignment; // Always seems to be 0x10, bpc? Alignment?
 		std::uint32_t Width, Height;
@@ -662,7 +657,7 @@ std::tuple<
 	std::uint32_t
 > Document::GetThumbnail()
 {
-	if( auto Thumbnail = GetEntry("thumbnail") )
+	if( std::unique_ptr<VirtualFileEntry> Thumbnail = GetEntry("thumbnail") )
 	{
 		ThumbnailHeader Header;
 		Thumbnail->Read(Header.Width);
