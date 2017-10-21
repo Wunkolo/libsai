@@ -23,7 +23,7 @@
 
 # Cracking PaintTool Sai documents
 
-This document represents about a year and a half of hobby-research on reverse engineering the digitizing raster/vector art program PaintTool Sai. This write-up in particular is focused on the technical specifications of the user-created `.sai` file format used to archive a user's artwork and the layers of abstraction involved in extracting this data outside of the context of the original software. This document is more so directed at anyone out there that wants to implement their own library to read or interface with `.sai` files or just to get a comprehensive understanding of the decisions that SystemMax has chosen to make for their file format. If you find anything in this document to be misleading, incomplete, or flat-out incorrect feel free to shoot me an email at `Wunkolo at gmail.com`. Previous work includes my now-abandoned run-time exploitation framework [SaiPal](https://github.com/Wunkolo/SaiPal/releases). This document assumes you have some knowledge of the C/C++ syntax as data structures and algorithms will be presented in the form of C structures and subroutines. 
+This document represents about a year and a half of off-andon hobby-research on reverse engineering the digitizing raster/vector art program PaintTool Sai. This write-up in particular is focused on the technical specifications of the user-created `.sai` file format used to archive a user's artwork and the layers of abstraction implemented by SYSTEMAX for extracting this data outside of the context of the original software. This document is more directed at anyone that wants to implement their own library to read or interface with `.sai` files or just to get a comprehensive understanding of the decisions that SYSTEMAX has chosen to make for their file format. If you find anything in this document to be misleading, incomplete, or flat-out incorrect feel free to shoot me an email at `Wunkolo (at) gmail.com`. Previous work includes my now-abandoned run-time exploitation framework [SaiPal](https://github.com/Wunkolo/SaiPal/releases) and the more recent Windows explorer thumbnail extension [SaiThumbs](https://github.com/Wunkolo/SaiThumbs). This document assumes you have some knowledge of the C and C++ syntax as the data structures and algorithms here will be presented in the form of C and C++ structures and subroutines.
 
 > PaintTool SAI Ver.1
 > 
@@ -215,7 +215,7 @@ time_t filetime_to_time_t(uint64_t Time)
 }
 ```
 
-The `root` directory of the `VFS` will always start at block index `2`. This will always be the position of the first `FATBlock` containing 64 `FatEntries` of the `root` folder. If the `Flags` variable of the `FATEntry` structure is `0` the entry is considered to be unused. The full hierarchy of files can be traversed simply by iterating through all 64 entries of the `FatBlock` within block index `2` and stopping at the entry whose `Flags` variable is set to `0`. If any of the 64 `FATEntries` is a folder, then recursively iterate at the 64 `FatEntries` at the `Block` variable.. If the entry is a file then simply go to the starting block index and read `Size` amount of bytes continuously, decrypting appropriate `Data-Blocks` along the way should `Size` be larger than 1 block(`0x1000` bytes). Padded bytes within a block will always be `0`. 
+The `root` directory of the `VFS` will always start at block index `2`. This will always be the position of the first `FATBlock` containing 64 `FatEntries` of the `root` folder. If the `Flags` variable of the `FATEntry` structure is `0` the entry is considered to be unused. The full hierarchy of files can be traversed simply by iterating through all 64 entries of the `FatBlock` within block index `2` and stopping at the entry whose `Flags` variable is set to `0`. If any of the 64 `FATEntries` is a folder, then recursively iterate at the 64 `FatEntries` at the `Block` variable. If the entry is a file then simply go to the starting block index and read `Size` amount of bytes continuously, decrypting appropriate `Data-Blocks` along the way should `Size` be larger than 1 block(`0x1000` bytes). Padded bytes within a block will always be `0`. 
 
 From this point on it is assumed you are capable of decrypting the file for random access and can interpret the internal file system format. Now we will look at the actual files and the strucutre in which they are placed within this virtual file system.
 
@@ -782,7 +782,8 @@ for( size_t y = 0; y < (LayerHead.Bounds.Height / 32); y++ )
 					reinterpret_cast<__m128i*>(DecompressedTile.data()) + i
 				);
 
-				/// ABGR to ARGB
+				// ABGR to ARGB, if you want.
+				// Do your swizzling here
 				QuadPixel = _mm_shuffle_epi8(
 					QuadPixel,
 					_mm_set_epi8(
