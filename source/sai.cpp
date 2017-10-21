@@ -167,6 +167,42 @@ ifstreambuf* ifstreambuf::open(const char* Name)
 	return this;
 }
 
+ifstreambuf* ifstreambuf::open(const wchar_t* Name)
+{
+	if( is_open() == true )
+	{
+		return nullptr;
+	}
+
+	FileIn.open(
+		Name,
+		std::ios_base::binary | std::ios_base::ate
+	);
+
+	if( FileIn.is_open() == false )
+	{
+		close();
+		return nullptr;
+	}
+
+	const std::ifstream::pos_type FileSize = FileIn.tellg();
+
+	if( FileSize % VirtualPage::PageSize != 0 )
+	{
+		// File size is not pagealigned
+		close();
+		return nullptr;
+	}
+
+	PageCount = static_cast<std::uint32_t>(FileSize) / VirtualPage::PageSize;
+
+	seekpos(
+		0
+	);
+
+	return this;
+}
+
 ifstreambuf* ifstreambuf::close()
 {
 	if( FileIn.is_open() )
@@ -374,26 +410,41 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 }
 
 /// ifstream
-ifstream::ifstream(const std::string& FilePath)
+ifstream::ifstream(const std::string& Path)
 	: std::istream(new ifstreambuf())
 {
 	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
-		FilePath.c_str()
+		Path.c_str()
 	);
 }
 
-ifstream::ifstream(const char* FilePath)
+ifstream::ifstream(const char* Path)
 	: std::istream(new ifstreambuf())
 {
 	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
-		FilePath
+		Path
+	);
+}
+
+ifstream::ifstream(const std::wstring& Path)
+	: std::istream(new ifstreambuf())
+{
+	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
+		Path.c_str()
+	);
+}
+
+ifstream::ifstream(const wchar_t* Path)
+	: std::istream(new ifstreambuf())
+{
+	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
+		Path
 	);
 }
 
 void ifstream::open(const char* FilePath) const
 {
 	reinterpret_cast<ifstreambuf*>(rdbuf())->close();
-
 	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
 		FilePath
 	);
@@ -403,6 +454,20 @@ void ifstream::open(const std::string& FilePath) const
 {
 	open(FilePath.c_str());
 }
+
+void ifstream::open(const wchar_t* FilePath) const
+{
+	reinterpret_cast<ifstreambuf*>(rdbuf())->close();
+	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
+		FilePath
+	);
+}
+
+void ifstream::open(const std::wstring& FilePath) const
+{
+	open(FilePath.c_str());
+}
+
 
 bool ifstream::is_open() const
 {
@@ -439,6 +504,11 @@ bool VirtualFileVisitor::VisitFile(VirtualFileEntry& Entry)
 /// Virtual File System
 
 VirtualFileSystem::VirtualFileSystem(const char* FileName)
+	: SaiStream(std::make_shared<ifstream>(FileName))
+{
+}
+
+VirtualFileSystem::VirtualFileSystem(const wchar_t* FileName)
 	: SaiStream(std::make_shared<ifstream>(FileName))
 {
 }
@@ -625,7 +695,8 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 		// If you're reading this and have to work with this I'm so sorry.
 		//												- Wunkolo, 10/19/17
 		std::uint8_t* CurDest = reinterpret_cast<std::uint8_t*>(Destination);
-		std::size_t NextTableIndex = ((ReadPoint + (FATData.PageIndex * VirtualPage::PageSize))/VirtualPage::PageSize & ~(0x1FF)) + VirtualPage::TableSpan;
+		std::size_t NextTableIndex = ((ReadPoint + (FATData.PageIndex * VirtualPage::PageSize)) / VirtualPage::PageSize & ~(
+			0x1FF)) + VirtualPage::TableSpan;
 		while( Size )
 		{
 			// Requested offset that we want to read from
@@ -660,6 +731,11 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 
 /// SaiDocument
 Document::Document(const char* FileName)
+	: VirtualFileSystem(FileName)
+{
+}
+
+Document::Document(const wchar_t* FileName)
 	: VirtualFileSystem(FileName)
 {
 }

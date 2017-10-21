@@ -113,6 +113,9 @@ public:
 	ifstreambuf* open(
 		const char* Name
 	);
+	ifstreambuf* open(
+		const wchar_t* Name
+	);
 	ifstreambuf* close();
 	bool is_open() const;
 
@@ -159,10 +162,19 @@ public:
 	explicit ifstream(
 		const char* Path
 	);
+	explicit ifstream(
+		const std::wstring& Path
+	);
+
+	explicit ifstream(
+		const wchar_t* Path
+	);
 
 	// Similar to ifstream member functions
 	void open(const char* FilePath) const;
 	void open(const std::string& FilePath) const;
+	void open(const wchar_t* FilePath) const;
+	void open(const std::wstring& FilePath) const;
 	bool is_open() const;
 
 	virtual ~ifstream();
@@ -195,6 +207,7 @@ class VirtualFileSystem
 {
 public:
 	explicit VirtualFileSystem(const char* FileName);
+	explicit VirtualFileSystem(const wchar_t* FileName);
 	~VirtualFileSystem();
 
 	// No Copy
@@ -285,6 +298,7 @@ class Document : public VirtualFileSystem
 {
 public:
 	explicit Document(const char* FileName);
+	explicit Document(const wchar_t* FileName);
 	~Document();
 
 	// No Copy
