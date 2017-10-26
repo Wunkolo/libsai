@@ -51,16 +51,16 @@ An individual block in a `.sai` file is `4096` bytes of data. Every block index 
 
 ```cpp
 // Gets the Table-Block index appropriate for the current block index
-size_t NearestTable(size_t BlockIndex)
+std::size_t NearestTable(std::size_t BlockIndex)
 {
-  return BlockIndex & ~(0x1FF);
+	return BlockIndex & ~(0x1FF);
 }
 // Demonstrating how to quickly determine if a block Index is a data-block or a table-block
-bool IsTableBlock(size_t BlockIndex)
+bool IsTableBlock(std::size_t BlockIndex)
 {
 	return (BlockIndex & 0x1FF) ? false:true;
 }
-bool IsDataBlock(size_t BlockIndex)
+bool IsDataBlock(std::size_t BlockIndex)
 {
 	return (BlockIndex & 0x1FF) ? true:false;
 }
@@ -72,31 +72,31 @@ All blocks are encrypted and decrypted symmetrically using a simple exclusive-or
 
 ```cpp
 // Ensure BlockIndex is a valid Table-Block index
-void DecryptTable(uint32_t BlockIndex, uint32_t* Data)
+void DecryptTable(std::uint32_t BlockIndex, std::uint32_t* Data)
 {
 	// see "IsTableBlock" above on making sure BlockIndex
 	// is a table or use:
 	// BlockNumber &= (~0x1FF);
-	for( size_t i = 0; i < 1024; i++ )
+	for( std::size_t i = 0; i < 1024; i++ )
 	{
-		uint32_t CurCipher = Data[i];
-		uint32_t X = BlockIndex ^ CurCipher ^ (
+		std::uint32_t CurCipher = Data[i];
+		std::uint32_t X = BlockIndex ^ CurCipher ^ (
 			UserKey[(BlockIndex >> 24) & 0xFF]
 			+ UserKey[(BlockIndex >> 16) & 0xFF]
 			+ UserKey[(BlockIndex >> 8) & 0xFF]
 			+ UserKey[BlockIndex & 0xFF]);
 
-		Data[i] = static_cast<uint32_t>((X << 16) | (X >> 16));
+		Data[i] = static_cast<std::uint32_t>((X << 16) | (X >> 16));
 
 		BlockIndex = CurCipher;
 	};
 }
 
-void DecryptData(uint32_t Vector, uint32_t* Data)
+void DecryptData(std::uint32_t Vector, std::uint32_t* Data)
 {
-	for( size_t i = 0; i < 1024; i++ )
+	for( std::size_t i = 0; i < 1024; i++ )
 	{
-		uint32_t CurCipher = Data[i];
+		std::uint32_t CurCipher = Data[i];
 		Data[i] =
 			CurCipher
 			- (Vector ^ (
@@ -114,8 +114,8 @@ void DecryptData(uint32_t Vector, uint32_t* Data)
 ```cpp
 struct TableEntry
 {
-	uint32_t Checksum;
-	uint32_t Flags; // Yet to be fully deciphered
+	std::uint32_t Checksum;
+	std::uint32_t Flags; // Yet to be fully deciphered
 } TableEntries[512];
 ```
 
@@ -144,10 +144,10 @@ The checksum for `Data-Blocks` and `Table-Blocks` is a simple exclusive-or and b
 
 ```cpp
 // If your block number is a multiple of 512, set `Table` to true.
-uint32_t Checksum(bool Table, uint32_t* Data)
+std::uint32_t Checksum(bool Table, std::uint32_t* Data)
 {
-	uint32_t Sum = 0;
-	for( size_t i = (Table ? 1 : 0); i < 1024; i++ )
+	std::uint32_t Sum = 0;
+	for( std::size_t i = (Table ? 1 : 0); i < 1024; i++ )
 	{
 		Sum = ( ( Sum << 1 ) | (Sum >> 31)) ^ Data[i];
 	}
@@ -156,10 +156,10 @@ uint32_t Checksum(bool Table, uint32_t* Data)
 
 // Generic version for both Table-Blocks and Data-Blocks
 // Works on tables if you set the first 32-bit integer to 0 before running.
-uint32_t Checksum(uint32_t* Data)
+std::uint32_t Checksum(std::uint32_t* Data)
 {
-	uint32_t Sum = 0;
-	for( size_t i = 0; i < 1024; i++ )
+	std::uint32_t Sum = 0;
+	for( std::size_t i = 0; i < 1024; i++ )
 	{
 		Sum = ( ( Sum << 1 ) | (Sum >> 31)) ^ Data[i];
 	}
@@ -178,7 +178,7 @@ Sai internally uses a Direct Mapped cache table to speed up the random access an
 Now that the cipher can be fully randomly accessed and decrypted, the virtual file system actually implemented can be deciphered. The file system found after decrypting will be described as a `Virtual File system` or `VFS`(Internally sai refers to them as a `VFS` along with terminology such as "mounting" within its error messages). Individual files are described by a `File Allocation Table` that describe the name, timestamp, starting block index, and the size(in bytes) of the data. A `Data-Block` can contain a max of `64` `FATEntries`. Folders are described by having their `Type` variable set to `Folder` and the starting `Block` variable instead points to another `Data-Block` of 64 `FATEntries` depicting the contents of the folder.
 
 ```cpp
-enum class EntryType : uint8_t
+enum class EntryType : std::uint8_t
 {
 	Folder = 0x10,
 	File = 0x80
@@ -186,18 +186,18 @@ enum class EntryType : uint8_t
 
 struct FATEntry
 {
-	uint32_t Flags;
+	std::uint32_t Flags;
 	char Name[32];
-	uint8_t Pad1;
-	uint8_t Pad2;
-	uint8_t Type; // EntryType enum
-	uint8_t Pad4;
-	uint32_t Block;
-	uint32_t Size;
+	std::uint8_t Pad1;
+	std::uint8_t Pad2;
+	std::uint8_t Type; // EntryType enum
+	std::uint8_t Pad4;
+	std::uint32_t Block;
+	std::uint32_t Size;
 	// Windows FILETIME structure
 	// https://msdn.microsoft.com/en-us/library/windows/desktop/ms724284(v=vs.85).aspx
-	uint64_t TimeStamp;
-	uint64_t UnknownB;
+	std::uint64_t TimeStamp;
+	std::uint64_t UnknownB;
 };
 
 struct FATBlock
@@ -209,7 +209,7 @@ struct FATBlock
 Some info on `TimeStamp`: To convert this 64 bit integer to the more standardized `time_t` variable simply divide the 64-bit integer by `10000000UL` and subtract by `11644473600ULL`. `FILETIME` is the number of 100-nanosecond intervals since January 1, 1601 while `time_t` is the number of 1-second intervals since January 1, 1970. If you're writing a multi-platform library it's best to use the more standardized `time_t` format when available as most functions converting timestamps into strings use the `time_t` format.
 
 ```cpp
-time_t filetime_to_time_t(uint64_t Time)
+time_t filetime_to_time_t(std::uint64_t Time)
 {
 	return Time / 10000000ULL - 11644473600ULL;
 }
@@ -267,13 +267,13 @@ SYSTEMAX Source code, probably
 struct ResData
 {
 	...
-	uint32_t DPI;//0x14C bytes within some class/struct/etc
-	uint16_t Unknown150;
-	uint16_t Unknown152;
+	std::uint32_t DPI;//0x14C bytes within some class/struct/etc
+	std::uint16_t Unknown150;
+	std::uint16_t Unknown152;
 	...
 };
 
-uint32_t ResDataStream[] =
+std::uint32_t ResDataStream[] =
 {
 	sizeof(ResData.DPI),
 	offsetof(ResData, DPI),
@@ -294,25 +294,25 @@ Output written by the Serial-Table for some arbitrary runtime ResData object
 
 `oser` is the little endian storage of `reso`. In code the identifier `oser` is actually defined as something along the lines of:
 ```cpp
-const uint32_t ResDataMagic = `reso`;
+const std::uint32_t ResDataMagic = `reso`;
 ```
 `Size` is simply the sum of all `Size` integers for each `Serial Entry`. This integer gets written so that entire streams of unneeded data may be skipped. If two streams `reso` and `lyid` were next to each other, one could skip to the `lyid` stream by reading 32-bit identifier `reso` to see that it does not match up with `lyid` and use the next 32-bit `Size` integer to know the amount of bytes to skip to get to the next stream. A tag identifier of `0` delimits the end of a `Serial Stream`.
 
 Sample code for reading a serial stream.
 ```cpp
-uint32_t CurTag;
-uint32_t CurTagSize;
-while( File.Read<uint32_t>(CurTag) && CurTag )
+std::uint32_t CurTag;
+std::uint32_t CurTagSize;
+while( File.Read<std::uint32_t>(CurTag) && CurTag )
 {
-	File.Read<uint32_t>(CurTagSize);
+	File.Read<std::uint32_t>(CurTagSize);
 	switch( CurTag )
 	{
 		case 'reso':
 		{
 			//Handle 'reso' data
-			File.Read<uint32_t>(...);
-			File.Read<uint16_t>(...);
-			File.Read<uint16_t>(...);
+			File.Read<std::uint32_t>(...);
+			File.Read<std::uint16_t>(...);
+			File.Read<std::uint16_t>(...);
 			break;
 		}
 		case 'lyid':
@@ -373,23 +373,23 @@ LUXE/130410781704124\0ASUSTeK COM
 This 256 byte array of characters is then interpreted as 64 32-bit integers for a chained rotate-and-xor hashing function, generating a 64 bit hash.
 
 ```cpp
-uint64_t MachineHash(const char* MachineIdentifier)
+std::uint64_t MachineHash(const char* MachineIdentifier)
 {
-    uint32_t StringBlock[64];
+    std::uint32_t StringBlock[64];
     const char* ReadPoint = MachineIdentifier;
-    for(size_t i = 0; i < 256; i++)
+    for(std::size_t i = 0; i < 256; i++)
     {
-        reinterpret_cast<uint8_t*>(StringBlock)[i] = *ReadPoint;
+        reinterpret_cast<std::uint8_t*>(StringBlock)[i] = *ReadPoint;
         ReadPoint = *ReadPoint ? ++ReadPoint : MachineIdentifier;
     }
-    uint32_t UpperHash = 0;
-    uint32_t LowerHash = 0;
-    uint32_t Temp1 = 0;
-    for(size_t i = 0; i < 64; i++)
+    std::uint32_t UpperHash = 0;
+    std::uint32_t LowerHash = 0;
+    std::uint32_t Temp1 = 0;
+    for(std::size_t i = 0; i < 64; i++)
     {
-        uint32_t CurUpper = UpperHash + StringBlock[i % 64];
-        uint32_t CurLower = LowerHash + StringBlock[(i + 1) % 64];
-        for( size_t j = 0; j < 4; j++ )
+        std::uint32_t CurUpper = UpperHash + StringBlock[i % 64];
+        std::uint32_t CurLower = LowerHash + StringBlock[(i + 1) % 64];
+        for( std::size_t j = 0; j < 4; j++ )
         {
             CurUpper = CurLower + ((CurUpper << CurLower) | (CurUpper >> (32 - CurLower)));
             CurLower = CurUpper + ((CurLower << CurUpper) | (CurLower >> (32 - CurUpper)));
@@ -398,7 +398,7 @@ uint64_t MachineHash(const char* MachineIdentifier)
         UpperHash ^= CurUpper;
         Temp1 ^= CurLower;
     }
-    return (static_cast<uint64_t>(UpperHash) << 32) | LowerHash;
+    return (static_cast<std::uint64_t>(UpperHash) << 32) | LowerHash;
 }
 ```
 
@@ -409,11 +409,11 @@ The file itself is only 32 bytes long.
 ```cpp
 struct AuthorSystemInfo
 {
-	uint32_t BitFlag; // always 0x08000000
-	uint32_t Unknown4;
-	uint64_t DateCreated; // Date Created
-	uint64_t DateModified; // Date Modified
-	uint64_t MachineHash; // Calculated using the above routine
+	std::uint32_t BitFlag; // always 0x08000000
+	std::uint32_t Unknown4;
+	std::uint64_t DateCreated; // Date Created
+	std::uint64_t DateModified; // Date Modified
+	std::uint64_t MachineHash; // Calculated using the above routine
 }
 ```
 
@@ -426,9 +426,9 @@ This file contains metadata involving the dimensions of the canvas. The first th
 ```cpp
 struct CanvasInfo
 {
-	uint32_t Unknown0; // Always 0x10(16), possibly bpc or alignment
-	uint32_t Width;
-	uint32_t Height
+	std::uint32_t Unknown0; // Always 0x10(16), possibly bpc or alignment
+	std::uint32_t Width;
+	std::uint32_t Height
 };
 ```
 
@@ -437,26 +437,26 @@ After this, a `Serial Stream` with the following sub-streams:
 - `reso`
 ```cpp
 // 16.16 fixed point integer
-uint32_t DotsPerInch;
+std::uint32_t DotsPerInch;
 // 0 = pixels, 1 = inch, 2 = cm, 3 = mm
-uint16_t SizeUnits;
+std::uint16_t SizeUnits;
 // 0 = pixel/inch, 1 = pixel/cm
-uint16_t ResolutionUnits;
+std::uint16_t ResolutionUnits;
 ```
 
 - `wsrc`
 ```cpp
-uint32_t Unknown0;
+std::uint32_t Unknown0;
 ```
 
 - `lyid`
 ```cpp
-uint32_t Unknown0; 
+std::uint32_t Unknown0; 
 ```
 
 - `layr`
 ```cpp
-uint32_t SelectedLayerID;
+std::uint32_t SelectedLayerID;
 ```
 
 ## "laytbl" "subtbl"
@@ -466,7 +466,7 @@ These files contains a description of all layers that make up an image stored fr
 The first integer of either file is a is a 32bit integer for the number of layers followed by an equivalent amount of `LayerTableEntries`. Layers are identified by 32 bit integers with their appropriate filename found in the `layers` and `sublayers` folder using an 8 digit lowercase hexidecimal file name. The full path for any given layer or sublayer identifier can be generated given the identifying integer and the [printf](http://en.cppreference.com/w/cpp/io/c/fprintf) format `/layers/%08x` or `/sublayers/%08x`.
 
 ```cpp
-enum class LayerType : uint16_t
+enum class LayerType : std::uint16_t
 {
 	Null = 0x00,
 	Layer = 0x03, // Regular Layer
@@ -479,16 +479,16 @@ enum class LayerType : uint16_t
 
 struct LayerTableEntry
 {
-	uint32_t Identifier;
-	uint16_t Type; // LayerType enum
-	uint16_t Unknown6; // Gets sent as windows message 0x80CA for some reason
+	std::uint32_t Identifier;
+	std::uint16_t Type; // LayerType enum
+	std::uint16_t Unknown6; // Gets sent as windows message 0x80CA for some reason
 };
 ```
 
 Sample routine:
 ```cpp
 // First integer is number of layer entires
-uint32_t LayerCount = File.Read<uint32_t>();
+std::uint32_t LayerCount = File.Read<std::uint32_t>();
 while( LayerCount-- ) // Read each layer entry
 {
 	// Read current layer entry into above structure
@@ -504,7 +504,7 @@ while( LayerCount-- ) // Read each layer entry
 The individual layer files within these folders match the numerical hexidecimal identifiers found in `laytbl` or `subtbl`. These files contain the actual raster or vector data(or none) of the specified layer entry. The header of the file is a static struture identifying the layer's opacity, size, blending mode, etc.
 
 ```cpp
-enum BlendingModes : uint32_t
+enum BlendingModes : std::uint32_t
 {
 	PassThrough = 'pass',
 	Normal = 'norm',
@@ -525,24 +525,24 @@ enum BlendingModes : uint32_t
 struct LayerBounds
 {
 	// Can be negative, rounded to nearest multiple of 32
-	int32_t X;
-	int32_t Y;
-	uint32_t Width;
-	uint32_t Height;
+	std::int32_t X;
+	std::int32_t Y;
+	std::uint32_t Width;
+	std::uint32_t Height;
 };
 
 struct LayerHeader
 {
-	uint32_t Type; // LayerType enum
-	uint32_t Identifier;
+	std::uint32_t Type; // LayerType enum
+	std::uint32_t Identifier;
 	LayerBounds Bounds;
-	uint32_t Unknown18;
-	uint8_t Opacity;
-	uint8_t Visible;
-	uint8_t PreserveOpacity;
-	uint8_t Clipping;
-	uint8_t Unknown1C;
-	uint32_t Blending; // BlendingModes enum
+	std::uint32_t Unknown18;
+	std::uint8_t Opacity;
+	std::uint8_t Visible;
+	std::uint8_t PreserveOpacity;
+	std::uint8_t Clipping;
+	std::uint8_t Unknown1C;
+	std::uint32_t Blending; // BlendingModes enum
 };
 ```
 
@@ -551,25 +551,25 @@ Immediately after the `LayerHeader` is a `Serial Stream`. Note that not all stre
  - `lorg`
 
 ```cpp
-uint32_t Unknown0;
-uint32_t Unknown4;
+std::uint32_t Unknown0;
+std::uint32_t Unknown4;
 ```
 
 - `name`
 
 Zero terminated string of the layer's name.
 ```cpp
-uint8_t LayerName[256];
+std::uint8_t LayerName[256];
 ```
 - `pfid`
 
 Parent Set id. If this layer is a child of a folder this will be a layer identifier of the parent container layer.
 ```cpp
-uint32_t ParentLayer;
+std::uint32_t ParentLayer;
 ```
 - `lmfl`
 ```cpp
-uint32_t Unknown0; // Bitflag 
+std::uint32_t Unknown0; // Bitflag 
 ```
 
 - `fopn`
@@ -577,30 +577,30 @@ uint32_t Unknown0; // Bitflag
 Present only in a layer that is a Set/Folder. 
 A single `bool` variable for if the folder is expanded within the layers panel or not
 ```cpp
-uint8_t Open;
+std::uint8_t Open;
 ```
 
 - `texn`
 ```cpp
-uint8_t Unknown0[64]; // UTF16 string
+std::uint8_t Unknown0[64]; // UTF16 string
 ```
 
 - `texp`
 ```cpp
-uint16_t Unknown0;
-uint8_t Unknown2;
+std::uint16_t Unknown0;
+std::uint8_t Unknown2;
 ```
 
 - `peff`
 ```cpp
-uint8_t Unknown0;
-uint8_t Unknown1;
-uint8_t Unknown2;
+std::uint8_t Unknown0;
+std::uint8_t Unknown1;
+std::uint8_t Unknown2;
 ```
 
 - `vmrk`
 ```cpp
-uint8_t Unknown0;
+std::uint8_t Unknown0;
 ```
 
 Immediately after the stream may be the contents of the layer. If the layer is a folder or set, there is no additional data. If the layer is a raster layer of pixels then specially formatted `raster` data follows. If the layer is a linework layer, specifically formatted `linework` data follows.
@@ -611,14 +611,14 @@ Sample layer file reading procedure
 LayerHeader CurHeader = LayerFile.Read<LayerHeader>(LayerHead);
 
 // Read Serial Stream
-uint32_t CurTag, CurTagSize;
+std::uint32_t CurTag, CurTagSize;
 CurTag = CurTagSize = 0;
 
 char Name[256];
 
-while( LayerFile.Read<uint32_t>(CurTag) && CurTag )
+while( LayerFile.Read<std::uint32_t>(CurTag) && CurTag )
 {
-	LayerFile.Read<uint32_t>(CurTagSize);
+	LayerFile.Read<std::uint32_t>(CurTagSize);
 
 	switch( CurTag )
 	{
@@ -674,14 +674,14 @@ Here is a sample scratch-implementation I made using SIMD to shuffle channels in
 
 Routine for decompressing an RLE stream and placing resulting data into the appropriate interleaved 32bpp 8bpc channel index.
 ```cpp
-void RLEDecompress32(void* Destination, const uint8_t *Source, size_t SourceSize, size_t IntCount, size_t Channel)
+void RLEDecompress32(void* Destination, const std::uint8_t *Source, std::size_t SourceSize, std::size_t IntCount, std::size_t Channel)
 {
-	uint8_t *Write = reinterpret_cast<uint8_t*>(Destination) + Channel;
-	size_t WriteCount = 0;
+	std::uint8_t *Write = reinterpret_cast<std::uint8_t*>(Destination) + Channel;
+	std::size_t WriteCount = 0;
 
 	while( WriteCount < IntCount )
 	{
-		uint8_t Length = *Source++;
+		std::uint8_t Length = *Source++;
 		if( Length == 128 ) // No-op
 		{
 		}
@@ -703,7 +703,7 @@ void RLEDecompress32(void* Destination, const uint8_t *Source, size_t SourceSize
 			Length ^= 0xFF;
 			Length += 2;
 			WriteCount += Length;
-			uint8_t Value = *Source++;
+			std::uint8_t Value = *Source++;
 			while( Length )
 			{
 				*Write = Value;
@@ -719,7 +719,7 @@ void RLEDecompress32(void* Destination, const uint8_t *Source, size_t SourceSize
 
 // Read BlockMap
 // Do not use a vector<bool> as this is commonly implemented a specialized type that does not implement individual bool values as bytes but rather as packed bits within a word
-std::vector<uint8_t> BlockMap;
+std::vector<std::uint8_t> BlockMap;
 TileData.resize((LayerHead.Bounds.Width / 32) * (LayerHead.Bounds.Height / 32));
 
 // Read Block Map
@@ -731,26 +731,26 @@ LayerFile.Read(BlockMap.data(), (LayerHead.Bounds.Width / 32) * (LayerHead.Bound
 // Also note that the claim that SystemMax has made involving 16bit ARGB
 // may actually only be true at run-time. Almost all raster data is stored as
 // 8bpc while only some run-time raster arithmetic uses 16-bit via MMX
-std::vector<uint8_t> LayerImage;
+std::vector<std::uint8_t> LayerImage;
 LayerImage.resize(LayerHead.Bounds.Width * LayerHead.Bounds.Height * 4);
 
 
 // iterate 32x32 tile chunks row by row
-for( size_t y = 0; y < (LayerHead.Bounds.Height / 32); y++ )
+for( std::size_t y = 0; y < (LayerHead.Bounds.Height / 32); y++ )
 {
-	for( size_t x = 0; x < (LayerHead.Bounds.Width / 32); x++ )
+	for( std::size_t x = 0; x < (LayerHead.Bounds.Width / 32); x++ )
 	{
 		if( BlockMap[(LayerHead.Bounds.Width / 32) * y + x] ) // if tile is active
 		{
 			// Decompress Tile
-			std::array<uint8_t, 0x800> CompressedTile;
+			std::array<std::uint8_t, 0x800> CompressedTile;
 
 			// Aligned memory for simd
-			alignas(sizeof(__m128i)) std::array<uint8_t, 0x1000> DecompressedTile;
+			alignas(sizeof(__m128i)) std::array<std::uint8_t, 0x1000> DecompressedTile;
 
-			uint8_t Channel = 0;
-			uint16_t Size = 0;
-			while( LayerFile.Read<uint16_t>(Size) ) // Get Current RLE stream size
+			std::uint8_t Channel = 0;
+			std::uint16_t Size = 0;
+			while( LayerFile.Read<std::uint16_t>(Size) ) // Get Current RLE stream size
 			{
 				LayerFile.Read(CompressedTile.data(), Size);
 				// decompress and place into the appropriate interleaved channel
@@ -764,9 +764,9 @@ for( size_t y = 0; y < (LayerHead.Bounds.Height / 32); y++ )
 				Channel++; // Move on to next channel
 				if( Channel >= 4 ) // skip all other channels besides the RGBA ones we care about
 				{
-					for( size_t i = 0; i < 4; i++ )
+					for( std::size_t i = 0; i < 4; i++ )
 					{
-						uint16_t Size = LayerFile.Read<uint16_t>();
+						std::uint16_t Size = LayerFile.Read<std::uint16_t>();
 						LayerFile.Seek(LayerFile.Tell() + Size);
 					}
 					break;
@@ -774,9 +774,9 @@ for( size_t y = 0; y < (LayerHead.Bounds.Height / 32); y++ )
 			}
 
 			// Current 32x32 tile within final image
-			uint32_t *ImageBlock = reinterpret_cast<uint32_t*>(LayerImage.data()) + (x * 32) + ((y * LayerHead.Bounds.Width) * 32);
+			std::uint32_t *ImageBlock = reinterpret_cast<std::uint32_t*>(LayerImage.data()) + (x * 32) + ((y * LayerHead.Bounds.Width) * 32);
 
-			for( size_t i = 0; i < (32 * 32) / 4; i++ ) // Process 4 pixels at a time
+			for( std::size_t i = 0; i < (32 * 32) / 4; i++ ) // Process 4 pixels at a time
 			{
 				__m128i QuadPixel = _mm_load_si128(
 					reinterpret_cast<__m128i*>(DecompressedTile.data()) + i
@@ -809,7 +809,7 @@ for( size_t y = 0; y < (LayerHead.Bounds.Height / 32); y++ )
 					), _mm_set1_ps(255.0f));
 
 				// Normalize each channel into straight color
-				for( uint8_t i = 0; i < 3; i++ )
+				for( std::uint8_t i = 0; i < 3; i++ )
 				{
 					__m128i CurChannel = _mm_srli_epi32(QuadPixel, i * 8);
 					CurChannel = _mm_and_si128(CurChannel, _mm_set1_epi32(0xFF));
@@ -850,7 +850,7 @@ Todo
 This is the key that we care for. Used to encrypt/decrypt all user-created files.
 
 ```cpp
-const uint32_t UserKey[256] =
+const std::uint32_t UserKey[256] =
 {
 	0x9913D29E,0x83F58D3D,0xD0BE1526,0x86442EB7,0x7EC69BFB,0x89D75F64,0xFB51B239,0xFF097C56,
 	0xA206EF1E,0x973D668D,0xC383770D,0x1CB4CCEB,0x36F7108B,0x40336BCD,0x84D123BD,0xAFEF5DF3,
@@ -893,7 +893,7 @@ Seems to only be used for the "Notremoveme.ssd" file located in `"C:\ProgramData
 Appears to contain log data similar to `sai.ssd`
 
 ```cpp
-const uint32_t NotRemoveMeKey[256] =
+const std::uint32_t NotRemoveMeKey[256] =
 {
 	0xA0C62B54,0x0374CB94,0xB3A53F76,0x5B772C6B,0xF2B92931,0x80F923A9,0x7A22EF7A,0x216C7582,
 	0xEDFF8B71,0x8B0C6642,0xAF81AD2F,0x8E095A62,0x02926C0C,0xDD2F56B9,0xA3614155,0xF9AED6E4,
@@ -935,7 +935,7 @@ Used for thumbnail files located in `"C:\ProgramData\SYSTEMAX Software Developme
 
 Thumbnail filenames use [printf](http://en.cppreference.com/w/cpp/io/c/fprintf) pattern `"%08x.ssd"`. Named `LocalState` as everything in that folder describes a context that is locally relative to the current user.
 ```cpp
-const uint32_t LocalStateKey[256] =
+const std::uint32_t LocalStateKey[256] =
 {
 	0x021CF107,0xE9253648,0x8AFBA619,0x8CF31842,0xBF40F860,0xA672F03E,0xFA2756AC,0x927B2E7E,
 	0x1E37D3C4,0x7C3A0524,0x4F284D1B,0xD8A31E9D,0xBA73B6E6,0xF399710D,0xBD8B1937,0x70FFE130,
@@ -987,7 +987,7 @@ Needs more research.
   - Unknown
 
 ```cpp
-const uint32_t SystemKey[256] =
+const std::uint32_t SystemKey[256] =
 {
 	0x724FB987,0x4A3E70BE,0xCA549C50,0x34E263E1,0x2D5ED2FF,0x127F0E11,0x58A42B78,0x5F6D14AE,
 	0x7E2F745D,0xC3450384,0xCFBB15DE,0xDF0A6D8A,0xEF2545F3,0x6D8919DB,0xBC413C94,0xCCB0A198,
