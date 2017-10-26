@@ -985,10 +985,9 @@ const std::uint32_t LocalStateKey[256] =
 ## sai.ssd
 
 Used only for `sai.ssd`
-Handled the same as user-files but with a different block size of `1024`, having `Table-blocks` at block indexes at every multiple of 128 block with all 127 blocks after being "Data-Blocks". 
-Needs more research.
+Handled the same as user-files but with a different block size of `1024` and `Table-blocks` indexes at every multiple of `128`.
 
-`sai.ssd` seems to have multiple log files stored in here symbolic headers:
+`sai.ssd` seems to have multiple log files stored with symbolic headers:
 - "++FSIF logfile++"
   - Seems to be related to file-security and encryption
 - "++VFS logfile++"
@@ -1030,6 +1029,6 @@ const std::uint32_t SystemKey[256] =
 	0x862B5C73,0x8B60A726,0x7F8ECB3C,0x517A49B6,0xD7B9CF5A,0x6308D5BC,0x0B3F68D7,0x62A7EA15,
 	0xC65AFD3D,0xAB8525B2,0xA451B308,0xE7C7AB18,0x88F91369,0x1783279A,0x4F95DF2A,0x41F158BD,
 	0xC8D1CEBB,0x325CD3E2,0xF1928739,0x9355AE8E,0x2FC05EC4,0x4E0735E7,0xDE3B10D9,0x8E18C61A,
-	0xE29AEF25,0x4984D7A2,0x051F247B,0x29AB9055,0xFD2101F4,0x96FB2E1C,0x5BF04327,0x3C8F1BEB,
+	0xE29AEF25,0x4984D7A2,0x051F247B,0x29AB9055,0xFD2101F4,0x96FB2E1C,0x5BF04327,0x3C8F1BEB
 };
 ```
