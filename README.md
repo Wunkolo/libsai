@@ -205,6 +205,16 @@ struct FATBlock
 	FATEntry Entries[64];
 }
 ```
+>**Note:** When reading file-data of an FATEntry, files are **not** stored continuously.
+>
+>`TableBlocks` may intercept the file stream and must be skipped. So when reading filedata you must abstract away table blocks.
+>This means when reading a file, you must skip all table blocks as if they did not exist and skip over them to simulate continuous files
+>
+>So offsets such as:
+>
+>[0,4096],[2097152,2101248],[4194304,4198400],...,**[TableIndex * 4096,TableIndex * 4096 + 4096]**
+>
+>must be skipped over
 
 Some info on `TimeStamp`: To convert this 64 bit integer to the more standardized `time_t` variable simply divide the 64-bit integer by `10000000UL` and subtract by `11644473600ULL`. `FILETIME` is the number of 100-nanosecond intervals since January 1, 1601 while `time_t` is the number of 1-second intervals since January 1, 1970. If you're writing a multi-platform library it's best to use the more standardized `time_t` format when available as most functions converting timestamps into strings use the `time_t` format.
 
