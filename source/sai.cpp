@@ -3,6 +3,8 @@
 #include <fstream>
 #include <algorithm>
 #include <cstring>
+#include <codecvt>
+#include <locale>
 
 namespace sai
 {
@@ -174,10 +176,19 @@ ifstreambuf* ifstreambuf::open(const wchar_t* Name)
 		return nullptr;
 	}
 
+#if defined(_WIN32)
 	FileIn.open(
 		Name,
 		std::ios_base::binary | std::ios_base::ate
 	);
+#else
+	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> Converter;
+	std::string Name8 = Converter.to_bytes(std::wstring(Name));
+	FileIn.open(
+		Name8,
+		std::ios_base::binary | std::ios_base::ate
+	);
+#endif
 
 	if( FileIn.is_open() == false )
 	{
