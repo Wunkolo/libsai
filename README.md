@@ -442,7 +442,7 @@ struct CanvasInfo
 };
 ```
 
-After this, a `Serial Stream` with the following sub-streams:
+After this, a [Serial Stream](#serialization-streams):
 
 - `reso`
 ```cpp
@@ -556,7 +556,11 @@ struct LayerHeader
 };
 ```
 
-Immediately after the `LayerHeader` is a `Serial Stream`. Note that not all streams might be present depending on the type of layer the file is referencing:
+Immediately after the `LayerHeader` is a [Serial Stream](#serialization-streams).
+
+>**Note:**
+>Not all streams might be present depending on the type of layer the file is referencing.
+>Streams such as `texp` and `peff` may not exist if the layer is a lineart layer or folder
 
  - `lorg`
 
@@ -728,7 +732,7 @@ void RLEDecompress32(void* Destination, const std::uint8_t *Source, std::size_t 
 ```cpp
 
 // Read BlockMap
-// Do not use a vector<bool> as this is commonly implemented a specialized type that does not implement individual bool values as bytes but rather as packed bits within a word
+// Do not use a vector<bool> as this is commonly implemented as a specialized vector type that does not implement individual bool values as bytes but rather as packed bits within a word
 std::vector<std::uint8_t> BlockMap;
 TileData.resize((LayerHead.Bounds.Width / 32) * (LayerHead.Bounds.Height / 32));
 
@@ -738,9 +742,9 @@ LayerFile.Read(BlockMap.data(), (LayerHead.Bounds.Width / 32) * (LayerHead.Bound
 // the resulting raster image data for this layer, RGBA 32bpp interleaved
 // Use a vector to ensure that tiles with no data are still initialized
 // to #00000000
-// Also note that the claim that SystemMax has made involving 16bit ARGB
-// may actually only be true at run-time. Almost all raster data is stored as
-// 8bpc while only some run-time raster arithmetic uses 16-bit via MMX
+// Also note that the claim that SystemMax has made involving 16bit color depth
+// may actually only be true at run-time. All raster data found in files are stored at
+// 8bpc while only some run-time color arithmetic converts to 16-bit
 std::vector<std::uint8_t> LayerImage;
 LayerImage.resize(LayerHead.Bounds.Width * LayerHead.Bounds.Height * 4);
 
@@ -858,6 +862,7 @@ Todo
 
 ## UserKey
 This is the key that we care for. Used to encrypt/decrypt all user-created files.
+Decrypts `.sai` files.
 
 ```cpp
 const std::uint32_t UserKey[256] =
@@ -898,7 +903,7 @@ const std::uint32_t UserKey[256] =
 ```
 
 ## NotRemoveMe
-Seems to only be used for the "Notremoveme.ssd" file located in `"C:\ProgramData\SYSTEMAX Software Development\SAI"`
+Seems to only be used for the `Notremoveme.ssd` file located in `"C:\ProgramData\SYSTEMAX Software Development\SAI"`
 
 Appears to contain log data similar to `sai.ssd`
 
@@ -943,7 +948,9 @@ const std::uint32_t NotRemoveMeKey[256] =
 ## LocalState
 Used for thumbnail files located in `"C:\ProgramData\SYSTEMAX Software Development\SAI\thumbnail"`
 
-Thumbnail filenames use [printf](http://en.cppreference.com/w/cpp/io/c/fprintf) pattern `"%08x.ssd"`. Named `LocalState` as everything in that folder describes a context that is locally relative to the current user.
+Thumbnail filenames use [printf](http://en.cppreference.com/w/cpp/io/c/fprintf) pattern `"%08x.ssd"`.
+Named `LocalState` as it describes an active user context.
+
 ```cpp
 const std::uint32_t LocalStateKey[256] =
 {
