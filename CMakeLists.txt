@@ -1,5 +1,5 @@
 cmake_minimum_required( VERSION 3.8.0 )
-project( libsai )
+project( sai )
 
 set( CMAKE_CXX_STANDARD 14 )
 set( CMAKE_CXX_STANDARD_REQUIRED ON )
