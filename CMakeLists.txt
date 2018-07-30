@@ -7,31 +7,29 @@ set( CMAKE_CXX_EXTENSIONS OFF )
 
 set( CMAKE_COLOR_MAKEFILE ON )
 set( CMAKE_VERBOSE_MAKEFILE ON )
-set( CMAKE_EXPORT_COMPILE_COMMANDS 1)
+set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
 if( MSVC )
 	add_compile_options( /W3 )
 elseif( CMAKE_COMPILER_IS_GNUCXX )
-	add_compile_options( -m64 )
 	add_compile_options( -mssse3 )
-	add_compile_options( -Ofast )
 	add_compile_options( -Wall )
 	add_compile_options( -Wextra )
 endif()
 
-include_directories(
+### libsai
+add_library(
+	sai
+	source/sai.cpp
+)
+target_include_directories(
+	sai
+	PUBLIC
 	include
 )
 
-set( LIBSAI_INCLUDE_DIRS 
-    ${PROJECT_SOURCE_DIR}/include
-    CACHE INTERNAL "${PROJECT_NAME}: Include Directories" FORCE)
 
-add_library(
-	${PROJECT_NAME}
-	source/sai.cpp
-)
-
+### Decryption sample
 add_executable(
 	Decrypt
 	samples/Decrypt.cpp
@@ -39,5 +37,6 @@ add_executable(
 
 target_link_libraries(
 	Decrypt
-	${PROJECT_NAME}
+	PRIVATE
+	sai
 )
