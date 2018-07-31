@@ -40,3 +40,15 @@ target_link_libraries(
 	PRIVATE
 	sai
 )
+
+### VFS tree sample
+add_executable(
+	Tree
+	samples/Tree.cpp
+)
+
+target_link_libraries(
+	Tree
+	PRIVATE
+	sai
+)

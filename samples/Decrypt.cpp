@@ -2,33 +2,19 @@
 Sample code to decrypt any user-created .sai file
 */
 
-#include <stdint.h>
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <chrono>
 #include <utility>
 #include <sai.hpp>
 
+#include "Benchmark.hpp"
+
 const char* const Help =
 "Decrypt user-created .sai files:\n"
 "\tDecrypt.exe (filename) (output)\n"
 "\tWunkolo - Wunkolo@gmail.com";
-
-template<typename TickType = std::chrono::milliseconds>
-struct Benchmark
-{
-	template<typename F, typename ...Args>
-	static typename TickType::rep Run(F func, Args&&... args)
-	{
-		auto StartPoint = std::chrono::system_clock::now();
-
-		func(std::forward<Args>(args)...);
-
-		auto Duration = std::chrono::duration_cast<TickType>(std::chrono::system_clock::now() - StartPoint);
-
-		return Duration.count();
-	}
-};
 
 int main(int argc, char* argv[])
 {
@@ -57,12 +43,12 @@ int main(int argc, char* argv[])
 	}
 
 	std::cout << "File decrypted in:"
-		<< Benchmark<>::Run(
+		<< Benchmark<std::chrono::nanoseconds>::Run(
 		[&]() -> void
 	{
 		FileOut << &FileIn;
 	}
-	) << "ms" << std::endl;
+	).count() << "ns" << std::endl;
 
 	return EXIT_SUCCESS;
 }
