@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <ctime>
 #include <fstream>
 #include <iostream>
 #include <chrono>
@@ -12,38 +13,58 @@ class SaiTreeView : public sai::VirtualFileVisitor
 public:
 	SaiTreeView()
 	:
-	IndentLevel(0)
+	FolderDepth(0)
+	{
+	}
+	~SaiTreeView()
 	{
 	}
 	bool VisitFolderBegin(sai::VirtualFileEntry& Entry) override
 	{
-		std::printf(
-			"D: %*s%s\n",
-			IndentLevel * IndentWidth,
-			"",
-			Entry.GetName()
-		);
-		++IndentLevel;
+		PrintVirtualFileEntry(Entry);
+		++FolderDepth;
 		return true;
 	}
 	bool VisitFolderEnd(sai::VirtualFileEntry& Entry) override
 	{
-		--IndentLevel;
+		--FolderDepth;
 		return true;
 	}
 	bool VisitFile(sai::VirtualFileEntry& Entry) override
 	{
-		std::printf(
-			"F: %*s%s\n",
-			IndentLevel * IndentWidth,
-			"",
-			Entry.GetName()
-		);
+		PrintVirtualFileEntry(Entry);
 		return true;
 	}
 private:
-	std::uint32_t IndentLevel;
-	static constexpr std::uint32_t IndentWidth = 4;
+	void PrintVirtualFileEntry(const sai::VirtualFileEntry& Entry) const
+	{
+		const std::time_t TimeStamp = Entry.GetTimeStamp();
+		char TimeString[32];
+		std::strftime(
+			TimeString,
+			32,
+			"%D %R",
+			std::localtime(&TimeStamp)
+		);
+		PrintNestedFolder();
+		std::printf(
+			"\u251C\u2500\u2500 [%12zu %s] %s\n",
+			Entry.GetSize(),
+			TimeString,
+			Entry.GetName()
+		);
+	}
+	void PrintNestedFolder() const
+	{
+		for( std::size_t i = 0; i < FolderDepth; ++i )
+		{
+			std::fputs(
+				"\u2502   ",
+				stdout
+			);
+		}
+	}
+	std::uint32_t FolderDepth;
 };
 
 const char* const Help =
@@ -66,11 +87,11 @@ int main(int argc, char* argv[])
 		return EXIT_FAILURE;
 	}
 
-	SaiTreeView TreeVisitor;
 	const auto Bench = Benchmark<std::chrono::nanoseconds>::Run(
-		[&]() -> void
+		[&CurDocument]() -> void
 		{
-		CurDocument.IterateFileSystem(TreeVisitor);
+			SaiTreeView TreeVisitor;
+			CurDocument.IterateFileSystem(TreeVisitor);
 		}
 	);
 	std::printf(
