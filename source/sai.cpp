@@ -6,6 +6,8 @@
 #include <codecvt>
 #include <locale>
 
+#include <immintrin.h>
+
 namespace sai
 {
 /// Internal Structures
@@ -70,11 +72,30 @@ void VirtualPage::DecryptTable(std::uint32_t PageIndex)
 	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i++ )
 	{
 		const std::uint32_t CurCipher = u32[i];
-		const std::uint32_t X = PageIndex ^ CurCipher ^ (
-			Keys::User[(PageIndex >> 24) & 0xFF]
+		std::uint32_t X = PageIndex ^ CurCipher;
+
+		#if defined(__SSSE3__) && defined(__AVX2__)
+		__m128i KeySum = _mm_i32gather_epi32(
+			Keys::User,
+			_mm_set_epi32(
+				(PageIndex >> 24) & 0xFF,
+				(PageIndex >> 16) & 0xFF,
+				(PageIndex >>  8) & 0xFF,
+				(PageIndex >>  0) & 0xFF
+			),
+			4u
+		);
+		KeySum = _mm_hadd_epi32(KeySum, KeySum);
+		KeySum = _mm_hadd_epi32(KeySum, KeySum);
+		X ^= _mm_cvtsi128_si32(KeySum);
+		#else
+		X ^= (
+			  Keys::User[(PageIndex >> 24) & 0xFF]
 			+ Keys::User[(PageIndex >> 16) & 0xFF]
-			+ Keys::User[(PageIndex >> 8) & 0xFF]
-			+ Keys::User[PageIndex & 0xFF]);
+			+ Keys::User[(PageIndex >>  8) & 0xFF]
+			+ Keys::User[(PageIndex >>  0) & 0xFF]
+		);
+		#endif
 
 		u32[i] = static_cast<std::uint32_t>((X << 16) | (X >> 16));
 
@@ -90,10 +111,12 @@ void VirtualPage::DecryptData(std::uint32_t PageChecksum)
 		u32[i] =
 			CurCipher
 			- (PageChecksum ^ (
-				Keys::User[PageChecksum & 0xFF]
-				+ Keys::User[(PageChecksum >> 8) & 0xFF]
+				  Keys::User[(PageChecksum >>  0) & 0xFF]
+				+ Keys::User[(PageChecksum >>  8) & 0xFF]
 				+ Keys::User[(PageChecksum >> 16) & 0xFF]
-				+ Keys::User[(PageChecksum >> 24) & 0xFF]));
+				+ Keys::User[(PageChecksum >> 24) & 0xFF]
+				)
+			);
 		PageChecksum = CurCipher;
 	}
 }
@@ -305,7 +328,7 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 	setg(
 		nullptr,
 		nullptr,
-		nullptr
+	nullptr
 	);
 	return std::streampos(std::streamoff(-1));
 }
