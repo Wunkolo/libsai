@@ -73,7 +73,7 @@ inline __m128i KeySum4(
 )
 {
 	__m128i Sum = _mm_i32gather_epi32(
-		Key,
+		(const std::int32_t*)Key,
 		_mm_and_si128(
 			Vector4, _mm_set1_epi32(0xFF)
 		),
@@ -83,7 +83,7 @@ inline __m128i KeySum4(
 	Sum = _mm_add_epi32(
 		Sum,
 		_mm_i32gather_epi32(
-			Key,
+			(const std::int32_t*)Key,
 			_mm_and_si128(
 				_mm_srli_epi32(Vector4, 8),
 				_mm_set1_epi32(0xFF)
@@ -94,7 +94,7 @@ inline __m128i KeySum4(
 	Sum = _mm_add_epi32(
 		Sum,
 		_mm_i32gather_epi32(
-			Key,
+			(const std::int32_t*)Key,
 			_mm_and_si128(
 				_mm_srli_epi32(Vector4, 16),
 				_mm_set1_epi32(0xFF)
@@ -105,7 +105,7 @@ inline __m128i KeySum4(
 	Sum = _mm_add_epi32(
 		Sum,
 		_mm_i32gather_epi32(
-			Key,
+			(const std::int32_t*)Key,
 			_mm_and_si128(
 				_mm_srli_epi32(Vector4, 24),
 				_mm_set1_epi32(0xFF)
