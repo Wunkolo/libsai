@@ -111,44 +111,80 @@ inline __m128i KeySum4(
 	);
 	return Sum;
 }
-inline __m128i Swap16HiLo(__m128i Vector4)
+inline __m256i KeySum8(
+	__m256i Vector8, const std::uint32_t Key[256]
+)
 {
-	// return _mm_or_si128(
-	// 	_mm_srli_epi32(Vector4,16),
-	// 	_mm_slli_epi32(Vector4,16)
-	// );
-	return _mm_shuffle_epi8(
-		Vector4,
-		_mm_set_epi8(
-			13, 12, 15, 14,
-			 9,  8, 11, 10,
-			 5,  4, 7,  6,
-			 1,  0, 3,  2
+	__m256i Sum = _mm256_i32gather_epi32(
+		(const std::int32_t*)Key,
+		_mm256_and_si256(
+			Vector8, _mm256_set1_epi32(0xFF)
+		),
+		sizeof(std::uint32_t)
+	);
+
+	Sum = _mm256_add_epi32(
+		Sum,
+		_mm256_i32gather_epi32(
+			(const std::int32_t*)Key,
+			_mm256_and_si256(
+				_mm256_srli_epi32(Vector8, 8),
+				_mm256_set1_epi32(0xFF)
+			),
+			sizeof(std::uint32_t)
 		)
 	);
+	Sum = _mm256_add_epi32(
+		Sum,
+		_mm256_i32gather_epi32(
+			(const std::int32_t*)Key,
+			_mm256_and_si256(
+				_mm256_srli_epi32(Vector8, 16),
+				_mm256_set1_epi32(0xFF)
+			),
+			sizeof(std::uint32_t)
+		)
+	);
+	Sum = _mm256_add_epi32(
+		Sum,
+		_mm256_i32gather_epi32(
+			(const std::int32_t*)Key,
+			_mm256_srli_epi32(Vector8, 24),
+			sizeof(std::uint32_t)
+		)
+	);
+	return Sum;
 }
 #endif
 
 void VirtualPage::DecryptTable(std::uint32_t PageIndex)
 {
 	std::uint32_t PrevData = PageIndex & (~0x1FF);
-	#if defined(__SSSE3__) && defined(__AVX2__)
-	__m128i PrevData4 = _mm_set1_epi32(PrevData);
-	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i += 4 )
+	#if defined(__AVX2__)
+	__m256i PrevData8 = _mm256_set1_epi32(PrevData);
+	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i += 8 )
 	{
-		const __m128i CurData4 = _mm_loadu_si128((__m128i*)(u32 + i));
-		// Push the top word from the previous iteration into the bottom
-		// word of the current iteration
-		PrevData4 = _mm_alignr_epi8(
-			CurData4, PrevData4, sizeof(std::uint32_t) * 3
+		const __m256i CurData8 = _mm256_loadu_si256((__m256i*)(u32 + i));
+		// There is no true _mm_alignr_epi8 for AVX2
+		// An extra _mm256_permute2x128_si256 is needed
+		PrevData8 = _mm256_alignr_epi8(
+			CurData8,
+			_mm256_permute2x128_si256(PrevData8, CurData8, _MM_SHUFFLE(0,2,0,1)),
+			sizeof(std::uint32_t) * 3
 		);
-		__m128i CurPlain4 = _mm_xor_si128(
-			_mm_xor_si128(CurData4, PrevData4),
-			KeySum4(PrevData4, Keys::User)
+		__m256i CurPlain8 = _mm256_xor_si256(
+			_mm256_xor_si256(CurData8, PrevData8),
+			KeySum8(PrevData8, Keys::User)
 		);
-		CurPlain4 = Swap16HiLo(CurPlain4);
-		_mm_storeu_si128((__m128i*)(u32 + i), CurPlain4);
-		PrevData4 = CurData4;
+		CurPlain8 = _mm256_shuffle_epi8(
+			CurPlain8,
+			_mm256_set_epi8(
+				13, 12, 15, 14, 9,  8, 11, 10, 5,  4,  7,  6, 1,  0,  3,  2,
+				13, 12, 15, 14, 9,  8, 11, 10, 5,  4,  7,  6, 1,  0,  3,  2
+			)
+		);
+		_mm256_storeu_si256((__m256i*)(u32 + i), CurPlain8);
+		PrevData8 = CurData8;
 	};
 	#else
 	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i++ )
@@ -170,25 +206,27 @@ void VirtualPage::DecryptTable(std::uint32_t PageIndex)
 void VirtualPage::DecryptData(std::uint32_t PageChecksum)
 {
 	std::uint32_t PrevData = PageChecksum;
-	#if defined(__SSSE3__) && defined(__AVX2__)
-	__m128i PrevData4 = _mm_set1_epi32(PrevData);
-	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i += 4 )
+	#if defined(__AVX2__)
+	__m256i PrevData8 = _mm256_set1_epi32(PrevData);
+	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i += 8 )
 	{
-		const __m128i CurData4 = _mm_loadu_si128((__m128i*)(u32 + i));
-		// Push the top word from the previous iteration into the bottom
-		// word of the current iteration
-		PrevData4 = _mm_alignr_epi8(
-			CurData4, PrevData4, sizeof(std::uint32_t) * 3
+		const __m256i CurData8 = _mm256_loadu_si256((__m256i*)(u32 + i));
+		// There is no true _mm_alignr_epi8 for AVX2
+		// An extra _mm256_permute2x128_si256 is needed
+		PrevData8 = _mm256_alignr_epi8(
+			CurData8,
+			_mm256_permute2x128_si256(PrevData8, CurData8, _MM_SHUFFLE(0,2,0,1)),
+			sizeof(std::uint32_t) * 3
 		);
-		__m128i CurPlain4 = _mm_sub_epi32(
-			CurData4,
-			_mm_xor_si128(
-				PrevData4,
-				KeySum4(PrevData4, Keys::User)
+		__m256i CurPlain8 = _mm256_sub_epi32(
+			CurData8,
+			_mm256_xor_si256(
+				PrevData8,
+				KeySum8(PrevData8, Keys::User)
 			)
 		);
-		_mm_storeu_si128((__m128i*)(u32 + i), CurPlain4);
-		PrevData4 = CurData4;
+		_mm256_storeu_si256((__m256i*)(u32 + i), CurPlain8);
+		PrevData8 = CurData8;
 	};
 	#else
 	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i++ )
