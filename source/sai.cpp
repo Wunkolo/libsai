@@ -68,8 +68,7 @@ struct LayerHeader
 /// VirtualPage
 #if defined(__AVX2__)
 inline __m128i KeySum4(
-	__m128i Vector4,
-	const std::uint32_t Key[256]
+	__m128i Vector4, const std::uint32_t Key[256]
 )
 {
 	__m128i Sum = _mm_i32gather_epi32(
@@ -106,10 +105,7 @@ inline __m128i KeySum4(
 		Sum,
 		_mm_i32gather_epi32(
 			(const std::int32_t*)Key,
-			_mm_and_si128(
-				_mm_srli_epi32(Vector4, 24),
-				_mm_set1_epi32(0xFF)
-			),
+			_mm_srli_epi32(Vector4, 24),
 			sizeof(std::uint32_t)
 		)
 	);
@@ -117,75 +113,104 @@ inline __m128i KeySum4(
 }
 inline __m128i Swap16HiLo(__m128i Vector4)
 {
-	return _mm_or_si128(
-		_mm_srli_epi32(Vector4,16),
-		_mm_slli_epi32(Vector4,16)
+	// return _mm_or_si128(
+	// 	_mm_srli_epi32(Vector4,16),
+	// 	_mm_slli_epi32(Vector4,16)
+	// );
+	return _mm_shuffle_epi8(
+		Vector4,
+		_mm_set_epi8(
+			13, 12, 15, 14,
+			 9,  8, 11, 10,
+			 5,  4, 7,  6,
+			 1,  0, 3,  2
+		)
 	);
 }
 #endif
 
 void VirtualPage::DecryptTable(std::uint32_t PageIndex)
 {
-	std::uint32_t CurVector = PageIndex & (~0x1FF);
+	std::uint32_t PrevData = PageIndex & (~0x1FF);
 	#if defined(__SSSE3__) && defined(__AVX2__)
-	__m128i PrevCipher4 = _mm_loadu_si128((const __m128i*)u32);
-	PrevCipher4 = _mm_alignr_epi8(
-		PrevCipher4,
-		_mm_shuffle_epi32(
-			_mm_set1_epi32(CurVector),
-			_MM_SHUFFLE(0,1,2,3)
-		),
-		sizeof(std::uint32_t) * 3
-	);
+	__m128i PrevData4 = _mm_set1_epi32(PrevData);
 	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i += 4 )
 	{
-		const __m128i CurData4 = _mm_loadu_si128((__m128i*)&u32[i]);
-		__m128i CurCipher4 = _mm_xor_si128(
-			CurData4, PrevCipher4
+		const __m128i CurData4 = _mm_loadu_si128((__m128i*)(u32 + i));
+		// Push the top word from the previous iteration into the bottom
+		// word of the current iteration
+		PrevData4 = _mm_alignr_epi8(
+			CurData4, PrevData4, sizeof(std::uint32_t) * 3
 		);
-		CurCipher4 = _mm_xor_si128(
-			CurCipher4, KeySum4(PrevCipher4, Keys::User)
+		__m128i CurPlain4 = _mm_xor_si128(
+			_mm_xor_si128(CurData4, PrevData4),
+			KeySum4(PrevData4, Keys::User)
 		);
-		CurCipher4 = Swap16HiLo(CurCipher4);
-		_mm_storeu_si128((__m128i*)&u32[i], CurCipher4);
-		PrevCipher4 = _mm_alignr_epi8(
-			PrevCipher4, CurData4, sizeof(std::uint32_t) * 3
-		);
+		CurPlain4 = Swap16HiLo(CurPlain4);
+		_mm_storeu_si128((__m128i*)(u32 + i), CurPlain4);
+		PrevData4 = CurData4;
 	};
 	#else
 	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i++ )
 	{
-		const std::uint32_t CurCipher = u32[i];
-		std::uint32_t X = CurVector ^ CurCipher;
+		const std::uint32_t CurData = u32[i];
+		std::uint32_t X = PrevData ^ CurData;
 		X ^= (
-			  Keys::User[(CurVector >> 24) & 0xFF]
-			+ Keys::User[(CurVector >> 16) & 0xFF]
-			+ Keys::User[(CurVector >>  8) & 0xFF]
-			+ Keys::User[(CurVector >>  0) & 0xFF]
+			  Keys::User[(PrevData >> 24) & 0xFF]
+			+ Keys::User[(PrevData >> 16) & 0xFF]
+			+ Keys::User[(PrevData >>  8) & 0xFF]
+			+ Keys::User[(PrevData >>  0) & 0xFF]
 		);
 		u32[i] = static_cast<std::uint32_t>((X << 16) | (X >> 16));
-		CurVector = CurCipher;
+		PrevData = CurData;
 	};
 	#endif
 }
 
 void VirtualPage::DecryptData(std::uint32_t PageChecksum)
 {
-	std::uint32_t CurVector = PageChecksum;
+	std::uint32_t PrevData = PageChecksum;
+	// #if defined(__SSSE3__) && defined(__AVX2__)
+	// __m128i PrevData4 = _mm_loadu_si128((const __m128i*)u32);
+	// PrevData4 = _mm_alignr_epi8(
+	// 	PrevData4,
+	// 	_mm_shuffle_epi32(
+	// 		_mm_set1_epi32(PrevData),
+	// 		_MM_SHUFFLE(0,1,2,3)
+	// 	),
+	// 	sizeof(std::uint32_t) * 3
+	// );
+	// for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i += 4 )
+	// {
+	// 	const __m128i CurData4 = _mm_loadu_si128((__m128i*)&u32[i]);
+	// 	__m128i CurPlain4 = _mm_sub_epi32(
+	// 		CurData4,
+	// 		_mm_xor_si128(
+	// 			PrevData4,
+	// 			KeySum4(PrevData4, Keys::User)
+	// 		)
+	// 	);
+	// 	_mm_storeu_si128((__m128i*)&u32[i], CurPlain4);
+	// 	PrevData4 = _mm_alignr_epi8(
+	// 		PrevData4, CurData4, sizeof(std::uint32_t) * 3
+	// 	);
+	// };
+	// #else
 	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i++ )
 	{
-		const std::uint32_t CurCipher = u32[i];
+		const std::uint32_t CurData = u32[i];
 		u32[i] =
-			CurCipher
-			- (CurVector ^ (
-				  Keys::User[(CurVector >>  0) & 0xFF]
-				+ Keys::User[(CurVector >>  8) & 0xFF]
-				+ Keys::User[(CurVector >> 16) & 0xFF]
-				+ Keys::User[(CurVector >> 24) & 0xFF]
+			CurData
+			- (PrevData ^ (
+				  Keys::User[(PrevData >> 24) & 0xFF]
+				+ Keys::User[(PrevData >> 16) & 0xFF]
+				+ Keys::User[(PrevData >>  8) & 0xFF]
+				+ Keys::User[(PrevData >>  0) & 0xFF]
 				)
 			);
-		CurVector = CurCipher;
+		PrevData = CurData;
 	}
+	// #endif
 }
 
 std::uint32_t VirtualPage::Checksum()
