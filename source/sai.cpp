@@ -170,32 +170,27 @@ void VirtualPage::DecryptTable(std::uint32_t PageIndex)
 void VirtualPage::DecryptData(std::uint32_t PageChecksum)
 {
 	std::uint32_t PrevData = PageChecksum;
-	// #if defined(__SSSE3__) && defined(__AVX2__)
-	// __m128i PrevData4 = _mm_loadu_si128((const __m128i*)u32);
-	// PrevData4 = _mm_alignr_epi8(
-	// 	PrevData4,
-	// 	_mm_shuffle_epi32(
-	// 		_mm_set1_epi32(PrevData),
-	// 		_MM_SHUFFLE(0,1,2,3)
-	// 	),
-	// 	sizeof(std::uint32_t) * 3
-	// );
-	// for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i += 4 )
-	// {
-	// 	const __m128i CurData4 = _mm_loadu_si128((__m128i*)&u32[i]);
-	// 	__m128i CurPlain4 = _mm_sub_epi32(
-	// 		CurData4,
-	// 		_mm_xor_si128(
-	// 			PrevData4,
-	// 			KeySum4(PrevData4, Keys::User)
-	// 		)
-	// 	);
-	// 	_mm_storeu_si128((__m128i*)&u32[i], CurPlain4);
-	// 	PrevData4 = _mm_alignr_epi8(
-	// 		PrevData4, CurData4, sizeof(std::uint32_t) * 3
-	// 	);
-	// };
-	// #else
+	#if defined(__SSSE3__) && defined(__AVX2__)
+	__m128i PrevData4 = _mm_set1_epi32(PrevData);
+	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i += 4 )
+	{
+		const __m128i CurData4 = _mm_loadu_si128((__m128i*)(u32 + i));
+		// Push the top word from the previous iteration into the bottom
+		// word of the current iteration
+		PrevData4 = _mm_alignr_epi8(
+			CurData4, PrevData4, sizeof(std::uint32_t) * 3
+		);
+		__m128i CurPlain4 = _mm_sub_epi32(
+			CurData4,
+			_mm_xor_si128(
+				PrevData4,
+				KeySum4(PrevData4, Keys::User)
+			)
+		);
+		_mm_storeu_si128((__m128i*)(u32 + i), CurPlain4);
+		PrevData4 = CurData4;
+	};
+	#else
 	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i++ )
 	{
 		const std::uint32_t CurData = u32[i];
@@ -210,7 +205,7 @@ void VirtualPage::DecryptData(std::uint32_t PageChecksum)
 			);
 		PrevData = CurData;
 	}
-	// #endif
+	#endif
 }
 
 std::uint32_t VirtualPage::Checksum()
