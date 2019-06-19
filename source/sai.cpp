@@ -67,59 +67,13 @@ struct LayerHeader
 
 /// VirtualPage
 #if defined(__AVX2__)
-inline __m128i KeySum4(
-	__m128i Vector4, const std::uint32_t Key[256]
-)
-{
-	__m128i Sum = _mm_i32gather_epi32(
-		(const std::int32_t*)Key,
-		_mm_and_si128(
-			Vector4, _mm_set1_epi32(0xFF)
-		),
-		sizeof(std::uint32_t)
-	);
-
-	Sum = _mm_add_epi32(
-		Sum,
-		_mm_i32gather_epi32(
-			(const std::int32_t*)Key,
-			_mm_and_si128(
-				_mm_srli_epi32(Vector4, 8),
-				_mm_set1_epi32(0xFF)
-			),
-			sizeof(std::uint32_t)
-		)
-	);
-	Sum = _mm_add_epi32(
-		Sum,
-		_mm_i32gather_epi32(
-			(const std::int32_t*)Key,
-			_mm_and_si128(
-				_mm_srli_epi32(Vector4, 16),
-				_mm_set1_epi32(0xFF)
-			),
-			sizeof(std::uint32_t)
-		)
-	);
-	Sum = _mm_add_epi32(
-		Sum,
-		_mm_i32gather_epi32(
-			(const std::int32_t*)Key,
-			_mm_srli_epi32(Vector4, 24),
-			sizeof(std::uint32_t)
-		)
-	);
-	return Sum;
-}
 inline __m256i KeySum8(
 	__m256i Vector8, const std::uint32_t Key[256]
 )
 {
 	__m256i Sum = _mm256_i32gather_epi32(
 		(const std::int32_t*)Key,
-		_mm256_and_si256(
-			Vector8, _mm256_set1_epi32(0xFF)
-		),
+		_mm256_and_si256(Vector8, _mm256_set1_epi32(0xFF)),
 		sizeof(std::uint32_t)
 	);
 
@@ -128,8 +82,7 @@ inline __m256i KeySum8(
 		_mm256_i32gather_epi32(
 			(const std::int32_t*)Key,
 			_mm256_and_si256(
-				_mm256_srli_epi32(Vector8, 8),
-				_mm256_set1_epi32(0xFF)
+				_mm256_srli_epi32(Vector8, 8), _mm256_set1_epi32(0xFF)
 			),
 			sizeof(std::uint32_t)
 		)
@@ -139,8 +92,7 @@ inline __m256i KeySum8(
 		_mm256_i32gather_epi32(
 			(const std::int32_t*)Key,
 			_mm256_and_si256(
-				_mm256_srli_epi32(Vector8, 16),
-				_mm256_set1_epi32(0xFF)
+				_mm256_srli_epi32(Vector8, 16), _mm256_set1_epi32(0xFF)
 			),
 			sizeof(std::uint32_t)
 		)
@@ -148,8 +100,7 @@ inline __m256i KeySum8(
 	Sum = _mm256_add_epi32(
 		Sum,
 		_mm256_i32gather_epi32(
-			(const std::int32_t*)Key,
-			_mm256_srli_epi32(Vector8, 24),
+			(const std::int32_t*)Key, _mm256_srli_epi32(Vector8, 24),
 			sizeof(std::uint32_t)
 		)
 	);
@@ -220,10 +171,7 @@ void VirtualPage::DecryptData(std::uint32_t PageChecksum)
 		);
 		__m256i CurPlain8 = _mm256_sub_epi32(
 			CurData8,
-			_mm256_xor_si256(
-				PrevData8,
-				KeySum8(PrevData8, Keys::User)
-			)
+			_mm256_xor_si256(PrevData8, KeySum8(PrevData8, Keys::User))
 		);
 		_mm256_storeu_si256((__m256i*)(u32 + i), CurPlain8);
 		PrevData8 = CurData8;
