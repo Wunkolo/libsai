@@ -351,7 +351,7 @@ std::streambuf::int_type ifstreambuf::underflow()
 std::streambuf::pos_type ifstreambuf::seekoff(
 	std::streambuf::off_type Offset,
 	std::ios_base::seekdir Direction,
-	std::ios_base::openmode Mode
+    std::ios_base::openmode /*Mode*/
 )
 {
 	std::streambuf::pos_type Position;
@@ -593,17 +593,17 @@ VirtualFileVisitor::~VirtualFileVisitor()
 {
 }
 
-bool VirtualFileVisitor::VisitFolderBegin(VirtualFileEntry& Entry)
+bool VirtualFileVisitor::VisitFolderBegin(VirtualFileEntry& /*Entry*/)
 {
 	return true;
 }
 
-bool VirtualFileVisitor::VisitFolderEnd(VirtualFileEntry& Entry)
+bool VirtualFileVisitor::VisitFolderEnd(VirtualFileEntry& /*Entry*/)
 {
 	return true;
 }
 
-bool VirtualFileVisitor::VisitFile(VirtualFileEntry& Entry)
+bool VirtualFileVisitor::VisitFile(VirtualFileEntry& /*Entry*/)
 {
 	return true;
 }
@@ -643,7 +643,7 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 	);
 
 	std::string CurPath(Path);
-	constexpr char* PathDelim = "./";
+    const char* PathDelim = "./";
 
 	const char* CurToken = std::strtok(&CurPath[0], PathDelim);
 
@@ -879,7 +879,7 @@ std::tuple<
 		Thumbnail->Read(Header.Height);
 		Thumbnail->Read(Header.Magic);
 
-		if( Header.Magic != '23MB' )
+        if( Header.Magic != *(uint*)"23MB" )
 		{
 			return std::make_tuple(nullptr, 0, 0);
 		}

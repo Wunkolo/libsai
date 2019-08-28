@@ -25,7 +25,7 @@ public:
 		++FolderDepth;
 		return true;
 	}
-	bool VisitFolderEnd(sai::VirtualFileEntry& Entry) override
+    bool VisitFolderEnd(sai::VirtualFileEntry& /*Entry*/) override
 	{
 		--FolderDepth;
 		return true;
