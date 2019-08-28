@@ -133,13 +133,12 @@ public:
 private:
 	std::ifstream FileIn;
 
-	std::uint32_t PageCount;
-
 	VirtualPage Buffer;
-	std::uint32_t CurrentPage;
 
-	// Decryption Key
-	const std::uint32_t* Key;
+    // Decryption Key
+    const std::uint32_t* Key;
+
+    std::uint32_t CurrentPage;
 
 	// Caching
 
@@ -150,6 +149,8 @@ private:
 
 	std::unique_ptr<VirtualPage> TableCache;
 	std::uint32_t TableCacheIndex;
+
+    std::uint32_t PageCount;
 };
 
 class ifstream : public std::istream
@@ -196,11 +197,11 @@ public:
 
 	// Return false to stop iteration
 
-	virtual bool VisitFolderBegin(VirtualFileEntry& Entry);;
+    virtual bool VisitFolderBegin(VirtualFileEntry&);
 
-	virtual bool VisitFolderEnd(VirtualFileEntry& Entry);;
+    virtual bool VisitFolderEnd(VirtualFileEntry&);
 
-	virtual bool VisitFile(VirtualFileEntry& Entry);;
+    virtual bool VisitFile(VirtualFileEntry&);
 };
 
 class VirtualFileSystem
