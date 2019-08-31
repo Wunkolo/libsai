@@ -31,8 +31,45 @@ public:
 		return true;
 	}
 	bool VisitFile(sai::VirtualFileEntry& Entry) override
-	{
-		PrintVirtualFileEntry(Entry);
+    {
+        PrintVirtualFileEntry(Entry);
+        if (FolderDepth>0) {
+            sai::Layer layerData = sai::Layer(Entry);
+            PrintNestedFolder();
+            PrintNestedFolder();
+                std::cout  << " "
+                           <<"LayerType: "<< layerData.LayerClass()
+                           << ", ParentLayer: "<< layerData.ParentID()
+                           << ", LayerID: "<< layerData.Identifier()
+                         << ", LayerName: "<< layerData.LayerName()
+                           << "\n";
+            PrintNestedFolder();
+            PrintNestedFolder();
+                std::cout <<" Visibility:"
+                          << layerData.IsVisible()
+                          <<", Opacity:"
+                          << layerData.Opacity()
+                          << ", AlphaLock:"
+                          << layerData.IsPreserveOpacity()
+                          << ", Clipping:"
+                          << layerData.IsClipping()
+                          << "\n";
+                PrintNestedFolder();
+                PrintNestedFolder();
+                std::cout << " Position: ["
+                          << int(std::get<0>(layerData.Position()))
+                          << ", "
+                          << int(std::get<1>(layerData.Position()))
+                          << "], Size: ["
+                          << int(std::get<0>(layerData.Size()))
+                          <<","
+                          << int(std::get<1>(layerData.Size()))
+                          << "]"
+                          << "\n";
+
+
+
+        }
 		return true;
 	}
 private:
