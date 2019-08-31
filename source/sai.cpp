@@ -1076,9 +1076,9 @@ Layer::~Layer()
 
 }
 
-uint32_t Layer::LayerClass()
+sai::LayerClass Layer::LayerType()
 {
-    return header.LayerClass;
+    return sai::LayerClass(header.LayerClass);
 }
 
 uint32_t Layer::Identifier()
@@ -1116,9 +1116,9 @@ bool Layer::IsClipping()
     return bool(header.Clipping);
 }
 
-uint32_t Layer::Blending()
+BlendingMode Layer::Blending()
 {
-    return header.Blending;
+    return BlendingMode(header.Blending);
 }
 
 char *Layer::LayerName()

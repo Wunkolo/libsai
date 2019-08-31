@@ -63,7 +63,20 @@ struct ThumbnailHeader
     std::uint32_t Magic; // BM32
 };
 
-enum class LayerClass
+enum BlendingMode : std::uint32_t
+{
+    PassThrough = 'pass',
+    Normal = 'norm',
+    Multiply = 'mul ',
+    Screen = 'scrn',
+    Overlay = 'over',
+    Luminosity = 'add ',
+    Shade = 'sub ',
+    LumiShade = 'adsb',
+    Binary = 'cbin'
+};
+
+enum class LayerClass : std::uint32_t
 {
     RootLayer = 0x00,
     // Parent Canvas layer object
@@ -352,7 +365,7 @@ public:
     Layer(VirtualFileEntry& entry);
     ~Layer();
 
-    std::uint32_t LayerClass();
+    LayerClass LayerType();
     std::uint32_t Identifier();
 
     std::tuple<
@@ -368,7 +381,7 @@ public:
     bool IsVisible();
     bool IsPreserveOpacity();
     bool IsClipping();
-    std::uint32_t Blending();
+    BlendingMode Blending();
 
     char* LayerName();
     std::uint32_t ParentID();
