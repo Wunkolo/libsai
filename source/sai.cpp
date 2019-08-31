@@ -174,8 +174,8 @@ ifstreambuf::ifstreambuf(const std::uint32_t* Key)
 		nullptr
 	);
 
-	PageCache = std::make_unique<VirtualPage>();
-	TableCache = std::make_unique<VirtualPage>();
+	PageCache  = std::unique_ptr<VirtualPage>(new VirtualPage{});
+	TableCache = std::unique_ptr<VirtualPage>(new VirtualPage{});
 }
 
 ifstreambuf* ifstreambuf::open(const char* Name)
@@ -300,7 +300,7 @@ std::streambuf::int_type ifstreambuf::underflow()
 std::streambuf::pos_type ifstreambuf::seekoff(
 	std::streambuf::off_type Offset,
 	std::ios_base::seekdir Direction,
-    std::ios_base::openmode /*Mode*/
+	std::ios_base::openmode /*Mode*/
 )
 {
 	std::streambuf::pos_type Position;
@@ -592,7 +592,7 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 	);
 
 	std::string CurPath(Path);
-    const char* PathDelim = "./";
+	const char* PathDelim = "./";
 
 	const char* CurToken = std::strtok(&CurPath[0], PathDelim);
 
@@ -756,8 +756,7 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 		// If you're reading this and have to work with this I'm so sorry.
 		//												- Wunkolo, 10/19/17
 		std::uint8_t* CurDest = reinterpret_cast<std::uint8_t*>(Destination);
-		std::size_t NextTableIndex = ((ReadPoint + (FATData.PageIndex * VirtualPage::PageSize)) / VirtualPage::PageSize & ~(
-			0x1FF)) + VirtualPage::TableSpan;
+		std::size_t NextTableIndex = ((ReadPoint + (FATData.PageIndex * VirtualPage::PageSize)) / VirtualPage::PageSize & ~(0x1FF)) + VirtualPage::TableSpan;
 		while( Size )
 		{
 			// Requested offset that we want to read from
@@ -833,14 +832,15 @@ std::tuple<
 		Thumbnail->Read(Header.Height);
 		Thumbnail->Read(Header.Magic);
 
-        if( Header.Magic != *(uint*)"23MB" )
+		if( Header.Magic != *(uint*)"23MB" )
 		{
 			return std::make_tuple(nullptr, 0, 0);
 		}
 
 		const std::size_t PixelCount = Header.Height * Header.Width;
-		std::unique_ptr<std::uint8_t[]> Pixels
-			= std::make_unique<std::uint8_t[]>(PixelCount * sizeof(std::uint32_t));
+		std::unique_ptr<std::uint8_t[]> Pixels(
+			new std::uint8_t[PixelCount * sizeof(std::uint32_t)]()
+		);
 
 		Thumbnail->Read(
 			Pixels.get(),
