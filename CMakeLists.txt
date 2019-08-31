@@ -9,13 +9,6 @@ set( CMAKE_COLOR_MAKEFILE ON )
 set( CMAKE_VERBOSE_MAKEFILE ON )
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
-if( MSVC )
-	add_compile_options( /W3 )
-elseif( CMAKE_COMPILER_IS_GNUCXX )
-	add_compile_options( -Wall )
-	add_compile_options( -Wextra )
-endif()
-
 ### libsai
 add_library(
 	sai
@@ -26,6 +19,14 @@ target_include_directories(
 	PUBLIC
 	include
 )
+
+
+if( MSVC )
+	target_compile_options( sai PUBLIC /W3 )
+elseif( CMAKE_COMPILER_IS_GNUCXX )
+	target_compile_options( sai PUBLIC -Wall )
+	target_compile_options( sai PUBLIC -Wextra )
+endif()
 
 
 ### Decryption sample
