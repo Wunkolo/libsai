@@ -827,15 +827,12 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 				Size, NextTableOffset - CurOffset
 			);
 			SaiStream->seekg(CurOffset);
-			SaiStream->read(
-				reinterpret_cast<char*>(CurDest),
-				CurStride
-			);
+			SaiStream->read(reinterpret_cast<char*>(CurDest), CurStride);
 			ReadPoint += CurStride;
 			CurDest += CurStride;
 			ToRead -= CurStride;
 		}
-		return Size;
+		return Size - ToRead;
 	}
 	return 0;
 }
