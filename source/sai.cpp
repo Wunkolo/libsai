@@ -1169,7 +1169,7 @@ Layer::Layer(VirtualFileEntry &entry):
     if (sai::LayerClass(header.LayerClass) == LayerClass::Layer) {
         std::vector<std::uint8_t> BlockMap;
         std::uint32_t blocksWidth = header.Bounds.Width/32;
-        std::uint32_t blocksHeight= header.Bounds.Width/32;
+        std::uint32_t blocksHeight= header.Bounds.Height/32;
         BlockMap.resize(blocksWidth * blocksHeight);
         entry.Read(BlockMap.data(), blocksWidth * blocksHeight);
 
