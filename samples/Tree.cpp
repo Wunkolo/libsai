@@ -69,7 +69,7 @@ private:
 
 const char* const Help =
 "Show virtual file system tree of a user-created .sai files:\n"
-"\tDecrypt.exe (filename)\n"
+"\t./Tree (filenames)\n"
 "\tWunkolo - Wunkolo@gmail.com";
 
 int main(int argc, char* argv[])
