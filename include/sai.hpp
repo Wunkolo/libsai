@@ -404,6 +404,8 @@ public:
     //Integer going from 0 to 15 presenting the width of the effect.
     int LayerEffectWidth();
 
+    void RLEDecompress32(void* Destination, const std::uint8_t *Source, std::size_t SourceSize, std::size_t IntCount, std::size_t Channel);
+
 private:
 
     LayerHeader header;

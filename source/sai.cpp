@@ -1165,6 +1165,7 @@ Layer::Layer(VirtualFileEntry &entry):
         entry.Read(CurTag);
     }
 
+    std::cout << header.LayerClass;
     if (sai::LayerClass(header.LayerClass) == LayerClass::Layer) {
         std::vector<std::uint8_t> BlockMap;
         std::uint32_t blocksWidth = header.Bounds.Width/32;
@@ -1179,23 +1180,34 @@ Layer::Layer(VirtualFileEntry &entry):
 
                 if( BlockMap[blocksWidth * y + x] ) {
                     std::array<std::uint8_t, 0x800> CompressedTile;
-                    //alignas(sizeof(__m128i)) std::array<std::uint8_t, 0x1000> DecompressedTile;
+                    alignas(sizeof(__m128i)) std::array<std::uint8_t, 0x1000> DecompressedTile;
                     std::uint8_t Channel = 0;
                     std::uint16_t Size = 0;
 
-                    while (entry.Read<std::uint16_t>(Size)>=0) {
+                    while (entry.Read<std::uint16_t>(Size)>0) {
                         std::cout << "\n reading " << Size;
                         entry.Read(CompressedTile.data(), Size);
-
+                        std::cout << "\n Decompressing:";
+                        RLEDecompress32(
+                                            DecompressedTile.data(),
+                                            CompressedTile.data(),
+                                            Size,
+                                            1024,
+                                            Channel
+                                        );
+                        std::cout << " Decompressed!";
 
                         Channel++;
 
-                                if( Channel >= 4 ) {
-                                    for( std::size_t i = 0; i < 4; i++ ) {
-                                        std::uint16_t Size = entry.Read<std::uint16_t>();
-                                        entry.Seek(entry.Tell() + Size);
-                                    }
-                                }
+                        if( Channel >= 4 ) {
+                            std::cout << "\nSkipping Channels " << int(Channel);
+                            for( std::size_t i = 0; i < 4; i++ ) {
+                                std::uint16_t Size = entry.Read<std::uint16_t>();
+                                entry.Seek(entry.Tell() + Size);
+                            }
+                            break;
+                        }
+                        std::cout << "\n end while loop";
                     };
                     std::cout << "\nChannels " << int(Channel);
                 }
@@ -1203,6 +1215,46 @@ Layer::Layer(VirtualFileEntry &entry):
         }
     }
 //std::cout << " end" << entry.Tell() << " ";
+}
+
+void Layer::RLEDecompress32(void* Destination, const std::uint8_t *Source, std::size_t SourceSize, std::size_t IntCount, std::size_t Channel)
+{
+    std::uint8_t *Write = reinterpret_cast<std::uint8_t*>(Destination) + Channel;
+    std::size_t WriteCount = 0;
+
+    while( WriteCount < IntCount )
+    {
+        std::uint8_t Length = *Source++;
+        if( Length == 128 ) // No-op
+        {
+        }
+        else if( Length < 128 ) // Copy
+        {
+            // Copy the next Length+1 bytes
+            Length++;
+            WriteCount += Length;
+            while( Length )
+            {
+                *Write = *Source++;
+                Write += 4;
+                Length--;
+            }
+        }
+        else if( Length > 128 ) // Repeating byte
+        {
+            // Repeat next byte exactly "-Length + 1" times
+            Length ^= 0xFF;
+            Length += 2;
+            WriteCount += Length;
+            std::uint8_t Value = *Source++;
+            while( Length )
+            {
+                *Write = Value;
+                Write += 4;
+                Length--;
+            }
+        }
+    }
 }
 
 Layer::~Layer()
