@@ -5,6 +5,7 @@
 #include <cstring>
 #include <codecvt>
 #include <locale>
+#include <vector>
 
 #include <string>
 #include <iostream>
@@ -1163,7 +1164,45 @@ Layer::Layer(VirtualFileEntry &entry):
         }
         entry.Read(CurTag);
     }
-    //std::cout << " end" << entry.Tell() << " ";
+
+    if (sai::LayerClass(header.LayerClass) == LayerClass::Layer) {
+        std::vector<std::uint8_t> BlockMap;
+        std::uint32_t blocksWidth = header.Bounds.Width/32;
+        std::uint32_t blocksHeight= header.Bounds.Width/32;
+        BlockMap.resize(blocksWidth * blocksHeight);
+        entry.Read(BlockMap.data(), blocksWidth * blocksHeight);
+
+        for( std::size_t y = 0; y < blocksHeight; y++ ) {
+            for( std::size_t x = 0; x < blocksWidth; x++ ) {
+
+                std::cout << "\nblock " << blocksWidth * y + x << " of " << blocksWidth*blocksHeight;
+
+                if( BlockMap[blocksWidth * y + x] ) {
+                    std::array<std::uint8_t, 0x800> CompressedTile;
+                    //alignas(sizeof(__m128i)) std::array<std::uint8_t, 0x1000> DecompressedTile;
+                    std::uint8_t Channel = 0;
+                    std::uint16_t Size = 0;
+
+                    while (entry.Read<std::uint16_t>(Size)>=0) {
+                        std::cout << "\n reading " << Size;
+                        entry.Read(CompressedTile.data(), Size);
+
+
+                        Channel++;
+
+                                if( Channel >= 4 ) {
+                                    for( std::size_t i = 0; i < 4; i++ ) {
+                                        std::uint16_t Size = entry.Read<std::uint16_t>();
+                                        entry.Seek(entry.Tell() + Size);
+                                    }
+                                }
+                    };
+                    std::cout << "\nChannels " << int(Channel);
+                }
+            }
+        }
+    }
+//std::cout << " end" << entry.Tell() << " ";
 }
 
 Layer::~Layer()
