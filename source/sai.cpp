@@ -160,16 +160,8 @@ ifstreambuf::ifstreambuf(const std::uint32_t* Key)
 	TableCacheIndex(-1),
 	PageCount(0)
 {
-	setg(
-		nullptr,
-		nullptr,
-		nullptr
-	);
-
-	setp(
-		nullptr,
-		nullptr
-	);
+	setg(nullptr, nullptr, nullptr);
+	setp(nullptr, nullptr);
 
 	PageCache  = std::unique_ptr<VirtualPage>(new VirtualPage{});
 	TableCache = std::unique_ptr<VirtualPage>(new VirtualPage{});
@@ -182,10 +174,7 @@ ifstreambuf* ifstreambuf::open(const char* Name)
 		return nullptr;
 	}
 
-	FileIn.open(
-		Name,
-		std::ios_base::binary | std::ios_base::ate
-	);
+	FileIn.open(Name, std::ios_base::binary | std::ios_base::ate);
 
 	if( FileIn.is_open() == false )
 	{
@@ -204,9 +193,7 @@ ifstreambuf* ifstreambuf::open(const char* Name)
 
 	PageCount = static_cast<std::uint32_t>(FileSize) / VirtualPage::PageSize;
 
-	seekpos(
-		0
-	);
+	seekpos(0);
 
 	return this;
 }
@@ -219,17 +206,11 @@ ifstreambuf* ifstreambuf::open(const wchar_t* Name)
 	}
 
 #if defined(_WIN32)
-	FileIn.open(
-		Name,
-		std::ios_base::binary | std::ios_base::ate
-	);
+	FileIn.open(Name, std::ios_base::binary | std::ios_base::ate);
 #else
 	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> Converter;
 	std::string Name8 = Converter.to_bytes(std::wstring(Name));
-	FileIn.open(
-		Name8,
-		std::ios_base::binary | std::ios_base::ate
-	);
+	FileIn.open(Name8, std::ios_base::binary | std::ios_base::ate);
 #endif
 
 	if( FileIn.is_open() == false )
@@ -249,9 +230,7 @@ ifstreambuf* ifstreambuf::open(const wchar_t* Name)
 
 	PageCount = static_cast<std::uint32_t>(FileSize) / VirtualPage::PageSize;
 
-	seekpos(
-		0
-	);
+	seekpos(0);
 
 	return this;
 }
@@ -295,8 +274,7 @@ std::streambuf::int_type ifstreambuf::underflow()
 }
 
 std::streambuf::pos_type ifstreambuf::seekoff(
-	std::streambuf::off_type Offset,
-	std::ios_base::seekdir Direction,
+	std::streambuf::off_type Offset, std::ios_base::seekdir Direction,
 	std::ios_base::openmode /*Mode*/
 )
 {
@@ -317,9 +295,7 @@ std::streambuf::pos_type ifstreambuf::seekoff(
 		Position = (PageCount * VirtualPage::PageSize) + Offset;
 	}
 
-	return seekpos(
-		Position
-	);
+	return seekpos(Position);
 }
 
 std::streambuf::pos_type ifstreambuf::seekpos(
@@ -344,11 +320,7 @@ std::streambuf::pos_type ifstreambuf::seekpos(
 			}
 		}
 	}
-	setg(
-		nullptr,
-		nullptr,
-	nullptr
-	);
+	setg(nullptr, nullptr, nullptr);
 	return std::streampos(std::streamoff(-1));
 }
 
@@ -366,22 +338,14 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 			// Cache Hit
 			if( Dest != nullptr )
 			{
-				std::memcpy(
-					Dest,
-					TableCache.get(),
-					VirtualPage::PageSize
-				);
+				std::memcpy(Dest, TableCache.get(), VirtualPage::PageSize);
 			}
 			return true;
 		}
 
-		FileIn.seekg(
-			PageIndex * VirtualPage::PageSize,
-			std::ios_base::beg
-		);
+		FileIn.seekg(PageIndex * VirtualPage::PageSize, std::ios_base::beg);
 		FileIn.read(
-			reinterpret_cast<char*>(TableCache.get()),
-			VirtualPage::PageSize
+			reinterpret_cast<char*>(TableCache.get()), VirtualPage::PageSize
 		);
 		if( FileIn.fail() )
 		{
@@ -391,11 +355,7 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 		TableCacheIndex = PageIndex;
 		if( Dest != nullptr )
 		{
-			std::memcpy(
-				Dest,
-				TableCache.get(),
-				VirtualPage::PageSize
-			);
+			std::memcpy(Dest, TableCache.get(), VirtualPage::PageSize);
 		}
 	}
 	else // Data Block
@@ -405,11 +365,7 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 			// Cache Hit
 			if( Dest != nullptr )
 			{
-				std::memcpy(
-					Dest,
-					PageCache.get(),
-					VirtualPage::PageSize
-				);
+				std::memcpy(Dest, PageCache.get(), VirtualPage::PageSize);
 			}
 			return true;
 		}
@@ -424,12 +380,10 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 			return false;
 		}
 		FileIn.seekg(
-			PageIndex * VirtualPage::PageSize,
-			std::ios_base::beg
+			PageIndex * VirtualPage::PageSize, std::ios_base::beg
 		);
 		FileIn.read(
-			reinterpret_cast<char*>(PageCache.get()),
-			VirtualPage::PageSize
+			reinterpret_cast<char*>(PageCache.get()), VirtualPage::PageSize
 		);
 		if( FileIn.fail() )
 		{
@@ -452,11 +406,7 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 		PageCacheIndex = PageIndex;
 		if( Dest != nullptr )
 		{
-			std::memcpy(
-				Dest,
-				PageCache.get(),
-				VirtualPage::PageSize
-			);
+			std::memcpy(Dest, PageCache.get(), VirtualPage::PageSize);
 		}
 	}
 	return true;
@@ -466,41 +416,31 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 ifstream::ifstream(const std::string& Path)
 	: std::istream(new ifstreambuf())
 {
-	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
-		Path.c_str()
-	);
+	reinterpret_cast<ifstreambuf*>(rdbuf())->open(Path.c_str());
 }
 
 ifstream::ifstream(const char* Path)
 	: std::istream(new ifstreambuf())
 {
-	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
-		Path
-	);
+	reinterpret_cast<ifstreambuf*>(rdbuf())->open(Path);
 }
 
 ifstream::ifstream(const std::wstring& Path)
 	: std::istream(new ifstreambuf())
 {
-	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
-		Path.c_str()
-	);
+	reinterpret_cast<ifstreambuf*>(rdbuf())->open(Path.c_str());
 }
 
 ifstream::ifstream(const wchar_t* Path)
 	: std::istream(new ifstreambuf())
 {
-	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
-		Path
-	);
+	reinterpret_cast<ifstreambuf*>(rdbuf())->open(Path);
 }
 
 void ifstream::open(const char* FilePath) const
 {
 	reinterpret_cast<ifstreambuf*>(rdbuf())->close();
-	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
-		FilePath
-	);
+	reinterpret_cast<ifstreambuf*>(rdbuf())->open(FilePath);
 }
 
 void ifstream::open(const std::string& FilePath) const
@@ -511,9 +451,7 @@ void ifstream::open(const std::string& FilePath) const
 void ifstream::open(const wchar_t* FilePath) const
 {
 	reinterpret_cast<ifstreambuf*>(rdbuf())->close();
-	reinterpret_cast<ifstreambuf*>(rdbuf())->open(
-		FilePath
-	);
+	reinterpret_cast<ifstreambuf*>(rdbuf())->open(FilePath);
 }
 
 void ifstream::open(const std::wstring& FilePath) const
@@ -590,9 +528,7 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 
 	std::string CurPath(Path);
 	const char* PathDelim = "./";
-
 	const char* CurToken = std::strtok(&CurPath[0], PathDelim);
-
 	std::size_t CurEntry = 0;
 
 	while( CurEntry < 64 && CurPage.FATEntries[CurEntry].Flags && CurToken )
@@ -604,7 +540,6 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 			{
 				// No more tokens, done
 				std::unique_ptr<VirtualFileEntry> Entry(new VirtualFileEntry());
-
 				Entry->FATData = CurPage.FATEntries[CurEntry];
 				Entry->FileSystem = SaiStream;
 				return Entry;
@@ -629,36 +564,25 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 }
 
 std::size_t VirtualFileSystem::Read(
-	std::size_t Offset,
-	void* Destination,
-	std::size_t Size) const
+	std::size_t Offset, void* Destination, std::size_t Size
+) const
 {
 	SaiStream->seekg(Offset);
-	SaiStream->read(
-		reinterpret_cast<char*>(Destination),
-		Size
-	);
+	SaiStream->read(reinterpret_cast<char*>(Destination), Size);
 	return Size;
 }
 
 void VirtualFileSystem::IterateFileSystem(VirtualFileVisitor& Visitor)
 {
-	IterateFATBlock(
-		2,
-		Visitor
-	);
+	IterateFATBlock(2, Visitor);
 }
 
 void VirtualFileSystem::IterateFATBlock(
-	std::size_t PageIndex,
-	VirtualFileVisitor& Visitor
+	std::size_t PageIndex, VirtualFileVisitor& Visitor
 )
 {
 	VirtualPage CurPage = {};
-	Read(
-		PageIndex * VirtualPage::PageSize,
-		CurPage
-	);
+	Read(PageIndex * VirtualPage::PageSize, CurPage);
 
 	for(
 		std::size_t i = 0;
@@ -680,10 +604,7 @@ void VirtualFileSystem::IterateFATBlock(
 		case FATEntry::EntryType::Folder:
 		{
 			Visitor.VisitFolderBegin(CurEntry);
-			IterateFATBlock(
-				CurEntry.GetPageIndex(),
-				Visitor
-			);
+			IterateFATBlock(CurEntry.GetPageIndex(), Visitor);
 			Visitor.VisitFolderEnd(CurEntry);
 			break;
 		}
@@ -814,9 +735,7 @@ std::tuple<std::uint32_t, std::uint32_t> Document::GetCanvasSize()
 }
 
 std::tuple<
-	std::unique_ptr<std::uint8_t[]>,
-	std::uint32_t,
-	std::uint32_t
+	std::unique_ptr<std::uint8_t[]>, std::uint32_t, std::uint32_t
 > Document::GetThumbnail()
 {
 	if( std::unique_ptr<VirtualFileEntry> Thumbnail = GetEntry("thumbnail") )
@@ -836,10 +755,7 @@ std::tuple<
 			new std::uint8_t[PixelCount * sizeof(std::uint32_t)]()
 		);
 
-		Thumbnail->Read(
-			Pixels.get(),
-			PixelCount * sizeof(std::uint32_t)
-		);
+		Thumbnail->Read(Pixels.get(), PixelCount * sizeof(std::uint32_t));
 
 		//// BGRA to RGBA
 		//std::size_t i = 0;
