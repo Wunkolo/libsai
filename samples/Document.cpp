@@ -41,6 +41,18 @@ int main(int argc, char* argv[])
 		const auto Bench = Benchmark<std::chrono::nanoseconds>::Run(
 			[&CurDocument]() -> void
 			{
+				CurDocument.IterateLayerFiles(
+					[](sai::VirtualFileEntry& LayerFile)
+					{
+						const sai::LayerHeader LayerHeader
+							= LayerFile.Read<sai::LayerHeader>();
+						std::printf(
+							"\t- \"%08x\"\n",
+							LayerHeader.Identifier
+						);
+						return true;
+					}
+				);
 			}
 		);
 		std::printf(

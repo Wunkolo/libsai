@@ -795,6 +795,30 @@ std::tuple<
 	return std::make_tuple(nullptr, 0, 0);
 }
 
+void Document::IterateLayerFiles(
+	const std::function<bool(VirtualFileEntry&)>& LayerProc
+)
+{
+	if( auto LayerTable = GetEntry("laytbl") )
+	{
+		std::uint32_t LayerCount = LayerTable->Read<std::uint32_t>();
+		while( LayerCount-- ) // Read each layer entry
+		{
+			const LayerTableEntry CurLayerEntry = LayerTable->Read<LayerTableEntry>();
+			char LayerPath[32] = {};
+			std::snprintf(
+				LayerPath, 32u,
+				"/layers/%08x",
+				CurLayerEntry.Identifier
+			);
+			if( auto LayerFile = GetEntry(LayerPath) )
+			{
+				if( !LayerProc(*LayerFile) ) break;
+			}
+		}
+	}
+}
+
 /// Keys
 namespace Keys
 {

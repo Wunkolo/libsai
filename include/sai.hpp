@@ -29,6 +29,7 @@ LICENSE
 #include <array>
 #include <memory>
 #include <tuple>
+#include <functional>
 
 namespace sai
 {
@@ -377,8 +378,8 @@ public:
 		std::uint32_t
 	> GetThumbnail();
 
-	bool IterateLayerFiles(
-
+	void IterateLayerFiles(
+		const std::function<bool(VirtualFileEntry&)>&
 	);
 
 private:
