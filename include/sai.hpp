@@ -133,6 +133,13 @@ struct LayerHeader
 	std::uint32_t Blending;
 };
 
+struct LayerTableEntry
+{
+	std::uint32_t Identifier;
+	std::uint16_t Type;     // LayerType enum
+	std::uint16_t Unknown6; // Gets sent as windows message 0x80CA for some reason
+};
+
 #pragma pack(pop)
 
 /*
@@ -369,6 +376,10 @@ public:
 		std::uint32_t,
 		std::uint32_t
 	> GetThumbnail();
+
+	bool IterateLayerFiles(
+
+	);
 
 private:
 };
