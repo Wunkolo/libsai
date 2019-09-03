@@ -7,8 +7,6 @@
 #include <vector>
 #include <sai.hpp>
 
-#include <immintrin.h>
-
 #include "Benchmark.hpp"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -70,12 +68,9 @@ int main(int argc, char* argv[])
 			}
 		);
 		std::printf(
-			"Iterated Document of %s in %zu ns\n",
-			argv[i],
-			Bench.count()
+			"Iterated Document of %s in %zu ns\n", argv[i], Bench.count()
 		);
 	}
-
 	return EXIT_SUCCESS;
 }
 
@@ -86,16 +81,11 @@ void ProcessLayerFile(
 	using namespace sai::Literals;
 	const sai::LayerHeader LayerHeader
 		= LayerFile.Read<sai::LayerHeader>();
-	std::printf(
-		"\t- \"%08x\"\n",
-		LayerHeader.Identifier
-	);
+	std::printf("\t- \"%08x\"\n", LayerHeader.Identifier);
+
 	char Name[256] = {};
-	std::snprintf(
-		Name, 256,
-		"%08x",
-		LayerHeader.Identifier
-	);
+	std::snprintf(Name, 256, "%08x", LayerHeader.Identifier);
+
 	// Read serialization stream
 	std::uint32_t CurTag;
 	std::uint32_t CurTagSize;
@@ -124,7 +114,7 @@ void ProcessLayerFile(
 	{
 		case sai::LayerType::Layer:
 		{
-			if( std::unique_ptr<std::uint32_t[]> LayerPixels = ReadRasterLayer(LayerHeader, LayerFile) )
+			if( auto LayerPixels = ReadRasterLayer(LayerHeader, LayerFile) )
 			{
 				stbi_write_png(
 					(std::string(Name) + ".png").c_str(),
@@ -146,16 +136,14 @@ void ProcessLayerFile(
 
 
 void RLEDecompressStride(
-	std::uint8_t* Destination, const std::uint8_t *Source,
-	std::size_t Stride,
-	std::size_t IntCount,
-	std::size_t Channel
+	std::uint8_t* Destination, const std::uint8_t *Source, std::size_t Stride,
+	std::size_t StrideCount, std::size_t Channel
 )
 {
 	Destination += Channel;
 	std::size_t WriteCount = 0;
 
-	while( WriteCount < IntCount )
+	while( WriteCount < StrideCount )
 	{
 		std::uint8_t Length = *Source++;
 		if( Length == 128 ) // No-op
@@ -191,17 +179,20 @@ void RLEDecompressStride(
 }
 
 std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
-	const sai::LayerHeader& LayerHeader,
-	sai::VirtualFileEntry& LayerFile
+	const sai::LayerHeader& LayerHeader, sai::VirtualFileEntry& LayerFile
 )
 {
-	// Read BlockMap
-	// Do not use a vector<bool> as this is commonly implemented as a specialized vector type that does not implement individual bool values as bytes but rather as packed bits within a word
-	std::vector<std::uint8_t> BlockMap;
-	BlockMap.resize((LayerHeader.Bounds.Width / 32) * (LayerHeader.Bounds.Height / 32));
+	const std::size_t TileSize = 32u;
+	const std::size_t LayerTilesX = LayerHeader.Bounds.Width  / TileSize;
+	const std::size_t LayerTilesY = LayerHeader.Bounds.Height / TileSize;
 
-	// Read Block Map
-	LayerFile.Read(BlockMap.data(), (LayerHeader.Bounds.Width / 32) * (LayerHeader.Bounds.Height / 32));
+	// Read TileMap
+	// Do not use a vector<bool> as this is commonly implemented as a specialized vector type that does not implement individual bool values as bytes but rather as packed bits within a word
+	std::vector<std::uint8_t> TileMap;
+	TileMap.resize(LayerTilesX * LayerTilesY);
+
+	// Read Tile Map
+	LayerFile.Read(TileMap.data(), LayerTilesX * LayerTilesY);
 
 	// the resulting raster image data for this layer, RGBA 32bpp interleaved
 	// Use a vector to ensure that tiles with no data are still initialized
@@ -210,59 +201,70 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 	// may actually only be true at run-time. All raster data found in files are stored at
 	// 8bpc while only some run-time color arithmetic converts to 16-bit
 	std::unique_ptr<std::uint32_t[]> LayerImage(
-		new std::uint32_t[LayerHeader.Bounds.Width * LayerHeader.Bounds.Height * 4]()
+		new std::uint32_t[LayerHeader.Bounds.Width * LayerHeader.Bounds.Height]()
 	);
 
-
 	// iterate 32x32 tile chunks row by row
-	for( std::size_t y = 0; y < (LayerHeader.Bounds.Height / 32); y++ )
+	for( std::size_t y = 0; y < LayerTilesY; ++y )
 	{
-		for( std::size_t x = 0; x < (LayerHeader.Bounds.Width / 32); x++ )
+		for( std::size_t x = 0; x < LayerTilesX; ++x )
 		{
-			if( BlockMap[(LayerHeader.Bounds.Width / 32) * y + x] ) // if tile is active
+			 // Process active Tiles
+			if( !TileMap[LayerTilesX * y + x] ) continue;
+			// Decompress Tile
+			std::array<std::uint8_t, 0x1000> CompressedTile;
+			// 32 x 32 Tile of B8G8R8A8 pixels
+			std::array<std::uint8_t, 0x1000> DecompressedTile;
+
+			std::uint8_t CurChannel = 0;
+			std::uint16_t RLESize = 0;
+			// Iterate RLE streams for each channel
+			while( LayerFile.Read<std::uint16_t>(RLESize) == sizeof(std::uint16_t) )
 			{
-				// Decompress Tile
-				std::array<std::uint8_t, 0x800> CompressedTile;
-
-				// Aligned memory for simd
-				alignas(sizeof(__m128i)) std::array<std::uint8_t, 0x1000> DecompressedTile;
-
-				std::uint8_t Channel = 0;
-				std::uint16_t Size = 0;
-				while( LayerFile.Read<std::uint16_t>(Size) ) // Get Current RLE stream size
+				if( LayerFile.Read(CompressedTile.data(), RLESize) != RLESize )
 				{
-					LayerFile.Read(CompressedTile.data(), Size);
-					// decompress and place into the appropriate interleaved channel
-					RLEDecompressStride(
-						DecompressedTile.data(),
-						CompressedTile.data(),
-						sizeof(std::uint32_t),
-						0x1000 / sizeof(std::uint32_t),
-						Channel
-					);
-					Channel++; // Move on to next channel
-					if( Channel >= 4 ) // skip all other channels besides the RGBA ones we care about
+					// Error reading RLE stream
+					break;
+				}
+				// Decompress and place into the appropriate interleaved channel
+				RLEDecompressStride(
+					DecompressedTile.data(), CompressedTile.data(),
+					sizeof(std::uint32_t), 0x1000 / sizeof(std::uint32_t),
+					CurChannel
+				);
+				++CurChannel;
+				if( CurChannel >= 4 ) // skip all other channels besides the RGBA ones we care about
+				{
+					for( std::size_t i = 0; i < 4; i++ )
 					{
-						for( std::size_t i = 0; i < 4; i++ )
-						{
-							std::uint16_t Size = LayerFile.Read<std::uint16_t>();
-							LayerFile.Seek(LayerFile.Tell() + Size);
-						}
-						break;
+						const std::uint16_t Size = LayerFile.Read<std::uint16_t>();
+						LayerFile.Seek(LayerFile.Tell() + Size);
 					}
+					break;
 				}
+			}
+			
+			const auto Index2D = []
+			(std::size_t X, std::size_t Y, std::size_t Stride) -> std::size_t
+			{
+				return X + (Y * Stride);
+			};
 
-				const std::uint32_t* ImageSource = reinterpret_cast<const std::uint32_t*>(DecompressedTile.data());
-				// Current 32x32 tile within final image
-				std::uint32_t* ImageDest = LayerImage.get() + (x * 32) + ((y * LayerHeader.Bounds.Width) * 32);
-				for( std::size_t i = 0; i < (32 * 32); i++ )
-				{
-					std::uint32_t CurPixel = ImageSource[i];
-					///
-					// Do any Per-Pixel processing you need to do here
-					///
-					ImageDest[(i % 32) + ((i / 32) * (LayerHeader.Bounds.Width))] = CurPixel;
-				}
+			// Write 32x32 tile into final image
+			const std::uint32_t* ImageSource
+				= reinterpret_cast<const std::uint32_t*>(DecompressedTile.data());
+			// Current 32x32 tile within final image
+			std::uint32_t* ImageDest = LayerImage.get()
+				+ Index2D(x * TileSize, y * LayerHeader.Bounds.Width, TileSize);
+			for( std::size_t i = 0; i < (TileSize * TileSize); i++ )
+			{
+				std::uint32_t CurPixel = ImageSource[i];
+				///
+				// Do any Per-Pixel processing you need to do here
+				///
+				ImageDest[
+					Index2D(i % TileSize, i / TileSize, LayerHeader.Bounds.Width)
+				] = CurPixel;
 			}
 		}
 	}
