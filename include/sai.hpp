@@ -33,6 +33,50 @@ LICENSE
 
 namespace sai
 {
+
+namespace Literals
+{
+	inline constexpr std::uint32_t operator"" _Tag(const char* TagString, std::size_t) noexcept
+	{
+		return
+			  (TagString[3] <<  0)
+			| (TagString[2] <<  8)
+			| (TagString[1] << 16)
+			| (TagString[0] << 24);
+	}
+}
+
+enum class LayerType
+{
+	RootLayer = 0x00, // Canvas pseudo-layer
+	Layer     = 0x03,
+	Unknown4  = 0x04,
+	Linework  = 0x05,
+	Mask      = 0x06,
+	Unknown7  = 0x07,
+	Set       = 0x08
+};
+
+namespace
+{
+
+using namespace Literals;
+enum class BlendingModes : std::uint32_t
+{
+	PassThrough = "pass"_Tag,
+	Normal      = "norm"_Tag,
+	Multiply    = "mul\0"_Tag,
+	Screen      = "scrn"_Tag,
+	Overlay     = "over"_Tag,
+	Luminosity  = "add\0"_Tag,
+	Shade       = "sub\0"_Tag,
+	LumiShade   = "adsb"_Tag,
+	Binary      = "cbi"_Tag
+};
+
+}
+
+
 #pragma pack(push, 1)
 
 struct FATEntry
@@ -92,10 +136,12 @@ struct ThumbnailHeader
 	std::uint32_t Magic; // BM32
 };
 
+using LayerID = std::uint32_t;
+
 struct LayerReference
 {
 	std::uint32_t Identifier;
-	std::uint16_t LayerClass;
+	std::uint16_t LayerType;
 	// These all get added and sent as a windows message 0x80CA for some reason
 	std::uint16_t Unknown;
 };
@@ -110,8 +156,8 @@ struct LayerBounds
 
 struct LayerHeader
 {
-	std::uint32_t LayerClass;
-	std::uint32_t Identifier;
+	std::uint32_t Type; // LayerType enum
+	LayerID Identifier;
 	LayerBounds Bounds;
 	std::uint32_t Unknown;
 	std::uint8_t Opacity;
@@ -124,54 +170,12 @@ struct LayerHeader
 
 struct LayerTableEntry
 {
-	std::uint32_t Identifier;
+	LayerID Identifier;
 	std::uint16_t Type;     // LayerType enum
 	std::uint16_t Unknown6; // Gets sent as windows message 0x80CA for some reason
 };
 
 #pragma pack(pop)
-
-namespace Literals
-{
-	inline constexpr std::uint32_t operator"" _Tag(const char* TagString, std::size_t) noexcept
-	{
-		return
-			  (TagString[3] <<  0)
-			| (TagString[2] <<  8)
-			| (TagString[1] << 16)
-			| (TagString[0] << 24);
-	}
-}
-
-enum class LayerClass
-{
-	RootLayer = 0x00, // Canvas pseudo-layer
-	Layer     = 0x03,
-	Unknown4  = 0x04,
-	Linework  = 0x05,
-	Mask      = 0x06,
-	Unknown7  = 0x07,
-	Set       = 0x08
-};
-
-namespace
-{
-
-using namespace Literals;
-enum class BlendingModes : std::uint32_t
-{
-	PassThrough = "pass"_Tag,
-	Normal      = "norm"_Tag,
-	Multiply    = "mul\0"_Tag,
-	Screen      = "scrn"_Tag,
-	Overlay     = "over"_Tag,
-	Luminosity  = "add\0"_Tag,
-	Shade       = "sub\0"_Tag,
-	LumiShade   = "adsb"_Tag,
-	Binary      = "cbi"_Tag
-};
-
-}
 
 /*
 Symmetric keys for decrupting and encrypting the virtual file system
