@@ -379,7 +379,10 @@ public:
 	> GetThumbnail();
 
 	void IterateLayerFiles(
-		const std::function<bool(VirtualFileEntry&)>&
+		const std::function<bool(VirtualFileEntry&)>& LayerProc
+	);
+	void IterateSubLayerFiles(
+		const std::function<bool(VirtualFileEntry&)>& SubLayerProc
 	);
 
 private:

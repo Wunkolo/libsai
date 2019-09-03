@@ -799,21 +799,45 @@ void Document::IterateLayerFiles(
 	const std::function<bool(VirtualFileEntry&)>& LayerProc
 )
 {
-	if( auto LayerTable = GetEntry("laytbl") )
+	if( auto LayerTableFile = GetEntry("laytbl") )
 	{
-		std::uint32_t LayerCount = LayerTable->Read<std::uint32_t>();
+		std::uint32_t LayerCount = LayerTableFile->Read<std::uint32_t>();
 		while( LayerCount-- ) // Read each layer entry
 		{
-			const LayerTableEntry CurLayerEntry = LayerTable->Read<LayerTableEntry>();
+			const LayerTableEntry CurLayerEntry
+				= LayerTableFile->Read<LayerTableEntry>();
 			char LayerPath[32] = {};
 			std::snprintf(
-				LayerPath, 32u,
-				"/layers/%08x",
+				LayerPath, 32u, "/layers/%08x",
 				CurLayerEntry.Identifier
 			);
 			if( auto LayerFile = GetEntry(LayerPath) )
 			{
 				if( !LayerProc(*LayerFile) ) break;
+			}
+		}
+	}
+}
+
+void Document::IterateSubLayerFiles(
+	const std::function<bool(VirtualFileEntry&)>& SubLayerProc
+)
+{
+	if( auto SubLayerTableFile = GetEntry("subtbl") )
+	{
+		std::uint32_t SubLayerCount = SubLayerTableFile->Read<std::uint32_t>();
+		while( SubLayerCount-- ) // Read each layer entry
+		{
+			const LayerTableEntry CurSubLayerEntry
+				= SubLayerTableFile->Read<LayerTableEntry>();
+			char SubLayerPath[32] = {};
+			std::snprintf(
+				SubLayerPath, 32u, "/sublayers/%08x",
+				CurSubLayerEntry.Identifier
+			);
+			if( auto SubLayerFile = GetEntry(SubLayerPath) )
+			{
+				if( !SubLayerProc(*SubLayerFile) ) break;
 			}
 		}
 	}
