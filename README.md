@@ -595,7 +595,9 @@ std::uint32_t ParentLayerID;
 
 Only appears in mask layers
 ```cpp
-std::uint32_t Unknown0; // Bitflag
+// 0b01 = Nonzero blending mode?
+// 0b10 = Opacity is greater than 0
+std::uint32_t Unknown0; // Bitmask, only the bottom two bits are used
 ```
 
 - `fopn`
