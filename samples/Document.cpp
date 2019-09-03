@@ -252,65 +252,16 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 					}
 				}
 
+				const std::uint32_t* ImageSource = reinterpret_cast<const std::uint32_t*>(DecompressedTile.data());
 				// Current 32x32 tile within final image
-				std::uint32_t *ImageBlock = LayerImage.get() + (x * 32) + ((y * LayerHeader.Bounds.Width) * 32);
-
-				for( std::size_t i = 0; i < (32 * 32) / 4; i++ ) // Process 4 pixels at a time
+				std::uint32_t* ImageDest = LayerImage.get() + (x * 32) + ((y * LayerHeader.Bounds.Width) * 32);
+				for( std::size_t i = 0; i < (32 * 32); i++ )
 				{
-					__m128i QuadPixel = _mm_load_si128(
-						reinterpret_cast<__m128i*>(DecompressedTile.data()) + i
-					);
-
-					// ABGR to ARGB, if you want.
-					// Do your swizzling here
-					QuadPixel = _mm_shuffle_epi8(
-						QuadPixel,
-						_mm_set_epi8(
-							15, 12, 13, 14,
-							11, 8, 9, 10,
-							7, 4, 5, 6,
-							3, 0, 1, 2)
-					);
-
-					/// Alpha is pre-multiplied, convert to straight
-					// Get Alpha into [0.0,1.0] range
-					__m128 Scale = _mm_div_ps(
-						_mm_cvtepi32_ps(
-							_mm_shuffle_epi8(
-								QuadPixel,
-								_mm_set_epi8(
-									-1, -1, -1, 15,
-									-1, -1, -1, 11,
-									-1, -1, -1, 7,
-									-1, -1, -1, 3
-								)
-							)
-						), _mm_set1_ps(255.0f));
-
-					// Normalize each channel into straight color
-					for( std::uint8_t i = 0; i < 3; i++ )
-					{
-						__m128i CurChannel = _mm_srli_epi32(QuadPixel, i * 8);
-						CurChannel = _mm_and_si128(CurChannel, _mm_set1_epi32(0xFF));
-						__m128 ChannelFloat = _mm_cvtepi32_ps(CurChannel);
-
-						ChannelFloat = _mm_div_ps(ChannelFloat, _mm_set1_ps(255.0));// [0,255] to [0,1]
-						ChannelFloat = _mm_div_ps(ChannelFloat, Scale);
-						ChannelFloat = _mm_mul_ps(ChannelFloat, _mm_set1_ps(255.0));// [0,1] to [0,255]
-
-						CurChannel = _mm_cvtps_epi32(ChannelFloat);
-						CurChannel = _mm_and_si128(CurChannel, _mm_set1_epi32(0xff));
-						CurChannel = _mm_slli_epi32(CurChannel, i * 8);
-
-						QuadPixel = _mm_andnot_si128(_mm_set1_epi32(0xFF << (i * 8)), QuadPixel);
-						QuadPixel = _mm_or_si128(QuadPixel, CurChannel);
-					}
-
-					// Write directly to final image
-					_mm_store_si128(
-						reinterpret_cast<__m128i*>(ImageBlock) + (i % 8) + ((i / 8) * (LayerHeader.Bounds.Width / 4)),
-						QuadPixel
-					);
+					std::uint32_t CurPixel = ImageSource[i];
+					///
+					// Do any Per-Pixel processing you need to do here
+					///
+					ImageDest[(i % 32) + ((i / 32) * (LayerHeader.Bounds.Width))] = CurPixel;
 				}
 			}
 		}
