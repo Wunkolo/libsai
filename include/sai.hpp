@@ -92,18 +92,6 @@ struct ThumbnailHeader
 	std::uint32_t Magic; // BM32
 };
 
-enum class LayerClass
-{
-	RootLayer = 0x00,
-	// Parent Canvas layer object
-	Layer = 0x03,
-	Unknown4 = 0x4,
-	Linework = 0x05,
-	Mask = 0x06,
-	Unknown7 = 0x07,
-	Set = 0x08
-};
-
 struct LayerReference
 {
 	std::uint32_t Identifier;
@@ -145,7 +133,7 @@ struct LayerTableEntry
 
 namespace Literals
 {
-	constexpr std::uint32_t operator"" _Tag(const char* TagString, std::size_t) noexcept
+	inline constexpr std::uint32_t operator"" _Tag(const char* TagString, std::size_t) noexcept
 	{
 		return
 			  (TagString[3] <<  0)
@@ -153,6 +141,36 @@ namespace Literals
 			| (TagString[1] << 16)
 			| (TagString[0] << 24);
 	}
+}
+
+enum class LayerClass
+{
+	RootLayer = 0x00, // Canvas pseudo-layer
+	Layer     = 0x03,
+	Unknown4  = 0x04,
+	Linework  = 0x05,
+	Mask      = 0x06,
+	Unknown7  = 0x07,
+	Set       = 0x08
+};
+
+namespace
+{
+
+using namespace Literals;
+enum class BlendingModes : std::uint32_t
+{
+	PassThrough = "pass"_Tag,
+	Normal      = "norm"_Tag,
+	Multiply    = "mul\0"_Tag,
+	Screen      = "scrn"_Tag,
+	Overlay     = "over"_Tag,
+	Luminosity  = "add\0"_Tag,
+	Shade       = "sub\0"_Tag,
+	LumiShade   = "adsb"_Tag,
+	Binary      = "cbi"_Tag
+};
+
 }
 
 /*
