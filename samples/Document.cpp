@@ -13,6 +13,43 @@ const char* const Help =
 "\tDocument (filenames)\n"
 "\tWunkolo - Wunkolo@gmail.com";
 
+void ProcessLayerFile(
+	sai::VirtualFileEntry& LayerFile
+)
+{
+	using namespace sai::Literals;
+	const sai::LayerHeader LayerHeader
+		= LayerFile.Read<sai::LayerHeader>();
+	std::printf(
+		"\t- \"%08x\"\n",
+		LayerHeader.Identifier
+	);
+
+	std::uint32_t CurTag;
+	std::uint32_t CurTagSize;
+	while( LayerFile.Read<std::uint32_t>(CurTag) && CurTag )
+	{
+		LayerFile.Read<std::uint32_t>(CurTagSize);
+		switch( CurTag )
+		{
+			case "name"_Tag:
+			{
+				std::uint8_t LayerName[256] = {};
+				LayerFile.Read(LayerName, 256);
+				std::printf("\t\tName: %.256s\n", LayerName);
+				break;
+			}
+			default:
+			{
+				// for any streams that we do not handle,
+				// we just skip forward in the stream
+				LayerFile.Seek(LayerFile.Tell() + CurTagSize);
+				break;
+			}
+		}
+	}
+}
+
 int main(int argc, char* argv[])
 {
 	if( argc < 2 )
@@ -44,19 +81,21 @@ int main(int argc, char* argv[])
 				CurDocument.IterateLayerFiles(
 					[](sai::VirtualFileEntry& LayerFile)
 					{
-						const sai::LayerHeader LayerHeader
-							= LayerFile.Read<sai::LayerHeader>();
-						std::printf(
-							"\t- \"%08x\"\n",
-							LayerHeader.Identifier
-						);
+						ProcessLayerFile(LayerFile);
+						return true;
+					}
+				);
+				CurDocument.IterateSubLayerFiles(
+					[](sai::VirtualFileEntry& SubLayerFile)
+					{
+						ProcessLayerFile(SubLayerFile);
 						return true;
 					}
 				);
 			}
 		);
 		std::printf(
-			"Iterated VFS of %s in %zu ns\n",
+			"Iterated Document of %s in %zu ns\n",
 			argv[i],
 			Bench.count()
 		);
