@@ -10,7 +10,7 @@
 
 namespace sai
 {
-
+using namespace Literals;
 /// VirtualPage
 #if defined(__AVX2__)
 inline __m256i KeySum8(
@@ -745,7 +745,7 @@ std::tuple<
 		Thumbnail->Read(Header.Height);
 		Thumbnail->Read(Header.Magic);
 
-		if( Header.Magic != *(uint*)"23MB" )
+		if( Header.Magic != "BM32"_Tag )
 		{
 			return std::make_tuple(nullptr, 0, 0);
 		}

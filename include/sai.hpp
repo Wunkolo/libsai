@@ -143,6 +143,18 @@ struct LayerTableEntry
 
 #pragma pack(pop)
 
+namespace Literals
+{
+	constexpr std::uint32_t operator"" _Tag(const char* TagString, std::size_t) noexcept
+	{
+		return
+			  (TagString[3] <<  0)
+			| (TagString[2] <<  8)
+			| (TagString[1] << 16)
+			| (TagString[0] << 24);
+	}
+}
+
 /*
 Symmetric keys for decrupting and encrypting the virtual file system
 */
@@ -192,10 +204,10 @@ private:
 
 	VirtualPage Buffer;
 
-    // Decryption Key
-    const std::uint32_t* Key;
+	// Decryption Key
+	const std::uint32_t* Key;
 
-    std::uint32_t CurrentPage;
+	std::uint32_t CurrentPage;
 
 	// Caching
 
@@ -207,7 +219,7 @@ private:
 	std::unique_ptr<VirtualPage> TableCache;
 	std::uint32_t TableCacheIndex;
 
-    std::uint32_t PageCount;
+	std::uint32_t PageCount;
 };
 
 class ifstream : public std::istream
