@@ -1,9 +1,9 @@
 /*
-LibSai - Library for interfacing with SystemMax PaintTool Sai files
+libsai - Library for interfacing with SystemMax PaintTool Sai files
 
 LICENSE
 	MIT License
-	Copyright (c) 2017 Wunkolo
+	Copyright (c) 2017-2019 Wunkolo
 	Permission is hereby granted, free of charge, to any person obtaining a copy
 	of this software and associated documentation files (the "Software"), to deal
 	in the Software without restriction, including without limitation the rights
@@ -38,12 +38,12 @@ namespace Literals
 {
 	inline constexpr std::uint32_t operator"" _Tag(const char* TagString, std::size_t) noexcept
 	{
-		return
-			  (TagString[3] <<  0)
-			| (TagString[2] <<  8)
-			| (TagString[1] << 16)
-			| (TagString[0] << 24);
-	}
+	return
+		  (TagString[3] <<  0)
+		| (TagString[2] <<  8)
+		| (TagString[1] << 16)
+		| (TagString[0] << 24);
+}
 }
 
 enum class LayerType
