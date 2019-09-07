@@ -194,9 +194,10 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 	// as packed bits within a word.
 
 	// Read TileMap
-	std::vector<std::uint8_t> TileMap;
-	TileMap.resize(LayerTilesX * LayerTilesY);
-	LayerFile.Read(TileMap.data(), LayerTilesX * LayerTilesY);
+	std::unique_ptr<std::uint8_t[]> TileMap(
+		new std::uint8_t[LayerTilesX * LayerTilesY]()
+	);
+	LayerFile.Read(TileMap.get(), LayerTilesX * LayerTilesY);
 
 	// The resulting raster image data for this layer, RGBA 32bpp interleaved
 	// Use a vector to ensure that tiles with no data are still initialized
