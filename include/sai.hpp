@@ -34,16 +34,15 @@ LICENSE
 namespace sai
 {
 
-namespace Literals
+template<std::size_t N>
+inline constexpr std::uint32_t Tag(const char (&TagString)[N])
 {
-	inline constexpr std::uint32_t operator"" _Tag(const char* TagString, std::size_t) noexcept
-	{
+	static_assert(N == 5, "Tag must be 4 characters");
 	return
 		  (TagString[3] <<  0)
 		| (TagString[2] <<  8)
 		| (TagString[1] << 16)
 		| (TagString[0] << 24);
-}
 }
 
 enum class LayerType
@@ -57,25 +56,18 @@ enum class LayerType
 	Set       = 0x08
 };
 
-namespace
-{
-
-using namespace Literals;
 enum class BlendingModes : std::uint32_t
 {
-	PassThrough = "pass"_Tag,
-	Normal      = "norm"_Tag,
-	Multiply    = "mul\0"_Tag,
-	Screen      = "scrn"_Tag,
-	Overlay     = "over"_Tag,
-	Luminosity  = "add\0"_Tag,
-	Shade       = "sub\0"_Tag,
-	LumiShade   = "adsb"_Tag,
-	Binary      = "cbi"_Tag
+	PassThrough = Tag("pass"),
+	Normal      = Tag("norm"),
+	Multiply    = Tag("mul\0"),
+	Screen      = Tag("scrn"),
+	Overlay     = Tag("over"),
+	Luminosity  = Tag("add\0"),
+	Shade       = Tag("sub\0"),
+	LumiShade   = Tag("adsb"),
+	Binary      = Tag("cbi\0")
 };
-
-}
-
 
 #pragma pack(push, 1)
 

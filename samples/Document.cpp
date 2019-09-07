@@ -78,7 +78,6 @@ void ProcessLayerFile(
 	sai::VirtualFileEntry& LayerFile
 )
 {
-	using namespace sai::Literals;
 	const sai::LayerHeader LayerHeader
 		= LayerFile.Read<sai::LayerHeader>();
 	std::printf("\t- \"%08x\"\n", LayerHeader.Identifier);
@@ -94,7 +93,7 @@ void ProcessLayerFile(
 		LayerFile.Read<std::uint32_t>(CurTagSize);
 		switch( CurTag )
 		{
-			case "name"_Tag:
+			case sai::Tag("name"):
 			{
 				char LayerName[256] = {};
 				LayerFile.Read(LayerName, 256);
@@ -185,16 +184,21 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 	const std::size_t TileSize = 32u;
 	const std::size_t LayerTilesX = LayerHeader.Bounds.Width  / TileSize;
 	const std::size_t LayerTilesY = LayerHeader.Bounds.Height / TileSize;
+	const auto Index2D = []
+	(std::size_t X, std::size_t Y, std::size_t Stride) -> std::size_t
+	{
+		return X + (Y * Stride);
+	};
+	// Do not use a std::vector<bool> as this is implemented as a specialized
+	// type that does not implement individual bool values as bytes, but rather
+	// as packed bits within a word.
 
 	// Read TileMap
-	// Do not use a vector<bool> as this is commonly implemented as a specialized vector type that does not implement individual bool values as bytes but rather as packed bits within a word
 	std::vector<std::uint8_t> TileMap;
 	TileMap.resize(LayerTilesX * LayerTilesY);
-
-	// Read Tile Map
 	LayerFile.Read(TileMap.data(), LayerTilesX * LayerTilesY);
 
-	// the resulting raster image data for this layer, RGBA 32bpp interleaved
+	// The resulting raster image data for this layer, RGBA 32bpp interleaved
 	// Use a vector to ensure that tiles with no data are still initialized
 	// to #00000000
 	// Also note that the claim that SystemMax has made involving 16bit color depth
@@ -204,23 +208,24 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 		new std::uint32_t[LayerHeader.Bounds.Width * LayerHeader.Bounds.Height]()
 	);
 
-	// iterate 32x32 tile chunks row by row
+	// 32 x 32 Tile of B8G8R8A8 pixels
+	std::array<std::uint8_t, 0x1000> CompressedTile = {};
+	std::array<std::uint8_t, 0x1000> DecompressedTile = {};
+
+	// Iterate 32x32 tile chunks row by row
 	for( std::size_t y = 0; y < LayerTilesY; ++y )
 	{
 		for( std::size_t x = 0; x < LayerTilesX; ++x )
 		{
 			 // Process active Tiles
-			if( !TileMap[LayerTilesX * y + x] ) continue;
-			// Decompress Tile
-			std::array<std::uint8_t, 0x1000> CompressedTile;
-			// 32 x 32 Tile of B8G8R8A8 pixels
-			std::array<std::uint8_t, 0x1000> DecompressedTile;
+			if( !TileMap[Index2D(x, y, LayerTilesX)] ) continue;
 
 			std::uint8_t CurChannel = 0;
 			std::uint16_t RLESize = 0;
 			// Iterate RLE streams for each channel
 			while( LayerFile.Read<std::uint16_t>(RLESize) == sizeof(std::uint16_t) )
 			{
+				assert(RLESize <= CompressedTile.size());
 				if( LayerFile.Read(CompressedTile.data(), RLESize) != RLESize )
 				{
 					// Error reading RLE stream
@@ -233,22 +238,17 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 					CurChannel
 				);
 				++CurChannel;
-				if( CurChannel >= 4 ) // skip all other channels besides the RGBA ones we care about
+				// Skip all other channels besides the RGBA ones we care about
+				if( CurChannel >= 4 )
 				{
 					for( std::size_t i = 0; i < 4; i++ )
 					{
-						const std::uint16_t Size = LayerFile.Read<std::uint16_t>();
-						LayerFile.Seek(LayerFile.Tell() + Size);
+						RLESize = LayerFile.Read<std::uint16_t>();
+						LayerFile.Seek(LayerFile.Tell() + RLESize);
 					}
 					break;
 				}
 			}
-			
-			const auto Index2D = []
-			(std::size_t X, std::size_t Y, std::size_t Stride) -> std::size_t
-			{
-				return X + (Y * Stride);
-			};
 
 			// Write 32x32 tile into final image
 			const std::uint32_t* ImageSource
