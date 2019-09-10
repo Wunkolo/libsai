@@ -60,13 +60,13 @@ enum class BlendingModes : std::uint32_t
 {
 	PassThrough = Tag("pass"),
 	Normal      = Tag("norm"),
-	Multiply    = Tag("\0mul"),
+	Multiply    = Tag("mul "),
 	Screen      = Tag("scrn"),
 	Overlay     = Tag("over"),
-	Luminosity  = Tag("\0add"),
-	Shade       = Tag("\0sub"),
+	Luminosity  = Tag("add "),
+	Shade       = Tag("sub "),
 	LumiShade   = Tag("adsb"),
-	Binary      = Tag("\0cbi")
+	Binary      = Tag("cbin")
 };
 
 #pragma pack(push, 1)
