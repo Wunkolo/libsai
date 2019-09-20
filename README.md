@@ -109,13 +109,13 @@ void DecryptData(std::uint32_t Vector, std::uint32_t* Data)
 }
 ```
 
-`Table-Blocks` contain 512 8-byte structures containing a a 32-bit checksum and a 32-bit integer used to store preliminary data for the block that I have yet to fully decipher. Each index of table-entries corresponds to the appropriate block index after the table index. The first checksum entry found within the `Table-Block` is a checksum of the table itself, excluding the first 32-bit integer. Setting the first checksum to 0 and calculating the checksum of the entire table produces the same results as if the first entry was skipped. A table entry with a checksum of `0` is considered to be an unallocated/unused block.
+`Table-Blocks` contain 512 8-byte structures containing a a 32-bit checksum and a 32-bit integer used to store an index to the next block(similar to a singly linked list). Each index of table-entries corresponds to the appropriate block index after the table index. The first checksum entry found within the `Table-Block` is a checksum of the table itself, excluding the first 32-bit integer. Setting the first checksum to 0 and calculating the checksum of the entire table produces the same results as if the first entry was skipped. A table entry with a checksum of `0` is considered to be an unallocated/unused block.
 
 ```cpp
 struct TableEntry
 {
 	std::uint32_t Checksum;
-	std::uint32_t Flags; // Yet to be fully deciphered
+	std::uint32_t NextBlock;
 } TableEntries[512];
 ```
 
@@ -141,6 +141,8 @@ decrypt block 513    2 |0xChecksum|0xPrelimin|     |XXXX|XXXX|
 ```
 
 The checksum for `Data-Blocks` and `Table-Blocks` is a simple exclusive-or and bit-rotate which interprets all 4096 bytes of the block as 1024 32-bit integers, with the exception that the checksum for `Table-Blocks` does not include the first four bytes(the checksum integer of the block itself). All 1024 integers are exclusive-ored with an initial checksum of zero, which is rotated left 1 bit before the exclusive-or operation. Finally the lowest bit is set, making all checksums an odd number.
+
+The `NextBlock` integer is a block index used to point to the next block that should be read if one is trying to read a serial stream of data. Ex: A large file that spans multiple blocks will be broken up into multiple blocks, and the table-block will use the "NextBlock" flag to point to the next block that should be read, with "0" being the last block.
 
 ```cpp
 // If your block number is a multiple of 512, set `Table` to true.

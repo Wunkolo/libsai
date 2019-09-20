@@ -106,7 +106,7 @@ union VirtualPage
 	struct PageEntry
 	{
 		std::uint32_t Checksum;
-		std::uint32_t Flags;
+		std::uint32_t NextBlockIndex;
 	} PageEntries[PageSize / sizeof(PageEntry)];
 
 	void DecryptTable(std::uint32_t PageIndex);
