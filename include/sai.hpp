@@ -370,12 +370,16 @@ public:
 private:
 	friend VirtualFileSystem;
 
-	VirtualFileEntry();
+	VirtualFileEntry(
+		std::weak_ptr<ifstream> FileSystem,
+		const FATEntry& EntryData
+	);
 
 	std::weak_ptr<ifstream> FileSystem;
 
-	std::size_t ReadPoint;
-
+	std::size_t Offset;
+	std::size_t PageIndex;
+	std::size_t PageOffset;
 };
 
 class Document : public VirtualFileSystem

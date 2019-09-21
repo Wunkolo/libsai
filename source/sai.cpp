@@ -321,8 +321,7 @@ std::streambuf::pos_type ifstreambuf::seekoff(
 }
 
 std::streambuf::pos_type ifstreambuf::seekpos(
-	std::streambuf::pos_type Position,
-	std::ios_base::openmode Mode
+	std::streambuf::pos_type Position, std::ios_base::openmode Mode
 )
 {
 	if( Mode & std::ios_base::in )
@@ -364,7 +363,8 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 			}
 			return true;
 		}
-
+		// Cache Miss
+		// Get table cache
 		FileIn.seekg(PageIndex * VirtualPage::PageSize, std::ios_base::beg);
 		FileIn.read(
 			reinterpret_cast<char*>(TableCache.get()), VirtualPage::PageSize
@@ -393,17 +393,15 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 		}
 		// Prefetch nearest table
 		// Ensure it is in the cache
-		const std::uint32_t NearestTable
-			= (PageIndex / VirtualPage::TableSpan) * VirtualPage::TableSpan;
+		const std::uint32_t NearestTable =
+			(PageIndex / VirtualPage::TableSpan) * VirtualPage::TableSpan;
 
 		if( FetchPage(NearestTable, nullptr) == false )
 		{
 			// Failed to fetch table
 			return false;
 		}
-		FileIn.seekg(
-			PageIndex * VirtualPage::PageSize, std::ios_base::beg
-		);
+		FileIn.seekg(PageIndex * VirtualPage::PageSize, std::ios_base::beg);
 		FileIn.read(
 			reinterpret_cast<char*>(PageCache.get()), VirtualPage::PageSize
 		);
@@ -561,9 +559,12 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 			if( (CurToken = std::strtok(nullptr, PathDelim)) == nullptr )
 			{
 				// No more tokens, done
-				std::unique_ptr<VirtualFileEntry> Entry(new VirtualFileEntry());
-				Entry->FATData = CurPage.FATEntries[CurEntry];
-				Entry->FileSystem = SaiStream;
+				std::unique_ptr<VirtualFileEntry> Entry(
+					new VirtualFileEntry(
+						SaiStream,
+						CurPage.FATEntries[CurEntry]
+					)
+				);
 				return Entry;
 			}
 			// Try to go further
@@ -613,9 +614,10 @@ void VirtualFileSystem::IterateFATBlock(
 		i++
 	)
 	{
-		VirtualFileEntry CurEntry;
-		CurEntry.FATData = CurPage.FATEntries[i];
-		CurEntry.FileSystem = SaiStream;
+		VirtualFileEntry CurEntry(
+			SaiStream,
+			CurPage.FATEntries[i]
+		);
 		switch( CurEntry.GetType() )
 		{
 		case FATEntry::EntryType::File:
@@ -635,10 +637,16 @@ void VirtualFileSystem::IterateFATBlock(
 }
 
 /// VirtualFileEntry
-VirtualFileEntry::VirtualFileEntry()
-	: ReadPoint(0),
-	FATData()
+VirtualFileEntry::VirtualFileEntry(
+	std::weak_ptr<ifstream> FileSystem,
+	const FATEntry& EntryData
+)
+	: FATData(EntryData),
+	FileSystem(FileSystem)
 {
+	Offset = 0;
+	PageIndex = EntryData.PageIndex;
+	PageOffset = 0;
 }
 
 VirtualFileEntry::~VirtualFileEntry()
@@ -672,56 +680,71 @@ std::size_t VirtualFileEntry::GetPageIndex() const
 
 std::size_t VirtualFileEntry::Tell() const
 {
-	return ReadPoint;
+	return Offset;
 }
 
 void VirtualFileEntry::Seek(std::size_t Offset)
 {
-	ReadPoint = Offset;
+	this->Offset = Offset;
 }
 
 std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 {
 	if( std::shared_ptr<ifstream> SaiStream = FileSystem.lock() )
 	{
-		// Because this is a high-level file-level read:
-		// all table blocks must be abstracted away and "skipped"
-		// or else we will be reading table-block data as file-data
-		// this is a mess right now until I become more aware of some more sound
-		// logic to do this.
-		// What this is basically trying to do is skip reading every table block(blocks with index 0,512,1024,etc)
-		// so this would need to SKIP all byte-ranges:
-		// [0,4096],[2097152,2101248],[4194304,4198400],[TableIndex * 4096,TableIndex * 4096 + 4096]
-		// and by skipping this then file-reads will appear to be perfectly continuous.
-		// If you're reading this and have to work with this I'm so sorry.
-		//												- Wunkolo, 10/19/17
-		std::uint8_t* CurDest = reinterpret_cast<std::uint8_t*>(Destination);
-		std::size_t NextTableIndex = ((ReadPoint + (FATData.PageIndex * VirtualPage::PageSize)) / VirtualPage::PageSize & ~(0x1FF)) + VirtualPage::TableSpan;
-		std::size_t ToRead = Size;
-		while( ToRead && SaiStream )
+
+		std::uint8_t* DestBuffer = reinterpret_cast<std::uint8_t*>(Destination);
+
+		VirtualPage CurPage = {};
+		const std::size_t StateBegOffset = Offset;
+		const std::size_t StateEndOffset = Offset + Size;
+
+		std::size_t CurOffset = Offset;
+		std::size_t CurPageIndex = PageIndex;
+		std::size_t CurEndOffset;
+		while( SaiStream )
 		{
-			// Requested offset that we want to read from
-			const std::size_t CurOffset = ReadPoint + (FATData.PageIndex * VirtualPage::PageSize);
-			const std::size_t CurrentIndex = CurOffset / VirtualPage::PageSize;
-			// If we find ourselves within a table block, skip.
-			if( NextTableIndex == CurrentIndex )
-			{
-				// Align to immediately at end of current block
-				ReadPoint += VirtualPage::PageSize - (ReadPoint % VirtualPage::PageSize);
-				NextTableIndex += VirtualPage::TableSpan;
-				continue;
-			}
-			const std::size_t NextTableOffset = NextTableIndex * VirtualPage::PageSize;
-			const std::size_t CurStride = std::min<std::size_t>(
-				Size, NextTableOffset - CurOffset
+			// Round to nearest Virtual Page boundary
+			CurEndOffset = std::min(
+				((CurOffset + VirtualPage::PageSize) >> 12) << 12,
+				StateEndOffset
 			);
-			SaiStream->seekg(CurOffset);
-			SaiStream->read(reinterpret_cast<char*>(CurDest), CurStride);
-			ReadPoint += CurStride;
-			CurDest += CurStride;
-			ToRead -= CurStride;
+
+			// Read target block
+			SaiStream->seekg(CurPageIndex * VirtualPage::PageSize);
+			SaiStream->read(
+				reinterpret_cast<char*>(CurPage.u8), VirtualPage::PageSize
+			);
+
+			// Copy relevant data
+			std::memcpy(
+				DestBuffer + CurOffset - StateBegOffset,
+				CurPage.u8 + (CurOffset % VirtualPage::PageSize),
+				CurEndOffset - CurOffset
+			);
+			
+			// Done reading
+			if( CurEndOffset >= StateEndOffset ) break;
+			// Load up next block 
+			CurOffset = CurEndOffset;
+			if( CurPageIndex )
+			{
+				VirtualPage CurTablePage = {};
+				// Read the current Table page to get the next page in the page-chain
+				SaiStream->seekg(
+					(CurPageIndex & ~(0x1FF)) * VirtualPage::PageSize
+				);
+				SaiStream->read(
+					reinterpret_cast<char*>(CurTablePage.u8),
+					VirtualPage::PageSize
+				);
+				CurPageIndex = CurTablePage.PageEntries[CurPageIndex & 0x1FF].NextBlockIndex;
+			}
 		}
-		return Size - ToRead;
+		Offset = StateEndOffset;
+		PageIndex = CurPageIndex;
+		PageOffset = CurOffset % VirtualPage::PageSize;
+		return CurEndOffset - StateBegOffset;
 	}
 	return 0;
 }
