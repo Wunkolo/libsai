@@ -647,10 +647,26 @@ VirtualFileEntry::VirtualFileEntry(
 	Offset = 0;
 	PageIndex = EntryData.PageIndex;
 	PageOffset = 0;
+	EndOffset = 0;
 }
 
 VirtualFileEntry::~VirtualFileEntry()
 {
+}
+
+VirtualPage VirtualFileEntry::GetTablePage(std::size_t Index) const
+{
+	VirtualPage TablePage = {};
+	if( std::shared_ptr<ifstream> SaiStream = FileSystem.lock() )
+	{
+		SaiStream->seekg(
+			VirtualPage::NearestTableIndex(Index) * VirtualPage::PageSize
+		);
+		SaiStream->read(
+			reinterpret_cast<char*>(TablePage.u8), VirtualPage::PageSize
+		);
+	}
+	return TablePage;
 }
 
 const char* VirtualFileEntry::GetName() const
@@ -685,28 +701,58 @@ std::size_t VirtualFileEntry::Tell() const
 
 void VirtualFileEntry::Seek(std::size_t Offset)
 {
-	this->Offset = Offset;
+	if( std::shared_ptr<ifstream> SaiStream = FileSystem.lock() )
+	{
+		PageIndex = FATData.PageIndex;
+		for(
+			std::size_t i = 0;
+			i < Offset / VirtualPage::PageSize;
+			++i
+		)
+		{
+			// Get the next page index in the page-chain
+			const std::uint32_t NextPageIndex = GetTablePage(PageIndex).PageEntries[
+				PageIndex % VirtualPage::TableSpan
+			].NextBlockIndex;
+			if( !NextPageIndex )
+			{
+				break;
+			}
+			PageIndex = NextPageIndex;
+		}
+	}
 }
 
 std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 {
 	if( std::shared_ptr<ifstream> SaiStream = FileSystem.lock() )
 	{
+		if( !Size || !FATData.PageIndex )
+		{
+			return 0;
+		}
+		if( EndOffset >= FATData.Size )
+		{
+			return 0;
+		}
 
-		std::uint8_t* DestBuffer = reinterpret_cast<std::uint8_t*>(Destination);
+		// if( EndOffset != Offset)
+		// {
+		// 	return 0;
+		// }
 
 		VirtualPage CurPage = {};
 		const std::size_t StateBegOffset = Offset;
-		const std::size_t StateEndOffset = Offset + Size;
-
+		const std::size_t StateEndOffset = std::min<std::size_t>(
+			Offset + Size, FATData.Size
+		);
 		std::size_t CurOffset = Offset;
 		std::size_t CurPageIndex = PageIndex;
-		std::size_t CurEndOffset;
 		while( SaiStream )
 		{
-			// Round to nearest Virtual Page boundary
-			CurEndOffset = std::min(
-				((CurOffset + VirtualPage::PageSize) >> 12) << 12,
+			std::size_t CurEndOffset = std::min(
+				((CurOffset + VirtualPage::PageSize) / VirtualPage::PageSize)
+				* VirtualPage::PageSize,
 				StateEndOffset
 			);
 
@@ -718,33 +764,31 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 
 			// Copy relevant data
 			std::memcpy(
-				DestBuffer + CurOffset - StateBegOffset,
+				reinterpret_cast<std::uint8_t*>(Destination) + CurOffset - StateBegOffset,
 				CurPage.u8 + (CurOffset % VirtualPage::PageSize),
 				CurEndOffset - CurOffset
 			);
 			
 			// Done reading
-			if( CurEndOffset >= StateEndOffset ) break;
+			if( CurEndOffset >= StateEndOffset )
+			{
+				// Offset = CurOffset;
+				Offset = CurEndOffset;
+				EndOffset = CurEndOffset;
+				PageIndex = CurPageIndex;
+				PageOffset = CurOffset % VirtualPage::PageSize;
+				return CurEndOffset - StateBegOffset;
+			}
+
 			// Load up next block 
 			CurOffset = CurEndOffset;
 			if( CurPageIndex )
 			{
-				VirtualPage CurTablePage = {};
-				// Read the current Table page to get the next page in the page-chain
-				SaiStream->seekg(
-					(CurPageIndex & ~(0x1FF)) * VirtualPage::PageSize
-				);
-				SaiStream->read(
-					reinterpret_cast<char*>(CurTablePage.u8),
-					VirtualPage::PageSize
-				);
-				CurPageIndex = CurTablePage.PageEntries[CurPageIndex & 0x1FF].NextBlockIndex;
+				CurPageIndex = GetTablePage(CurPageIndex).PageEntries[
+					CurPageIndex % VirtualPage::TableSpan
+				].NextBlockIndex;
 			}
 		}
-		Offset = StateEndOffset;
-		PageIndex = CurPageIndex;
-		PageOffset = CurOffset % VirtualPage::PageSize;
-		return CurEndOffset - StateBegOffset;
 	}
 	return 0;
 }
