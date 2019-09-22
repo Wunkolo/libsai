@@ -33,7 +33,6 @@ LICENSE
 
 namespace sai
 {
-
 template<std::size_t N>
 inline constexpr std::uint32_t Tag(const char (&TagString)[N])
 {
@@ -96,6 +95,19 @@ union VirtualPage
 	static constexpr std::size_t PageSize = 0x1000;
 	static constexpr std::size_t TableSpan = PageSize / 8;
 
+	static constexpr std::size_t NearestTableIndex(std::size_t PageIndex)
+	{
+		return (PageIndex / TableSpan) * TableSpan;
+	}
+	static constexpr bool IsTableIndex(std::size_t PageIndex)
+	{
+		return (PageIndex % TableSpan) ? false : true;
+	}
+	static constexpr bool IsDataIndex(std::size_t PageIndex)
+	{
+		return (PageIndex % TableSpan) ? true : false;
+	}
+
 	// Data
 	std::uint8_t u8[PageSize];
 	std::int8_t i8[PageSize];
@@ -120,6 +132,8 @@ union VirtualPage
 	*/
 	std::uint32_t Checksum();
 };
+
+static_assert(sizeof(VirtualPage) == VirtualPage::PageSize);
 
 struct ThumbnailHeader
 {
@@ -375,9 +389,12 @@ private:
 		const FATEntry& EntryData
 	);
 
+	VirtualPage GetTablePage(std::size_t Offset) const;
+
 	std::weak_ptr<ifstream> FileSystem;
 
 	std::size_t Offset;
+	std::size_t EndOffset;
 	std::size_t PageIndex;
 	std::size_t PageOffset;
 };
