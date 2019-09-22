@@ -713,7 +713,7 @@ void VirtualFileEntry::Seek(std::size_t Offset)
 			// Get the next page index in the page-chain
 			const std::uint32_t NextPageIndex = GetTablePage(PageIndex).PageEntries[
 				PageIndex % VirtualPage::TableSpan
-			].NextBlockIndex;
+			].NextPageIndex;
 			if( !NextPageIndex )
 			{
 				break;
@@ -786,7 +786,7 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 			{
 				CurPageIndex = GetTablePage(CurPageIndex).PageEntries[
 					CurPageIndex % VirtualPage::TableSpan
-				].NextBlockIndex;
+				].NextPageIndex;
 			}
 		}
 	}
