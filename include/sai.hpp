@@ -362,7 +362,7 @@ public:
 	std::size_t GetPageIndex() const;
 
 	std::size_t Tell() const;
-	void Seek(std::size_t Offset);
+	void Seek(std::size_t NewOffset);
 
 	std::size_t Read(void* Destination, std::size_t Size);
 

@@ -699,14 +699,21 @@ std::size_t VirtualFileEntry::Tell() const
 	return Offset;
 }
 
-void VirtualFileEntry::Seek(std::size_t Offset)
+void VirtualFileEntry::Seek(std::size_t NewOffset)
 {
 	if( std::shared_ptr<ifstream> SaiStream = FileSystem.lock() )
 	{
+		if( NewOffset >= FATData.Size )
+		{
+			// Invalid offset
+			return;
+		}
+		Offset = NewOffset;
+		PageOffset = NewOffset % VirtualPage::PageSize;
 		PageIndex = FATData.PageIndex;
 		for(
 			std::size_t i = 0;
-			i < Offset / VirtualPage::PageSize;
+			i < NewOffset / VirtualPage::PageSize;
 			++i
 		)
 		{
@@ -716,6 +723,7 @@ void VirtualFileEntry::Seek(std::size_t Offset)
 			].NextPageIndex;
 			if( !NextPageIndex )
 			{
+				// Seeked to an invalid range
 				break;
 			}
 			PageIndex = NextPageIndex;
