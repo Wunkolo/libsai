@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
 		const std::tuple<std::uint32_t,std::uint32_t> CanvasSize
 			= CurDocument.GetCanvasSize();
 		std::printf(
-			"Width: %u Height: %u\n",
+			"\033[1mWidth: %u Height: %u\033[0m\n",
 			std::get<0>(CanvasSize), std::get<1>(CanvasSize)
 		);
 
@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
 			}
 		);
 		std::printf(
-			"Iterated Document of %s in %zu ns\n", argv[i], Bench.count()
+			"\033[1mIterated Document of %s in %zu ns\033[0m\n", argv[i], Bench.count()
 		);
 	}
 	return EXIT_SUCCESS;
@@ -103,7 +103,8 @@ void ProcessLayerFile(
 {
 	const sai::LayerHeader LayerHeader
 		= LayerFile.Read<sai::LayerHeader>();
-	std::printf("\t- \"%08x\"\n", LayerHeader.Identifier);
+
+	std::printf("\t\033[1m- \033[93m\"%08x\"\033[0m\n", LayerHeader.Identifier);
 
 	char Name[256] = {};
 	std::snprintf(Name, 256, "%08x", LayerHeader.Identifier);
