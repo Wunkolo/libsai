@@ -393,9 +393,11 @@ private:
 
 	std::weak_ptr<ifstream> FileSystem;
 
+	// "Flat" offset within file
 	std::size_t Offset;
-	std::size_t EndOffset;
+	// Index of the page we are currently in
 	std::size_t PageIndex;
+	// Offset within the page
 	std::size_t PageOffset;
 };
 

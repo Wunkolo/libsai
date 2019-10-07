@@ -196,7 +196,7 @@ ifstreambuf* ifstreambuf::open(const char* Name)
 		return nullptr;
 	}
 
-	FileIn.open(Name, std::ios_base::binary | std::ios_base::ate);
+	FileIn.open(Name, std::ios::binary | std::ios::ate);
 
 	if( FileIn.is_open() == false )
 	{
@@ -228,11 +228,11 @@ ifstreambuf* ifstreambuf::open(const wchar_t* Name)
 	}
 
 #if defined(_WIN32)
-	FileIn.open(Name, std::ios_base::binary | std::ios_base::ate);
+	FileIn.open(Name, std::ios::binary | std::ios::ate);
 #else
 	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> Converter;
 	std::string Name8 = Converter.to_bytes(std::wstring(Name));
-	FileIn.open(Name8, std::ios_base::binary | std::ios_base::ate);
+	FileIn.open(Name8, std::ios::binary | std::ios::ate);
 #endif
 
 	if( FileIn.is_open() == false )
@@ -296,23 +296,23 @@ std::streambuf::int_type ifstreambuf::underflow()
 }
 
 std::streambuf::pos_type ifstreambuf::seekoff(
-	std::streambuf::off_type Offset, std::ios_base::seekdir Direction,
-	std::ios_base::openmode /*Mode*/
+	std::streambuf::off_type Offset, std::ios::seekdir Direction,
+	std::ios::openmode /*Mode*/
 )
 {
 	std::streambuf::pos_type Position;
 
-	if( Direction & std::ios_base::beg )
+	if( Direction == std::ios::beg )
+	{
+		Position = Offset;
+	}
+	else if( Direction == std::ios::cur )
 	{
 		Position = (CurrentPage * VirtualPage::PageSize); // Current Page
 		Position += (gptr() - egptr()); // Offset within page
 		Position += Offset;
 	}
-	if( Direction & std::ios_base::cur )
-	{
-		Position = Offset;
-	}
-	if( Direction & std::ios_base::end )
+	else if( Direction == std::ios::end )
 	{
 		Position = (PageCount * VirtualPage::PageSize) + Offset;
 	}
@@ -321,10 +321,10 @@ std::streambuf::pos_type ifstreambuf::seekoff(
 }
 
 std::streambuf::pos_type ifstreambuf::seekpos(
-	std::streambuf::pos_type Position, std::ios_base::openmode Mode
+	std::streambuf::pos_type Position, std::ios::openmode Mode
 )
 {
-	if( Mode & std::ios_base::in )
+	if( Mode & std::ios::in )
 	{
 		CurrentPage = static_cast<std::uint32_t>(Position) / VirtualPage::PageSize;
 
@@ -365,7 +365,7 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 		}
 		// Cache Miss
 		// Get table cache
-		FileIn.seekg(PageIndex * VirtualPage::PageSize, std::ios_base::beg);
+		FileIn.seekg(PageIndex * VirtualPage::PageSize, std::ios::beg);
 		FileIn.read(
 			reinterpret_cast<char*>(TableCache.get()), VirtualPage::PageSize
 		);
@@ -401,7 +401,7 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 			// Failed to fetch table
 			return false;
 		}
-		FileIn.seekg(PageIndex * VirtualPage::PageSize, std::ios_base::beg);
+		FileIn.seekg(PageIndex * VirtualPage::PageSize, std::ios::beg);
 		FileIn.read(
 			reinterpret_cast<char*>(PageCache.get()), VirtualPage::PageSize
 		);
@@ -590,7 +590,7 @@ std::size_t VirtualFileSystem::Read(
 	std::size_t Offset, void* Destination, std::size_t Size
 ) const
 {
-	SaiStream->seekg(Offset);
+	SaiStream->seekg(Offset, std::ios::beg);
 	SaiStream->read(reinterpret_cast<char*>(Destination), Size);
 	return Size;
 }
@@ -647,7 +647,6 @@ VirtualFileEntry::VirtualFileEntry(
 	Offset = 0;
 	PageIndex = EntryData.PageIndex;
 	PageOffset = 0;
-	EndOffset = 0;
 }
 
 VirtualFileEntry::~VirtualFileEntry()
@@ -660,7 +659,8 @@ VirtualPage VirtualFileEntry::GetTablePage(std::size_t Index) const
 	if( std::shared_ptr<ifstream> SaiStream = FileSystem.lock() )
 	{
 		SaiStream->seekg(
-			VirtualPage::NearestTableIndex(Index) * VirtualPage::PageSize
+			VirtualPage::NearestTableIndex(Index) * VirtualPage::PageSize,
+			std::ios::beg
 		);
 		SaiStream->read(
 			reinterpret_cast<char*>(TablePage.u8), VirtualPage::PageSize
@@ -731,15 +731,10 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 		{
 			return 0;
 		}
-		if( EndOffset >= FATData.Size )
+		if( Offset >= FATData.Size )
 		{
 			return 0;
 		}
-
-		// if( EndOffset != Offset)
-		// {
-		// 	return 0;
-		// }
 
 		VirtualPage CurPage = {};
 		const std::size_t StateBegOffset = Offset;
@@ -750,14 +745,14 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 		std::size_t CurPageIndex = PageIndex;
 		while( SaiStream )
 		{
-			std::size_t CurEndOffset = std::min(
+			const std::size_t CurEndOffset = std::min(
 				((CurOffset + VirtualPage::PageSize) / VirtualPage::PageSize)
 				* VirtualPage::PageSize,
 				StateEndOffset
 			);
 
 			// Read target block
-			SaiStream->seekg(CurPageIndex * VirtualPage::PageSize);
+			SaiStream->seekg(CurPageIndex * VirtualPage::PageSize, std::ios::beg);
 			SaiStream->read(
 				reinterpret_cast<char*>(CurPage.u8), VirtualPage::PageSize
 			);
@@ -773,11 +768,10 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 			if( CurEndOffset >= StateEndOffset )
 			{
 				// Offset = CurOffset;
-				Offset = CurEndOffset;
-				EndOffset = CurEndOffset;
+				Offset = StateEndOffset;
 				PageIndex = CurPageIndex;
-				PageOffset = CurOffset % VirtualPage::PageSize;
-				return CurEndOffset - StateBegOffset;
+				PageOffset = StateEndOffset % VirtualPage::PageSize;
+				return StateEndOffset - StateBegOffset;
 			}
 
 			// Load up next block 
