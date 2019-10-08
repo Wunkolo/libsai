@@ -711,22 +711,18 @@ void VirtualFileEntry::Seek(std::size_t NewOffset)
 		Offset = NewOffset;
 		PageOffset = NewOffset % VirtualPage::PageSize;
 		PageIndex = FATData.PageIndex;
-		for(
-			std::size_t i = 0;
-			i < NewOffset / VirtualPage::PageSize;
-			++i
-		)
+		for( std::size_t i = 0; i < NewOffset / VirtualPage::PageSize; ++i )
 		{
 			// Get the next page index in the page-chain
 			const std::uint32_t NextPageIndex = GetTablePage(PageIndex).PageEntries[
 				PageIndex % VirtualPage::TableSpan
 			].NextPageIndex;
+			PageIndex = NextPageIndex;
 			if( !NextPageIndex )
 			{
-				// Seeked to an invalid range
+				// Hit the last page
 				break;
 			}
-			PageIndex = NextPageIndex;
 		}
 	}
 }
