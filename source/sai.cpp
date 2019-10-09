@@ -717,10 +717,12 @@ void VirtualFileEntry::Seek(std::size_t NewOffset)
 			const std::uint32_t NextPageIndex = GetTablePage(PageIndex).PageEntries[
 				PageIndex % VirtualPage::TableSpan
 			].NextPageIndex;
-			PageIndex = NextPageIndex;
-			if( !NextPageIndex )
+			if( NextPageIndex )
 			{
-				// Hit the last page
+				PageIndex = NextPageIndex;
+			}
+			else
+			{
 				break;
 			}
 		}
