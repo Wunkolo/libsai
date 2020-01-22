@@ -1,0 +1,96 @@
+//------------------------------------------------
+//--- 010 Editor v10.0 Binary Template
+//
+//      File: 
+//   Authors: Wunkolo
+//   Version: 0.01
+//   Purpose: Parsing decrypted .sai files
+//  Category: 
+// File Mask: 
+//  ID Bytes: 
+//   History: 
+//------------------------------------------------
+
+const uint32 PageSize = 0x1000;
+const uint32 TableSpan = PageSize / 8;
+
+uint NearestTableIndex(uint PageIndex)
+{
+	return (PageIndex / TableSpan) * TableSpan;
+}
+uint IsTableIndex(uint PageIndex)
+{
+	return (PageIndex % TableSpan) ? false : true;
+}
+uint IsDataIndex(uint PageIndex)
+{
+	return (PageIndex % TableSpan) ? true : false;
+}
+
+struct FATEntry
+{
+	enum <uchar> EntryType
+	{
+		Folder = 0x10,
+		File = 0x80
+	};
+
+	uint32 Flags;
+	char Name[32];
+    uchar Pad1;
+	uchar Pad2;
+	EntryType Type;
+	uchar Pad4;
+	uint32 PageIndex;
+	uint32 Size;
+    FILETIME TimeStamp; // Windows FILETIME
+	uint64 UnknownB;
+};
+
+union VirtualPage
+{
+    uchar  u8[PageSize];
+    uint32 u32[PageSize / sizeof(uint32)];
+
+    struct PageEntry
+    {
+        uint32 Checksum<format=hex>;
+        uint32 NextPageIndex;
+    } PageEntries[PageSize / sizeof(PageEntry)];
+    FATEntry FATEntries[64];
+};
+
+//FileSize()
+//int FSeek( int64 pos )
+
+void ParseTable(int64 Offset)
+{
+    FSeek(Offset);
+    VirtualPage CurTable<bgcolor=cLtBlue>;
+    local uint i;
+    local uint CurBlockIndex;
+    local uint SpanStart;
+    local uint SpanEnd;
+    local uint NextPageIndex;
+    local uint CurTableIndex;
+    for( i = 0; i < PageSize / sizeof(PageEntry); ++i )
+    {
+        SpanStart = Offset + i * PageSize;
+        SpanEnd = SpanStart + PageSize;
+        FSeek(SpanStart);
+        VirtualPage DataBlock<comment="SpanStart">;
+        NextPageIndex = CurTable.PageEntries[i].NextPageIndex;
+        if(CurTable.PageEntries[i].Checksum == 0) break;
+        while( NextPageIndex != 0 )
+        {
+            CurTableIndex = NearestTableIndex(NextPageIndex);
+            NextPageIndex = ReadUInt( CurTableIndex + NextPageIndex * 8 + 4);
+            FSeek(NextPageIndex * PageSize);
+            VirtualPage DataSegment;
+        }
+        //CurBlockIndex = CurPage.PageEntries[i].NextPageIndex;
+        //DefinePages(i * PageSize);
+    }
+}
+
+ParseTable(0);
