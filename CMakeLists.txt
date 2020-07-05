@@ -31,6 +31,18 @@ endif()
 
 ### Decryption sample
 add_executable(
+	Thumbnail
+	samples/Thumbnail.cpp
+)
+
+target_link_libraries(
+	Thumbnail
+	PRIVATE
+	sai
+)
+
+### Decryption sample
+add_executable(
 	Decrypt
 	samples/Decrypt.cpp
 )
