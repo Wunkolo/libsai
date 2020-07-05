@@ -227,7 +227,7 @@ ifstreambuf* ifstreambuf::open(const wchar_t* Name)
 		return nullptr;
 	}
 
-#if defined(_WIN32)
+#if defined(_MSC_VER)
 	FileIn.open(Name, std::ios::binary | std::ios::ate);
 #else
 	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> Converter;
