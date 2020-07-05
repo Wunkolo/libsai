@@ -3,7 +3,7 @@ libsai - Library for interfacing with SystemMax PaintTool Sai files
 
 LICENSE
 	MIT License
-	Copyright (c) 2017-2019 Wunkolo
+	Copyright (c) 2017-2020 Wunkolo
 	Permission is hereby granted, free of charge, to any person obtaining a copy
 	of this software and associated documentation files (the "Software"), to deal
 	in the Software without restriction, including without limitation the rights
@@ -22,7 +22,7 @@ LICENSE
 */
 
 /*
-Sample code to decrypt any user-created .sai file
+Sample code for extracting the thumbnail image from a user-created sai file
 */
 
 #include <cstdint>
@@ -37,7 +37,7 @@ Sample code to decrypt any user-created .sai file
 
 const char* const Help =
 "Extract thumbnail images from user-created .sai documents\n"
-"\tDecrypt (filename) (output)\n"
+"\tThumbnail (filename) (output)\n"
 "\tWunkolo - Wunkolo@gmail.com";
 
 int main(int argc, char* argv[])
