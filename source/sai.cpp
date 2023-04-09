@@ -731,66 +731,58 @@ void VirtualFileEntry::Seek(std::size_t NewOffset)
 
 std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 {
-	if( std::shared_ptr<ifstream> SaiStream = FileSystem.lock() )
+	std::size_t LeftToRead = Size;
+	bool NeedsNextPage = false;
+
+	if (std::shared_ptr<ifstream> SaiStream = FileSystem.lock())
 	{
-		if( !Size || !FATData.PageIndex )
-		{
-			return 0;
-		}
-		if( Offset >= FATData.Size )
-		{
-			return 0;
-		}
+		std::unique_ptr<char[]> ReadBuffer(new char[VirtualPage::PageSize]);
 
-		VirtualPage CurPage = {};
-		const std::size_t StateBegOffset = Offset;
-		const std::size_t StateEndOffset = std::min<std::size_t>(
-			Offset + Size, FATData.Size
-		);
-		std::size_t CurOffset = Offset;
-		std::size_t CurPageIndex = PageIndex;
-		while( SaiStream )
+		while (SaiStream)
 		{
-			const std::size_t CurEndOffset = std::min(
-				((CurOffset + VirtualPage::PageSize) / VirtualPage::PageSize)
-				* VirtualPage::PageSize,
-				StateEndOffset
+			SaiStream->seekg(
+				PageIndex * VirtualPage::PageSize + PageOffset,
+				std::ios::beg
 			);
 
-			// Read target block
-			SaiStream->seekg(CurPageIndex * VirtualPage::PageSize, std::ios::beg);
-			SaiStream->read(
-				reinterpret_cast<char*>(CurPage.u8), VirtualPage::PageSize
-			);
+			std::size_t Read;
+			if (LeftToRead + PageOffset >= VirtualPage::PageSize)
+			{
+				Read = VirtualPage::PageSize - PageOffset;
+				PageOffset = 0;
+				NeedsNextPage = true;
+			}
+			else
+			{
+				Read = LeftToRead;
+				PageOffset += Read;
+			}
 
-			// Copy relevant data
+			SaiStream->read(ReadBuffer.get(), Read);
+			std::size_t BytesWrote = Size - LeftToRead;
 			std::memcpy(
-				reinterpret_cast<std::uint8_t*>(Destination) + CurOffset - StateBegOffset,
-				CurPage.u8 + (CurOffset % VirtualPage::PageSize),
-				CurEndOffset - CurOffset
+				reinterpret_cast<std::uint8_t *>(Destination) + BytesWrote,
+				ReadBuffer.get(),
+				Read
 			);
-			
-			// Done reading
-			if( CurEndOffset >= StateEndOffset )
-			{
-				// Offset = CurOffset;
-				Offset = StateEndOffset;
-				PageIndex = CurPageIndex;
-				PageOffset = StateEndOffset % VirtualPage::PageSize;
-				return StateEndOffset - StateBegOffset;
-			}
 
-			// Load up next block 
-			CurOffset = CurEndOffset;
-			if( CurPageIndex )
+			Offset += Read;
+			LeftToRead -= Read;
+
+			if (NeedsNextPage)
 			{
-				CurPageIndex = GetTablePage(CurPageIndex).PageEntries[
-					CurPageIndex % VirtualPage::TableSpan
-				].NextPageIndex;
-			}
+				// NOTE: The reason this is here, instead of moving it into the
+				// `if (LeftToRead...)` is because `GetTablePage` seeks the stream
+				// which mess-ups its position.
+				PageIndex = GetTablePage(PageIndex)
+					.PageEntries[PageIndex % VirtualPage::TableSpan]
+					.NextPageIndex;
+				NeedsNextPage = false;
+			} else if (LeftToRead == 0) break;
 		}
 	}
-	return 0;
+
+	return Size - LeftToRead;
 }
 
 /// SaiDocument
