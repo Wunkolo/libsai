@@ -540,7 +540,7 @@ bool VirtualFileSystem::Exists(const char* Path)
 
 std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 {
-	VirtualPage CurPage;
+	VirtualPage CurPage = {};
 	Read(
 		2 * VirtualPage::PageSize,
 		CurPage
@@ -550,6 +550,7 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 	const char* PathDelim = "./";
 	const char* CurToken = std::strtok(&CurPath[0], PathDelim);
 	std::size_t CurEntry = 0;
+	std::size_t CurPageIndex = 0;
 
 	while( CurEntry < 64 && CurPage.FATEntries[CurEntry].Flags && CurToken )
 	{
@@ -573,13 +574,43 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 				// Part of the path was not a folder, cant go further
 				return nullptr;
 			}
+
+			const std::uint32_t PageIndex = CurPage.FATEntries[CurEntry].PageIndex;
 			Read(
-				CurPage.FATEntries[CurEntry].PageIndex * VirtualPage::PageSize,
+				PageIndex * VirtualPage::PageSize,
 				CurPage
 			);
 			CurEntry = 0;
+			CurPageIndex = PageIndex;
 			continue;
 		}
+
+		// Last entry ( of this Page ), check if there are more after this.
+		if( CurEntry == 63 && CurPageIndex )
+		{
+			// If a folder has more than 64 `FATEntries`, the `NextPageIndex` field on
+			// the `PageEntry` will indicate on what `Page` the extra entries are located.
+			VirtualPage TablePage = {};
+			Read(
+				VirtualPage::NearestTableIndex(CurPageIndex) * VirtualPage::PageSize,
+				TablePage
+			);
+
+			const std::uint32_t NextPageIndex = TablePage
+				.PageEntries[CurPageIndex]
+				.NextPageIndex;
+			if( NextPageIndex )
+			{
+				Read(
+					NextPageIndex * VirtualPage::PageSize,
+					CurPage
+				);
+				CurEntry = 0;
+				CurPageIndex = NextPageIndex;
+				continue;
+			}
+		}
+
 		CurEntry++;
 	}
 
