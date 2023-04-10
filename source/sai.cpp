@@ -634,6 +634,17 @@ void VirtualFileSystem::IterateFATBlock(
 		}
 		}
 	}
+
+	VirtualPage TablePage = {};
+	Read(
+		VirtualPage::NearestTableIndex(PageIndex) * VirtualPage::PageSize,
+		TablePage
+	);
+
+	if(TablePage.PageEntries[PageIndex % VirtualPage::TableSpan].NextPageIndex)
+	{
+		IterateFATBlock(TablePage.PageEntries[PageIndex % VirtualPage::TableSpan].NextPageIndex, Visitor);
+	}
 }
 
 /// VirtualFileEntry
