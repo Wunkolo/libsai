@@ -174,17 +174,17 @@ Symmetric keys for decrupting and encrypting the virtual file system
 */
 namespace Keys
 {
-extern const std::uint32_t User[256];
-extern const std::uint32_t NotRemoveMe[256];
-extern const std::uint32_t LocalState[256];
-extern const std::uint32_t System[256];
+extern const std::array<std::uint32_t, 256> User;
+extern const std::array<std::uint32_t, 256> NotRemoveMe;
+extern const std::array<std::uint32_t, 256> LocalState;
+extern const std::array<std::uint32_t, 256> System;
 } // namespace Keys
 
 // Streambuf to read from an encrypted file
 class ifstreambuf : public std::streambuf
 {
 public:
-	explicit ifstreambuf(const std::uint32_t* Key = Keys::User);
+	explicit ifstreambuf(const std::uint32_t* Key = Keys::User.data());
 
 	// No copy
 	ifstreambuf(const ifstreambuf&)            = delete;
