@@ -303,7 +303,7 @@ public:
 private:
 	void IterateFATBlock(std::size_t Index, VirtualFileVisitor& Visitor);
 
-	std::shared_ptr<ifstream> SaiStream;
+	std::shared_ptr<ifstream> FileStream;
 };
 
 class VirtualFileEntry
@@ -347,7 +347,7 @@ public:
 private:
 	VirtualPage GetTablePage(std::size_t Offset) const;
 
-	std::weak_ptr<ifstream> FileSystem;
+	std::weak_ptr<ifstream> FileStream;
 
 	// "Flat" offset within file
 	std::size_t Offset;

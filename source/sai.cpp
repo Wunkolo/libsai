@@ -131,9 +131,9 @@ std::uint32_t VirtualPage::Checksum()
 }
 
 /// ifstreambuf
-ifstreambuf::ifstreambuf(std::span<const std::uint32_t, 256> Key)
-	: Key(Key), CurrentPage(-1), PageCache(nullptr), PageCacheIndex(-1), TableCache(nullptr),
-	  TableCacheIndex(-1), PageCount(0)
+ifstreambuf::ifstreambuf(std::span<const std::uint32_t, 256> DecryptionKey)
+	: Key(DecryptionKey), CurrentPage(-1), PageCache(nullptr), PageCacheIndex(-1),
+	  TableCache(nullptr), TableCacheIndex(-1), PageCount(0)
 {
 	setg(nullptr, nullptr, nullptr);
 	setp(nullptr, nullptr);
@@ -452,12 +452,12 @@ bool VirtualFileVisitor::VisitFile(VirtualFileEntry& /*Entry*/)
 /// Virtual File System
 
 VirtualFileSystem::VirtualFileSystem(const char* FileName)
-	: SaiStream(std::make_shared<ifstream>(FileName))
+	: FileStream(std::make_shared<ifstream>(FileName))
 {
 }
 
 VirtualFileSystem::VirtualFileSystem(const wchar_t* FileName)
-	: SaiStream(std::make_shared<ifstream>(FileName))
+	: FileStream(std::make_shared<ifstream>(FileName))
 {
 }
 
@@ -467,7 +467,7 @@ VirtualFileSystem::~VirtualFileSystem()
 
 bool VirtualFileSystem::IsOpen() const
 {
-	return SaiStream->is_open();
+	return FileStream->is_open();
 }
 
 bool VirtualFileSystem::Exists(const char* Path)
@@ -495,7 +495,7 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 			{
 				// No more tokens, done
 				std::unique_ptr<VirtualFileEntry> Entry
-					= std::make_unique<VirtualFileEntry>(SaiStream, CurPage.FATEntries[CurEntry]);
+					= std::make_unique<VirtualFileEntry>(FileStream, CurPage.FATEntries[CurEntry]);
 				return Entry;
 			}
 			// Try to go further
@@ -540,8 +540,8 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 std::size_t
 	VirtualFileSystem::Read(std::size_t Offset, std::byte* Destination, std::size_t Size) const
 {
-	SaiStream->seekg(Offset, std::ios::beg);
-	SaiStream->read(reinterpret_cast<char*>(Destination), Size);
+	FileStream->seekg(Offset, std::ios::beg);
+	FileStream->read(reinterpret_cast<char*>(Destination), Size);
 	return Size;
 }
 
@@ -559,7 +559,7 @@ void VirtualFileSystem::IterateFATBlock(std::size_t PageIndex, VirtualFileVisito
 		 i < std::extent<decltype(VirtualPage::FATEntries)>::value && CurPage.FATEntries[i].Flags;
 		 i++ )
 	{
-		VirtualFileEntry CurEntry(SaiStream, CurPage.FATEntries[i]);
+		VirtualFileEntry CurEntry(FileStream, CurPage.FATEntries[i]);
 		switch( CurEntry.GetType() )
 		{
 		case FATEntry::EntryType::File:
@@ -589,8 +589,8 @@ void VirtualFileSystem::IterateFATBlock(std::size_t PageIndex, VirtualFileVisito
 }
 
 /// VirtualFileEntry
-VirtualFileEntry::VirtualFileEntry(std::weak_ptr<ifstream> FileSystem, const FATEntry& EntryData)
-	: FATData(EntryData), FileSystem(FileSystem)
+VirtualFileEntry::VirtualFileEntry(std::weak_ptr<ifstream> Stream, const FATEntry& EntryData)
+	: FATData(EntryData), FileStream(Stream)
 {
 	Offset     = 0;
 	PageIndex  = EntryData.PageIndex;
@@ -604,12 +604,10 @@ VirtualFileEntry::~VirtualFileEntry()
 VirtualPage VirtualFileEntry::GetTablePage(std::size_t Index) const
 {
 	VirtualPage TablePage = {};
-	if( std::shared_ptr<ifstream> SaiStream = FileSystem.lock() )
+	if( std::shared_ptr<ifstream> Stream = FileStream.lock() )
 	{
-		SaiStream->seekg(
-			VirtualPage::NearestTableIndex(Index) * VirtualPage::PageSize, std::ios::beg
-		);
-		SaiStream->read(reinterpret_cast<char*>(TablePage.u8), VirtualPage::PageSize);
+		Stream->seekg(VirtualPage::NearestTableIndex(Index) * VirtualPage::PageSize, std::ios::beg);
+		Stream->read(reinterpret_cast<char*>(TablePage.u8), VirtualPage::PageSize);
 	}
 	return TablePage;
 }
@@ -646,7 +644,7 @@ std::size_t VirtualFileEntry::Tell() const
 
 void VirtualFileEntry::Seek(std::size_t NewOffset)
 {
-	if( std::shared_ptr<ifstream> SaiStream = FileSystem.lock() )
+	if( std::shared_ptr<ifstream> Stream = FileStream.lock() )
 	{
 		if( NewOffset >= FATData.Size )
 		{
@@ -679,14 +677,14 @@ std::size_t VirtualFileEntry::Read(std::byte* Destination, std::size_t Size)
 	std::size_t LeftToRead    = Size;
 	bool        NeedsNextPage = false;
 
-	if( std::shared_ptr<ifstream> SaiStream = FileSystem.lock() )
+	if( std::shared_ptr<ifstream> Stream = FileStream.lock() )
 	{
 		std::unique_ptr<std::byte[]> ReadBuffer
 			= std::make_unique<std::byte[]>(VirtualPage::PageSize);
 
-		while( SaiStream )
+		while( Stream )
 		{
-			SaiStream->seekg(PageIndex * VirtualPage::PageSize + PageOffset, std::ios::beg);
+			Stream->seekg(PageIndex * VirtualPage::PageSize + PageOffset, std::ios::beg);
 
 			std::size_t Read;
 			if( LeftToRead + PageOffset >= VirtualPage::PageSize )
@@ -701,7 +699,7 @@ std::size_t VirtualFileEntry::Read(std::byte* Destination, std::size_t Size)
 				PageOffset += Read;
 			}
 
-			SaiStream->read(reinterpret_cast<char*>(ReadBuffer.get()), Read);
+			Stream->read(reinterpret_cast<char*>(ReadBuffer.get()), Read);
 			std::size_t BytesWrote = Size - LeftToRead;
 			std::memcpy(Destination + BytesWrote, ReadBuffer.get(), Read);
 
