@@ -189,7 +189,7 @@ extern const std::array<std::uint32_t, 256> System;
 class ifstreambuf : public std::streambuf
 {
 public:
-	explicit ifstreambuf(std::span<const std::uint32_t, 256> Key = Keys::User);
+	explicit ifstreambuf(std::span<const std::uint32_t, 256> DecryptionKey = Keys::User);
 
 	// No copy
 	ifstreambuf(const ifstreambuf&)            = delete;
@@ -218,19 +218,19 @@ private:
 	// Decryption Key
 	std::span<const std::uint32_t, 256> Key;
 
-	std::uint32_t CurrentPage;
+	std::uint32_t CurrentPage = ~0u;
 
 	// Caching
 
 	bool FetchPage(std::uint32_t PageIndex, VirtualPage* Dest);
 
-	std::unique_ptr<VirtualPage> PageCache;
-	std::uint32_t                PageCacheIndex;
+	std::unique_ptr<VirtualPage> PageCache      = {};
+	std::uint32_t                PageCacheIndex = ~0u;
 
-	std::unique_ptr<VirtualPage> TableCache;
-	std::uint32_t                TableCacheIndex;
+	std::unique_ptr<VirtualPage> TableCache      = {};
+	std::uint32_t                TableCacheIndex = ~0u;
 
-	std::uint32_t PageCount;
+	std::uint32_t PageCount = 0;
 };
 
 class ifstream : public std::istream

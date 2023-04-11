@@ -7,9 +7,7 @@
 
 namespace sai
 {
-ifstreambuf::ifstreambuf(std::span<const std::uint32_t, 256> DecryptionKey)
-	: Key(DecryptionKey), CurrentPage(-1), PageCache(nullptr), PageCacheIndex(-1),
-	  TableCache(nullptr), TableCacheIndex(-1), PageCount(0)
+ifstreambuf::ifstreambuf(std::span<const std::uint32_t, 256> DecryptionKey) : Key(DecryptionKey)
 {
 	setg(nullptr, nullptr, nullptr);
 	setp(nullptr, nullptr);
