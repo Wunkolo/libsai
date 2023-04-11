@@ -131,7 +131,7 @@ std::uint32_t VirtualPage::Checksum()
 }
 
 /// ifstreambuf
-ifstreambuf::ifstreambuf(const std::uint32_t* Key)
+ifstreambuf::ifstreambuf(std::span<const std::uint32_t, 256> Key)
 	: Key(Key), CurrentPage(-1), PageCache(nullptr), PageCacheIndex(-1), TableCache(nullptr),
 	  TableCacheIndex(-1), PageCount(0)
 {

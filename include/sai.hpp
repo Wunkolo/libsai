@@ -9,6 +9,7 @@
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <span>
 #include <tuple>
 
 namespace sai
@@ -184,7 +185,7 @@ extern const std::array<std::uint32_t, 256> System;
 class ifstreambuf : public std::streambuf
 {
 public:
-	explicit ifstreambuf(const std::uint32_t* Key = Keys::User.data());
+	explicit ifstreambuf(std::span<const std::uint32_t, 256> Key = Keys::User);
 
 	// No copy
 	ifstreambuf(const ifstreambuf&)            = delete;
@@ -212,7 +213,7 @@ private:
 	VirtualPage Buffer;
 
 	// Decryption Key
-	const std::uint32_t* Key;
+	std::span<const std::uint32_t, 256> Key;
 
 	std::uint32_t CurrentPage;
 
