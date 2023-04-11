@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <memory>
@@ -192,8 +193,7 @@ public:
 	ifstreambuf& operator=(const ifstreambuf&) = delete;
 
 	// Adhere similarly to std::basic_filebuf
-	ifstreambuf* open(const char* Name);
-	ifstreambuf* open(const wchar_t* Name);
+	ifstreambuf* open(const std::filesystem::path& Path);
 	ifstreambuf* close();
 	bool         is_open() const;
 
@@ -233,18 +233,10 @@ private:
 class ifstream : public std::istream
 {
 public:
-	explicit ifstream(const std::string& Path);
-
-	explicit ifstream(const char* Path);
-	explicit ifstream(const std::wstring& Path);
-
-	explicit ifstream(const wchar_t* Path);
+	explicit ifstream(const std::filesystem::path& Path);
 
 	// Similar to ifstream member functions
-	void open(const char* FilePath) const;
-	void open(const std::string& FilePath) const;
-	void open(const wchar_t* FilePath) const;
-	void open(const std::wstring& FilePath) const;
+	void open(const std::filesystem::path& Path) const;
 	bool is_open() const;
 
 	virtual ~ifstream();
@@ -276,8 +268,7 @@ public:
 class VirtualFileSystem
 {
 public:
-	explicit VirtualFileSystem(const char* FileName);
-	explicit VirtualFileSystem(const wchar_t* FileName);
+	explicit VirtualFileSystem(const std::filesystem::path& Path);
 	~VirtualFileSystem();
 
 	// No Copy
@@ -360,8 +351,7 @@ private:
 class Document : public VirtualFileSystem
 {
 public:
-	explicit Document(const char* FileName);
-	explicit Document(const wchar_t* FileName);
+	explicit Document(const std::filesystem::path& Path);
 	~Document();
 
 	// No Copy

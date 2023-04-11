@@ -7,13 +7,8 @@
 
 namespace sai
 {
-VirtualFileSystem::VirtualFileSystem(const char* FileName)
-	: FileStream(std::make_shared<ifstream>(FileName))
-{
-}
-
-VirtualFileSystem::VirtualFileSystem(const wchar_t* FileName)
-	: FileStream(std::make_shared<ifstream>(FileName))
+VirtualFileSystem::VirtualFileSystem(const std::filesystem::path& Path)
+	: FileStream(std::make_shared<ifstream>(Path))
 {
 }
 

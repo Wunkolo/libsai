@@ -5,9 +5,6 @@
 
 #include <cstring>
 
-#include <codecvt>
-#include <locale>
-
 namespace sai
 {
 ifstreambuf::ifstreambuf(std::span<const std::uint32_t, 256> DecryptionKey)
@@ -21,51 +18,14 @@ ifstreambuf::ifstreambuf(std::span<const std::uint32_t, 256> DecryptionKey)
 	TableCache = std::make_unique<VirtualPage>();
 }
 
-ifstreambuf* ifstreambuf::open(const char* Name)
+ifstreambuf* ifstreambuf::open(const std::filesystem::path& Path)
 {
 	if( is_open() == true )
 	{
 		return nullptr;
 	}
 
-	FileIn.open(Name, std::ios::binary | std::ios::ate);
-
-	if( FileIn.is_open() == false )
-	{
-		close();
-		return nullptr;
-	}
-
-	const std::ifstream::pos_type FileSize = FileIn.tellg();
-
-	if( FileSize % VirtualPage::PageSize != 0 )
-	{
-		// File size is not pagealigned
-		close();
-		return nullptr;
-	}
-
-	PageCount = static_cast<std::uint32_t>(FileSize) / VirtualPage::PageSize;
-
-	seekpos(0);
-
-	return this;
-}
-
-ifstreambuf* ifstreambuf::open(const wchar_t* Name)
-{
-	if( is_open() == true )
-	{
-		return nullptr;
-	}
-
-#if defined(_MSC_VER)
-	FileIn.open(Name, std::ios::binary | std::ios::ate);
-#else
-	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> Converter;
-	std::string Name8 = Converter.to_bytes(std::wstring(Name));
-	FileIn.open(Name8, std::ios::binary | std::ios::ate);
-#endif
+	FileIn.open(Path, std::ios::binary | std::ios::ate);
 
 	if( FileIn.is_open() == false )
 	{

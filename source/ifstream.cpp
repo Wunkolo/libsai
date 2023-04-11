@@ -6,46 +6,15 @@
 namespace sai
 {
 /// ifstream
-ifstream::ifstream(const std::string& Path) : std::istream(new ifstreambuf())
-{
-	reinterpret_cast<ifstreambuf*>(rdbuf())->open(Path.c_str());
-}
-
-ifstream::ifstream(const char* Path) : std::istream(new ifstreambuf())
+ifstream::ifstream(const std::filesystem::path& Path) : std::istream(new ifstreambuf())
 {
 	reinterpret_cast<ifstreambuf*>(rdbuf())->open(Path);
 }
 
-ifstream::ifstream(const std::wstring& Path) : std::istream(new ifstreambuf())
+void ifstream::open(const std::filesystem::path& Path) const
 {
-	reinterpret_cast<ifstreambuf*>(rdbuf())->open(Path.c_str());
-}
-
-ifstream::ifstream(const wchar_t* Path) : std::istream(new ifstreambuf())
-{
+	reinterpret_cast<ifstreambuf*>(rdbuf())->close();
 	reinterpret_cast<ifstreambuf*>(rdbuf())->open(Path);
-}
-
-void ifstream::open(const char* FilePath) const
-{
-	reinterpret_cast<ifstreambuf*>(rdbuf())->close();
-	reinterpret_cast<ifstreambuf*>(rdbuf())->open(FilePath);
-}
-
-void ifstream::open(const std::string& FilePath) const
-{
-	open(FilePath.c_str());
-}
-
-void ifstream::open(const wchar_t* FilePath) const
-{
-	reinterpret_cast<ifstreambuf*>(rdbuf())->close();
-	reinterpret_cast<ifstreambuf*>(rdbuf())->open(FilePath);
-}
-
-void ifstream::open(const std::wstring& FilePath) const
-{
-	open(FilePath.c_str());
 }
 
 bool ifstream::is_open() const

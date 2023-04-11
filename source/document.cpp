@@ -9,11 +9,7 @@
 namespace sai
 {
 
-Document::Document(const char* FileName) : VirtualFileSystem(FileName)
-{
-}
-
-Document::Document(const wchar_t* FileName) : VirtualFileSystem(FileName)
+Document::Document(const std::filesystem::path& Path) : VirtualFileSystem(Path)
 {
 }
 
