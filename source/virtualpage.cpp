@@ -10,31 +10,32 @@
 namespace sai
 {
 #if defined(__AVX2__)
-inline __m256i KeySum8(__m256i Vector8, const std::uint32_t Key[256])
+inline __m256i KeySum8(__m256i Vector8, std::span<const std::uint32_t, 256> Key)
 {
 	__m256i Sum = _mm256_i32gather_epi32(
-		(const std::int32_t*)Key, _mm256_and_si256(Vector8, _mm256_set1_epi32(0xFF)),
+		(const std::int32_t*)Key.data(), _mm256_and_si256(Vector8, _mm256_set1_epi32(0xFF)),
 		sizeof(std::uint32_t)
 	);
 
 	Sum = _mm256_add_epi32(
 		Sum, _mm256_i32gather_epi32(
-				 (const std::int32_t*)Key,
+				 (const std::int32_t*)Key.data(),
 				 _mm256_and_si256(_mm256_srli_epi32(Vector8, 8), _mm256_set1_epi32(0xFF)),
 				 sizeof(std::uint32_t)
 			 )
 	);
 	Sum = _mm256_add_epi32(
 		Sum, _mm256_i32gather_epi32(
-				 (const std::int32_t*)Key,
+				 (const std::int32_t*)Key.data(),
 				 _mm256_and_si256(_mm256_srli_epi32(Vector8, 16), _mm256_set1_epi32(0xFF)),
 				 sizeof(std::uint32_t)
 			 )
 	);
 	Sum = _mm256_add_epi32(
-		Sum, _mm256_i32gather_epi32(
-				 (const std::int32_t*)Key, _mm256_srli_epi32(Vector8, 24), sizeof(std::uint32_t)
-			 )
+		Sum,
+		_mm256_i32gather_epi32(
+			(const std::int32_t*)Key.data(), _mm256_srli_epi32(Vector8, 24), sizeof(std::uint32_t)
+		)
 	);
 	return Sum;
 }
