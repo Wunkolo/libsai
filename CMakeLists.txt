@@ -9,6 +9,13 @@ set( CMAKE_COLOR_MAKEFILE ON )
 set( CMAKE_VERBOSE_MAKEFILE ON )
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
+# Determine if we're built as a subproject (using add_subdirectory)
+# or if this is the master project.
+set( MASTER_PROJECT OFF )
+if( CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR )
+	set( MASTER_PROJECT ON )
+endif()
+
 # Create Universal Binary on macOS
 set( CMAKE_OSX_ARCHITECTURES "arm64;x86_64" )
 
@@ -78,50 +85,52 @@ target_include_directories(
 	include
 )
 
-### Decryption sample
-add_executable(
-	Thumbnail
-	samples/Thumbnail.cpp
-)
+if( MASTER_PROJECT )
+	### Decryption sample
+	add_executable(
+		Thumbnail
+		samples/Thumbnail.cpp
+	)
 
-target_link_libraries(
-	Thumbnail
-	PRIVATE
-	sai
-)
+	target_link_libraries(
+		Thumbnail
+		PRIVATE
+		sai
+	)
 
-### Decryption sample
-add_executable(
-	Decrypt
-	samples/Decrypt.cpp
-)
+	### Decryption sample
+	add_executable(
+		Decrypt
+		samples/Decrypt.cpp
+	)
 
-target_link_libraries(
-	Decrypt
-	PRIVATE
-	sai
-)
+	target_link_libraries(
+		Decrypt
+		PRIVATE
+		sai
+	)
 
-### VFS tree sample
-add_executable(
-	Tree
-	samples/Tree.cpp
-)
+	### VFS tree sample
+	add_executable(
+		Tree
+		samples/Tree.cpp
+	)
 
-target_link_libraries(
-	Tree
-	PRIVATE
-	sai
-)
+	target_link_libraries(
+		Tree
+		PRIVATE
+		sai
+	)
 
-### VFS tree sample
-add_executable(
-	Document
-	samples/Document.cpp
-)
+	### VFS tree sample
+	add_executable(
+		Document
+		samples/Document.cpp
+	)
 
-target_link_libraries(
-	Document
-	PRIVATE
-	sai
-)
+	target_link_libraries(
+		Document
+		PRIVATE
+		sai
+	)
+endif()
