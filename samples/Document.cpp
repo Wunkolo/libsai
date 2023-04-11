@@ -82,7 +82,7 @@ void ProcessLayerFile(sai::VirtualFileEntry& LayerFile)
 		case sai::Tag("name", sai::Endian::Big):
 		{
 			char LayerName[256] = {};
-			LayerFile.Read(LayerName, 256);
+			LayerFile.Read(reinterpret_cast<std::byte*>(LayerName), 256);
 			std::printf("\t\tName: %.256s\n", LayerName);
 			break;
 		}
@@ -119,8 +119,8 @@ void ProcessLayerFile(sai::VirtualFileEntry& LayerFile)
 }
 
 void RLEDecompressStride(
-	std::uint8_t* Destination, const std::uint8_t* Source, std::size_t Stride,
-	std::size_t StrideCount, std::size_t Channel
+	std::byte* Destination, const std::byte* Source, std::size_t Stride, std::size_t StrideCount,
+	std::size_t Channel
 )
 {
 	Destination += Channel;
@@ -128,7 +128,7 @@ void RLEDecompressStride(
 
 	while( WriteCount < StrideCount )
 	{
-		std::uint8_t Length = *Source++;
+		std::uint8_t Length = std::to_integer<std::uint8_t>(*Source++);
 		if( Length == 128 ) // No-op
 		{
 		}
@@ -150,7 +150,7 @@ void RLEDecompressStride(
 			Length ^= 0xFF;
 			Length += 2;
 			WriteCount += Length;
-			std::uint8_t Value = *Source++;
+			std::byte Value = *Source++;
 			while( Length )
 			{
 				*Destination = Value;
@@ -175,8 +175,7 @@ std::unique_ptr<std::uint32_t[]>
 	// as packed bits within a word.
 
 	// Read TileMap
-	std::unique_ptr<std::uint8_t[]> TileMap
-		= std::make_unique<std::uint8_t[]>(LayerTilesX * LayerTilesY);
+	std::unique_ptr<std::byte[]> TileMap = std::make_unique<std::byte[]>(LayerTilesX * LayerTilesY);
 	LayerFile.Read(TileMap.get(), LayerTilesX * LayerTilesY);
 
 	// The resulting raster image data for this layer, RGBA 32bpp interleaved
@@ -190,8 +189,8 @@ std::unique_ptr<std::uint32_t[]>
 		= std::make_unique<std::uint32_t[]>(LayerHeader.Bounds.Width * LayerHeader.Bounds.Height);
 
 	// 32 x 32 Tile of B8G8R8A8 pixels
-	std::array<std::uint8_t, 0x1000> CompressedTile   = {};
-	std::array<std::uint8_t, 0x1000> DecompressedTile = {};
+	std::array<std::byte, 0x1000> CompressedTile   = {};
+	std::array<std::byte, 0x1000> DecompressedTile = {};
 
 	// Iterate 32x32 tile chunks row by row
 	for( std::size_t y = 0; y < LayerTilesY; ++y )
@@ -199,7 +198,7 @@ std::unique_ptr<std::uint32_t[]>
 		for( std::size_t x = 0; x < LayerTilesX; ++x )
 		{
 			// Process active Tiles
-			if( !TileMap[Index2D(x, y, LayerTilesX)] )
+			if( !std::to_integer<std::uint8_t>(TileMap[Index2D(x, y, LayerTilesX)]) )
 				continue;
 
 			std::uint8_t  CurChannel = 0;

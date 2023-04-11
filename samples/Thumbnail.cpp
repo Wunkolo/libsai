@@ -37,9 +37,9 @@ int main(int argc, char* argv[])
 	}
 
 	uint32_t Width, Height;
-	Width = Height                    = 0;
-	std::unique_ptr<uint8_t[]> Pixels = {};
-	std::tie(Pixels, Width, Height)   = FileIn.GetThumbnail();
+	Width = Height                      = 0;
+	std::unique_ptr<std::byte[]> Pixels = {};
+	std::tie(Pixels, Width, Height)     = FileIn.GetThumbnail();
 
 	stbi_write_png(argv[2], Width, Height, 4, Pixels.get(), 0);
 

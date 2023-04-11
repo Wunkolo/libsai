@@ -537,7 +537,8 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 	return nullptr;
 }
 
-std::size_t VirtualFileSystem::Read(std::size_t Offset, void* Destination, std::size_t Size) const
+std::size_t
+	VirtualFileSystem::Read(std::size_t Offset, std::byte* Destination, std::size_t Size) const
 {
 	SaiStream->seekg(Offset, std::ios::beg);
 	SaiStream->read(reinterpret_cast<char*>(Destination), Size);
@@ -673,14 +674,15 @@ void VirtualFileEntry::Seek(std::size_t NewOffset)
 	}
 }
 
-std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
+std::size_t VirtualFileEntry::Read(std::byte* Destination, std::size_t Size)
 {
 	std::size_t LeftToRead    = Size;
 	bool        NeedsNextPage = false;
 
 	if( std::shared_ptr<ifstream> SaiStream = FileSystem.lock() )
 	{
-		std::unique_ptr<char[]> ReadBuffer = std::make_unique<char[]>(VirtualPage::PageSize);
+		std::unique_ptr<std::byte[]> ReadBuffer
+			= std::make_unique<std::byte[]>(VirtualPage::PageSize);
 
 		while( SaiStream )
 		{
@@ -699,11 +701,9 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 				PageOffset += Read;
 			}
 
-			SaiStream->read(ReadBuffer.get(), Read);
+			SaiStream->read(reinterpret_cast<char*>(ReadBuffer.get()), Read);
 			std::size_t BytesWrote = Size - LeftToRead;
-			std::memcpy(
-				reinterpret_cast<std::uint8_t*>(Destination) + BytesWrote, ReadBuffer.get(), Read
-			);
+			std::memcpy(Destination + BytesWrote, ReadBuffer.get(), Read);
 
 			Offset += Read;
 			LeftToRead -= Read;
@@ -754,7 +754,7 @@ std::tuple<std::uint32_t, std::uint32_t> Document::GetCanvasSize()
 	return std::make_tuple(0, 0);
 }
 
-std::tuple<std::unique_ptr<std::uint8_t[]>, std::uint32_t, std::uint32_t> Document::GetThumbnail()
+std::tuple<std::unique_ptr<std::byte[]>, std::uint32_t, std::uint32_t> Document::GetThumbnail()
 {
 	if( std::unique_ptr<VirtualFileEntry> Thumbnail = GetEntry("thumbnail") )
 	{
@@ -768,9 +768,9 @@ std::tuple<std::unique_ptr<std::uint8_t[]>, std::uint32_t, std::uint32_t> Docume
 			return std::make_tuple(nullptr, 0, 0);
 		}
 
-		const std::size_t               PixelCount = Header.Height * Header.Width;
-		std::unique_ptr<std::uint8_t[]> Pixels
-			= std::make_unique<std::uint8_t[]>(PixelCount * sizeof(std::uint32_t));
+		const std::size_t            PixelCount = Header.Height * Header.Width;
+		std::unique_ptr<std::byte[]> Pixels
+			= std::make_unique<std::byte[]>(PixelCount * sizeof(std::uint32_t));
 
 		Thumbnail->Read(Pixels.get(), PixelCount * sizeof(std::uint32_t));
 
@@ -805,7 +805,7 @@ std::tuple<std::unique_ptr<std::uint8_t[]>, std::uint32_t, std::uint32_t> Docume
 		// for( ; i < PixelCount * sizeof(std::uint32_t); i +=
 		// sizeof(std::uint32_t) )
 		//{
-		//	std::swap<std::uint8_t>(Pixels[i], Pixels[i + 2]);
+		//	std::swap<std::byte>(Pixels[i], Pixels[i + 2]);
 		// }
 
 		return std::make_tuple(std::move(Pixels), Header.Width, Header.Height);
