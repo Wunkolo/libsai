@@ -15,9 +15,8 @@ struct Benchmark
 
 		func(std::forward<Args>(args)...);
 
-		auto Duration = std::chrono::duration_cast<TickType>(
-			std::chrono::system_clock::now() - StartPoint
-		);
+		auto Duration
+			= std::chrono::duration_cast<TickType>(std::chrono::system_clock::now() - StartPoint);
 
 		return Duration;
 	}

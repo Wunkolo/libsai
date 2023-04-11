@@ -45,10 +45,9 @@ int main(int argc, char* argv[])
 		return EXIT_FAILURE;
 	}
 
-	std::cout << "File decrypted in:"
-			  << Benchmark<std::chrono::nanoseconds>::Run([&]() -> void {
-					 FileOut << &FileIn;
-				 }).count()
+	std::cout << "File decrypted in:" << Benchmark<std::chrono::nanoseconds>::Run([&]() -> void {
+											 FileOut << &FileIn;
+										 }).count()
 			  << "ns" << std::endl;
 
 	return EXIT_SUCCESS;

@@ -45,8 +45,7 @@ private:
 		std::strftime(TimeString, 32, "%D %R", std::localtime(&TimeStamp));
 		PrintNestedFolder();
 		std::printf(
-			"\u251C\u2500\u2500 [%12zu %s] %s\n", Entry.GetSize(), TimeString,
-			Entry.GetName()
+			"\u251C\u2500\u2500 [%12zu %s] %s\n", Entry.GetSize(), TimeString, Entry.GetName()
 		);
 	}
 	void PrintNestedFolder() const
@@ -78,17 +77,14 @@ int main(int argc, char* argv[])
 
 		if( !CurDocument.IsOpen() )
 		{
-			std::cout << "Error opening file for reading: " << argv[i]
-					  << std::endl;
+			std::cout << "Error opening file for reading: " << argv[i] << std::endl;
 			return EXIT_FAILURE;
 		}
 
-		const auto Bench = Benchmark<std::chrono::nanoseconds>::Run(
-			[&CurDocument]() -> void {
-				SaiTreeView TreeVisitor;
-				CurDocument.IterateFileSystem(TreeVisitor);
-			}
-		);
+		const auto Bench = Benchmark<std::chrono::nanoseconds>::Run([&CurDocument]() -> void {
+			SaiTreeView TreeVisitor;
+			CurDocument.IterateFileSystem(TreeVisitor);
+		});
 		std::printf("Iterated VFS of %s in %zu ns\n", argv[i], Bench.count());
 	}
 

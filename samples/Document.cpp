@@ -21,9 +21,8 @@ const char* const Help
 	  "\tWunkolo - Wunkolo@gmail.com";
 
 void ProcessLayerFile(sai::VirtualFileEntry& LayerFile);
-std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
-	const sai::LayerHeader& LayerHeader, sai::VirtualFileEntry& LayerFile
-);
+std::unique_ptr<std::uint32_t[]>
+	ReadRasterLayer(const sai::LayerHeader& LayerHeader, sai::VirtualFileEntry& LayerFile);
 
 int main(int argc, char* argv[])
 {
@@ -39,38 +38,26 @@ int main(int argc, char* argv[])
 
 		if( !CurDocument.IsOpen() )
 		{
-			std::cout << "Error opening file for reading: " << argv[i]
-					  << std::endl;
+			std::cout << "Error opening file for reading: " << argv[i] << std::endl;
 			return EXIT_FAILURE;
 		}
 
-		const std::tuple<std::uint32_t, std::uint32_t> CanvasSize
-			= CurDocument.GetCanvasSize();
+		const std::tuple<std::uint32_t, std::uint32_t> CanvasSize = CurDocument.GetCanvasSize();
 		std::printf(
-			"\033[1mWidth: %u Height: %u\033[0m\n", std::get<0>(CanvasSize),
-			std::get<1>(CanvasSize)
+			"\033[1mWidth: %u Height: %u\033[0m\n", std::get<0>(CanvasSize), std::get<1>(CanvasSize)
 		);
 
-		const auto Bench = Benchmark<std::chrono::nanoseconds>::Run(
-			[&CurDocument]() -> void {
-				CurDocument.IterateLayerFiles(
-					[](sai::VirtualFileEntry& LayerFile) {
-						ProcessLayerFile(LayerFile);
-						return true;
-					}
-				);
-				CurDocument.IterateSubLayerFiles(
-					[](sai::VirtualFileEntry& SubLayerFile) {
-						ProcessLayerFile(SubLayerFile);
-						return true;
-					}
-				);
-			}
-		);
-		std::printf(
-			"\033[1mIterated Document of %s in %zu ns\033[0m\n", argv[i],
-			Bench.count()
-		);
+		const auto Bench = Benchmark<std::chrono::nanoseconds>::Run([&CurDocument]() -> void {
+			CurDocument.IterateLayerFiles([](sai::VirtualFileEntry& LayerFile) {
+				ProcessLayerFile(LayerFile);
+				return true;
+			});
+			CurDocument.IterateSubLayerFiles([](sai::VirtualFileEntry& SubLayerFile) {
+				ProcessLayerFile(SubLayerFile);
+				return true;
+			});
+		});
+		std::printf("\033[1mIterated Document of %s in %zu ns\033[0m\n", argv[i], Bench.count());
 	}
 	return EXIT_SUCCESS;
 }
@@ -174,15 +161,15 @@ void RLEDecompressStride(
 	}
 }
 
-std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
-	const sai::LayerHeader& LayerHeader, sai::VirtualFileEntry& LayerFile
-)
+std::unique_ptr<std::uint32_t[]>
+	ReadRasterLayer(const sai::LayerHeader& LayerHeader, sai::VirtualFileEntry& LayerFile)
 {
 	const std::size_t TileSize    = 32u;
 	const std::size_t LayerTilesX = LayerHeader.Bounds.Width / TileSize;
 	const std::size_t LayerTilesY = LayerHeader.Bounds.Height / TileSize;
-	const auto Index2D = [](std::size_t X, std::size_t Y, std::size_t Stride
-						 ) -> std::size_t { return X + (Y * Stride); };
+	const auto Index2D = [](std::size_t X, std::size_t Y, std::size_t Stride) -> std::size_t {
+		return X + (Y * Stride);
+	};
 	// Do not use a std::vector<bool> as this is implemented as a specialized
 	// type that does not implement individual bool values as bytes, but rather
 	// as packed bits within a word.
@@ -200,9 +187,7 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 	// files are stored at 8bpc while only some run-time color arithmetic
 	// converts to 16-bit
 	std::unique_ptr<std::uint32_t[]> LayerImage
-		= std::make_unique<std::uint32_t[]>(
-			LayerHeader.Bounds.Width * LayerHeader.Bounds.Height
-		);
+		= std::make_unique<std::uint32_t[]>(LayerHeader.Bounds.Width * LayerHeader.Bounds.Height);
 
 	// 32 x 32 Tile of B8G8R8A8 pixels
 	std::array<std::uint8_t, 0x1000> CompressedTile   = {};
@@ -220,8 +205,7 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 			std::uint8_t  CurChannel = 0;
 			std::uint16_t RLESize    = 0;
 			// Iterate RLE streams for each channel
-			while( LayerFile.Read<std::uint16_t>(RLESize)
-				   == sizeof(std::uint16_t) )
+			while( LayerFile.Read<std::uint16_t>(RLESize) == sizeof(std::uint16_t) )
 			{
 				assert(RLESize <= CompressedTile.size());
 				if( LayerFile.Read(CompressedTile.data(), RLESize) != RLESize )
@@ -231,9 +215,8 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 				}
 				// Decompress and place into the appropriate interleaved channel
 				RLEDecompressStride(
-					DecompressedTile.data(), CompressedTile.data(),
-					sizeof(std::uint32_t), 0x1000 / sizeof(std::uint32_t),
-					CurChannel
+					DecompressedTile.data(), CompressedTile.data(), sizeof(std::uint32_t),
+					0x1000 / sizeof(std::uint32_t), CurChannel
 				);
 				++CurChannel;
 				// Skip all other channels besides the RGBA ones we care about
@@ -250,21 +233,17 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 
 			// Write 32x32 tile into final image
 			const std::uint32_t* ImageSource
-				= reinterpret_cast<const std::uint32_t*>(DecompressedTile.data()
-				);
+				= reinterpret_cast<const std::uint32_t*>(DecompressedTile.data());
 			// Current 32x32 tile within final image
 			std::uint32_t* ImageDest
-				= LayerImage.get()
-				+ Index2D(x * TileSize, y * LayerHeader.Bounds.Width, TileSize);
+				= LayerImage.get() + Index2D(x * TileSize, y * LayerHeader.Bounds.Width, TileSize);
 			for( std::size_t i = 0; i < (TileSize * TileSize); i++ )
 			{
 				std::uint32_t CurPixel = ImageSource[i];
 				///
 				// Do any Per-Pixel processing you need to do here
 				///
-				ImageDest[Index2D(
-					i % TileSize, i / TileSize, LayerHeader.Bounds.Width
-				)] = CurPixel;
+				ImageDest[Index2D(i % TileSize, i / TileSize, LayerHeader.Bounds.Width)] = CurPixel;
 			}
 		}
 	}

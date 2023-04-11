@@ -20,15 +20,14 @@ enum class Endian
 };
 
 template<std::size_t N>
-inline constexpr std::uint32_t
-	Tag(const char (&TagString)[N], Endian Endianness = Endian::Little)
+inline constexpr std::uint32_t Tag(const char (&TagString)[N], Endian Endianness = Endian::Little)
 {
 	static_assert(N == 5, "Tag must be 4 characters");
 	return (Endianness == Endian::Big)
 			 ? ((TagString[3] << 0) | (TagString[2] << 8) | (TagString[1] << 16)
 				| (TagString[0] << 24))
-			 : ((TagString[3] << 24) | (TagString[2] << 16)
-				| (TagString[1] << 8) | (TagString[0] << 0));
+			 : ((TagString[3] << 24) | (TagString[2] << 16) | (TagString[1] << 8)
+				| (TagString[0] << 0));
 }
 
 enum class LayerType
@@ -164,9 +163,8 @@ struct LayerHeader
 struct LayerTableEntry
 {
 	LayerID       Identifier;
-	std::uint16_t Type; // LayerType enum
-	std::uint16_t
-		Unknown6; // Gets sent as windows message 0x80CA for some reason
+	std::uint16_t Type;     // LayerType enum
+	std::uint16_t Unknown6; // Gets sent as windows message 0x80CA for some reason
 };
 
 #pragma pack(pop)
@@ -205,8 +203,7 @@ public:
 		std::ios_base::openmode Mode = std::ios_base::in
 	) override;
 	virtual std::streambuf::pos_type seekpos(
-		std::streambuf::pos_type Position,
-		std::ios_base::openmode  Mode = std::ios_base::in
+		std::streambuf::pos_type Position, std::ios_base::openmode Mode = std::ios_base::in
 	) override;
 
 private:
@@ -292,8 +289,7 @@ public:
 
 	std::unique_ptr<VirtualFileEntry> GetEntry(const char* Path);
 
-	std::size_t
-		Read(std::size_t Offset, void* Destination, std::size_t Size) const;
+	std::size_t Read(std::size_t Offset, void* Destination, std::size_t Size) const;
 
 	template<typename T>
 	inline std::size_t Read(std::size_t Offset, T& Destination)
@@ -312,9 +308,7 @@ private:
 class VirtualFileEntry
 {
 public:
-	VirtualFileEntry(
-		std::weak_ptr<ifstream> FileSystem, const FATEntry& EntryData
-	);
+	VirtualFileEntry(std::weak_ptr<ifstream> FileSystem, const FATEntry& EntryData);
 	~VirtualFileEntry();
 
 	// No Copy
@@ -379,15 +373,10 @@ public:
 
 	// Returns (RGBA Pixel Data, Width, Height).
 	// Returns (null,0,0) if an error has occured.
-	std::tuple<std::unique_ptr<std::uint8_t[]>, std::uint32_t, std::uint32_t>
-		GetThumbnail();
+	std::tuple<std::unique_ptr<std::uint8_t[]>, std::uint32_t, std::uint32_t> GetThumbnail();
 
-	void IterateLayerFiles(
-		const std::function<bool(VirtualFileEntry&)>& LayerProc
-	);
-	void IterateSubLayerFiles(
-		const std::function<bool(VirtualFileEntry&)>& SubLayerProc
-	);
+	void IterateLayerFiles(const std::function<bool(VirtualFileEntry&)>& LayerProc);
+	void IterateSubLayerFiles(const std::function<bool(VirtualFileEntry&)>& SubLayerProc);
 
 private:
 };
