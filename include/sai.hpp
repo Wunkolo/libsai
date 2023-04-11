@@ -10,6 +10,7 @@
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <tuple>
 
@@ -282,7 +283,7 @@ public:
 
 	bool Exists(const char* Path);
 
-	std::unique_ptr<VirtualFileEntry> GetEntry(const char* Path);
+	std::optional<VirtualFileEntry> GetEntry(const char* Path);
 
 	std::size_t Read(std::size_t Offset, std::span<std::byte> Destination) const;
 

@@ -23,10 +23,10 @@ bool VirtualFileSystem::IsOpen() const
 
 bool VirtualFileSystem::Exists(const char* Path)
 {
-	return static_cast<bool>(GetEntry(Path));
+	return GetEntry(Path).has_value();
 }
 
-std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
+std::optional<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 {
 	VirtualPage CurPage = {};
 	Read(2 * VirtualPage::PageSize, CurPage);
@@ -45,15 +45,15 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 			if( (CurToken = std::strtok(nullptr, PathDelim)) == nullptr )
 			{
 				// No more tokens, done
-				std::unique_ptr<VirtualFileEntry> Entry
-					= std::make_unique<VirtualFileEntry>(FileStream, CurPage.FATEntries[CurEntry]);
-				return Entry;
+				return std::make_optional<VirtualFileEntry>(
+					FileStream, CurPage.FATEntries[CurEntry]
+				);
 			}
 			// Try to go further
 			if( CurPage.FATEntries[CurEntry].Type != FATEntry::EntryType::Folder )
 			{
 				// Part of the path was not a folder, cant go further
-				return nullptr;
+				return std::nullopt;
 			}
 
 			const std::uint32_t PageIndex = CurPage.FATEntries[CurEntry].PageIndex;
@@ -85,7 +85,7 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 		CurEntry++;
 	}
 
-	return nullptr;
+	return std::nullopt;
 }
 
 std::size_t VirtualFileSystem::Read(std::size_t Offset, std::span<std::byte> Destination) const

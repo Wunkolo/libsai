@@ -19,7 +19,7 @@ Document::~Document()
 
 std::tuple<std::uint32_t, std::uint32_t> Document::GetCanvasSize()
 {
-	if( std::unique_ptr<VirtualFileEntry> Canvas = GetEntry("canvas") )
+	if( std::optional<VirtualFileEntry> Canvas = GetEntry("canvas"); Canvas )
 	{
 		std::uint32_t Alignment; // Always seems to be 0x10, bpc? Alignment?
 		std::uint32_t Width, Height;
@@ -34,7 +34,7 @@ std::tuple<std::uint32_t, std::uint32_t> Document::GetCanvasSize()
 
 std::tuple<std::unique_ptr<std::byte[]>, std::uint32_t, std::uint32_t> Document::GetThumbnail()
 {
-	if( std::unique_ptr<VirtualFileEntry> Thumbnail = GetEntry("thumbnail") )
+	if( std::optional<VirtualFileEntry> Thumbnail = GetEntry("thumbnail"); Thumbnail )
 	{
 		ThumbnailHeader Header;
 		Thumbnail->Read(Header.Width);
@@ -84,7 +84,7 @@ std::tuple<std::unique_ptr<std::byte[]>, std::uint32_t, std::uint32_t> Document:
 
 void Document::IterateLayerFiles(const std::function<bool(VirtualFileEntry&)>& LayerProc)
 {
-	if( auto LayerTableFile = GetEntry("laytbl") )
+	if( std::optional<VirtualFileEntry> LayerTableFile = GetEntry("laytbl"); LayerTableFile )
 	{
 		std::uint32_t LayerCount = LayerTableFile->Read<std::uint32_t>();
 		while( LayerCount-- ) // Read each layer entry
@@ -92,7 +92,7 @@ void Document::IterateLayerFiles(const std::function<bool(VirtualFileEntry&)>& L
 			const LayerTableEntry CurLayerEntry = LayerTableFile->Read<LayerTableEntry>();
 			char                  LayerPath[32] = {};
 			std::snprintf(LayerPath, 32u, "/layers/%08x", CurLayerEntry.Identifier);
-			if( auto LayerFile = GetEntry(LayerPath) )
+			if( std::optional<VirtualFileEntry> LayerFile = GetEntry(LayerPath); LayerFile )
 			{
 				if( !LayerProc(*LayerFile) )
 					break;
@@ -103,7 +103,7 @@ void Document::IterateLayerFiles(const std::function<bool(VirtualFileEntry&)>& L
 
 void Document::IterateSubLayerFiles(const std::function<bool(VirtualFileEntry&)>& SubLayerProc)
 {
-	if( auto SubLayerTableFile = GetEntry("subtbl") )
+	if( std::optional<VirtualFileEntry> SubLayerTableFile = GetEntry("subtbl"); SubLayerTableFile )
 	{
 		std::uint32_t SubLayerCount = SubLayerTableFile->Read<std::uint32_t>();
 		while( SubLayerCount-- ) // Read each layer entry
@@ -111,7 +111,8 @@ void Document::IterateSubLayerFiles(const std::function<bool(VirtualFileEntry&)>
 			const LayerTableEntry CurSubLayerEntry = SubLayerTableFile->Read<LayerTableEntry>();
 			char                  SubLayerPath[32] = {};
 			std::snprintf(SubLayerPath, 32u, "/sublayers/%08x", CurSubLayerEntry.Identifier);
-			if( auto SubLayerFile = GetEntry(SubLayerPath) )
+			if( std::optional<VirtualFileEntry> SubLayerFile = GetEntry(SubLayerPath);
+				SubLayerFile )
 			{
 				if( !SubLayerProc(*SubLayerFile) )
 					break;
