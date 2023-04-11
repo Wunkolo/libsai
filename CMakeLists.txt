@@ -77,8 +77,14 @@ endif()
 ### libsai
 add_library(
 	sai
+	source/document.cpp
+	source/ifstream.cpp
+	source/ifstreambuf.cpp
 	source/keys.cpp
 	source/sai.cpp
+	source/virtualfileentry.cpp
+	source/virtualfilesystem.cpp
+	source/virtualpage.cpp
 )
 target_include_directories(
 	sai
