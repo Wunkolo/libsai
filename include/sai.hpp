@@ -49,15 +49,15 @@ enum class LayerType
 
 enum class BlendingModes : std::uint32_t
 {
-	PassThrough = Tag("pass"),
-	Normal      = Tag("norm"),
-	Multiply    = Tag("mul "),
-	Screen      = Tag("scrn"),
-	Overlay     = Tag("over"),
-	Luminosity  = Tag("add "),
-	Shade       = Tag("sub "),
-	LumiShade   = Tag("adsb"),
-	Binary      = Tag("cbin")
+	PassThrough = Tag<std::endian::big>("pass"),
+	Normal      = Tag<std::endian::big>("norm"),
+	Multiply    = Tag<std::endian::big>("mul "),
+	Screen      = Tag<std::endian::big>("scrn"),
+	Overlay     = Tag<std::endian::big>("over"),
+	Luminosity  = Tag<std::endian::big>("add "),
+	Shade       = Tag<std::endian::big>("sub "),
+	LumiShade   = Tag<std::endian::big>("adsb"),
+	Binary      = Tag<std::endian::big>("cbin")
 };
 
 #pragma pack(push, 1)
