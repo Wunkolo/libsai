@@ -29,7 +29,9 @@ LICENSE
 #include <codecvt>
 #include <locale>
 
+#ifdef __x86_64__
 #include <immintrin.h>
+#endif
 
 namespace sai
 {
