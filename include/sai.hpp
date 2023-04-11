@@ -3,6 +3,7 @@
 
 #pragma once
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <ctime>
@@ -16,21 +17,23 @@
 
 namespace sai
 {
-enum class Endian
-{
-	Little = 0,
-	Big    = 1
-};
 
-template<std::size_t N>
-inline constexpr std::uint32_t Tag(const char (&TagString)[N], Endian Endianness = Endian::Little)
+template<std::endian Endianness = std::endian::little, std::size_t N>
+inline constexpr std::uint32_t Tag(const char (&TagString)[N])
 {
 	static_assert(N == 5, "Tag must be 4 characters");
-	return (Endianness == Endian::Big)
-			 ? ((TagString[3] << 0) | (TagString[2] << 8) | (TagString[1] << 16)
-				| (TagString[0] << 24))
-			 : ((TagString[3] << 24) | (TagString[2] << 16) | (TagString[1] << 8)
-				| (TagString[0] << 0));
+	if constexpr( Endianness == std::endian::big )
+	{
+		return (
+			(TagString[3] << 0) | (TagString[2] << 8) | (TagString[1] << 16) | (TagString[0] << 24)
+		);
+	}
+	else
+	{
+		return (
+			(TagString[3] << 24) | (TagString[2] << 16) | (TagString[1] << 8) | (TagString[0] << 0)
+		);
+	}
 }
 
 enum class LayerType

@@ -83,7 +83,7 @@ void ProcessLayerFile(sai::VirtualFileEntry& LayerFile)
 		LayerFile.Read<std::uint32_t>(CurTagSize);
 		switch( CurTag )
 		{
-		case sai::Tag("name", sai::Endian::Big):
+		case sai::Tag<std::endian::big>("name"):
 		{
 			std::array<char, 256> LayerName = {};
 			LayerFile.Read(std::as_writable_bytes(std::span(LayerName)));
