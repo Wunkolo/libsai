@@ -198,9 +198,8 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 	// as packed bits within a word.
 
 	// Read TileMap
-	std::unique_ptr<std::uint8_t[]> TileMap(
-		new std::uint8_t[LayerTilesX * LayerTilesY]()
-	);
+	std::unique_ptr<std::uint8_t[]> TileMap
+		= std::make_unique<std::uint8_t[]>(LayerTilesX * LayerTilesY);
 	LayerFile.Read(TileMap.get(), LayerTilesX * LayerTilesY);
 
 	// The resulting raster image data for this layer, RGBA 32bpp interleaved
@@ -209,9 +208,8 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 	// Also note that the claim that SystemMax has made involving 16bit color depth
 	// may actually only be true at run-time. All raster data found in files are stored at
 	// 8bpc while only some run-time color arithmetic converts to 16-bit
-	std::unique_ptr<std::uint32_t[]> LayerImage(
-		new std::uint32_t[LayerHeader.Bounds.Width * LayerHeader.Bounds.Height]()
-	);
+	std::unique_ptr<std::uint32_t[]> LayerImage
+		= std::make_unique<std::uint32_t[]>(LayerHeader.Bounds.Width * LayerHeader.Bounds.Height);
 
 	// 32 x 32 Tile of B8G8R8A8 pixels
 	std::array<std::uint8_t, 0x1000> CompressedTile = {};

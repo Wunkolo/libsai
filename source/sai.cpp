@@ -167,8 +167,8 @@ ifstreambuf::ifstreambuf(const std::uint32_t* Key)
 	setg(nullptr, nullptr, nullptr);
 	setp(nullptr, nullptr);
 
-	PageCache  = std::unique_ptr<VirtualPage>(new VirtualPage{});
-	TableCache = std::unique_ptr<VirtualPage>(new VirtualPage{});
+	PageCache  = std::make_unique<VirtualPage>();
+	TableCache = std::make_unique<VirtualPage>();
 }
 
 ifstreambuf* ifstreambuf::open(const char* Name)
@@ -542,11 +542,9 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 			if( (CurToken = std::strtok(nullptr, PathDelim)) == nullptr )
 			{
 				// No more tokens, done
-				std::unique_ptr<VirtualFileEntry> Entry(
-					new VirtualFileEntry(
-						SaiStream,
-						CurPage.FATEntries[CurEntry]
-					)
+				std::unique_ptr<VirtualFileEntry> Entry = std::make_unique<VirtualFileEntry>(
+					SaiStream,
+					CurPage.FATEntries[CurEntry]
 				);
 				return Entry;
 			}
@@ -760,7 +758,7 @@ std::size_t VirtualFileEntry::Read(void* Destination, std::size_t Size)
 
 	if (std::shared_ptr<ifstream> SaiStream = FileSystem.lock())
 	{
-		std::unique_ptr<char[]> ReadBuffer(new char[VirtualPage::PageSize]);
+		std::unique_ptr<char[]> ReadBuffer = std::make_unique<char[]>(VirtualPage::PageSize);
 
 		while (SaiStream)
 		{
@@ -856,9 +854,8 @@ std::tuple<
 		}
 
 		const std::size_t PixelCount = Header.Height * Header.Width;
-		std::unique_ptr<std::uint8_t[]> Pixels(
-			new std::uint8_t[PixelCount * sizeof(std::uint32_t)]()
-		);
+		std::unique_ptr<std::uint8_t[]> Pixels
+			= std::make_unique<std::uint8_t[]>(PixelCount * sizeof(std::uint32_t));
 
 		Thumbnail->Read(Pixels.get(), PixelCount * sizeof(std::uint32_t));
 

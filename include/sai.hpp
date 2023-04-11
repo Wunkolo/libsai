@@ -345,6 +345,10 @@ private:
 class VirtualFileEntry
 {
 public:
+	VirtualFileEntry(
+		std::weak_ptr<ifstream> FileSystem,
+		const FATEntry& EntryData
+	);
 	~VirtualFileEntry();
 
 	// No Copy
@@ -379,13 +383,6 @@ public:
 
 	FATEntry FATData;
 private:
-	friend VirtualFileSystem;
-
-	VirtualFileEntry(
-		std::weak_ptr<ifstream> FileSystem,
-		const FATEntry& EntryData
-	);
-
 	VirtualPage GetTablePage(std::size_t Offset) const;
 
 	std::weak_ptr<ifstream> FileSystem;
