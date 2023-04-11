@@ -77,6 +77,7 @@ endif()
 ### libsai
 add_library(
 	sai
+	source/keys.cpp
 	source/sai.cpp
 )
 target_include_directories(
