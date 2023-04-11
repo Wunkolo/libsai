@@ -68,15 +68,14 @@ void VirtualPage::DecryptTable(std::uint32_t PageIndex)
 		PrevData8 = CurData8;
 	};
 #else
-	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i++ )
+	for( std::uint32_t& CurData : u32 )
 	{
-		const std::uint32_t CurData = u32[i];
-		std::uint32_t       X       = PrevData ^ CurData;
-		X
-			^= (Keys::User[(PrevData >> 24) & 0xFF] + Keys::User[(PrevData >> 16) & 0xFF]
-				+ Keys::User[(PrevData >> 8) & 0xFF] + Keys::User[(PrevData >> 0) & 0xFF]);
-		u32[i]   = static_cast<std::uint32_t>((X << 16) | (X >> 16));
+		std::uint32_t X = PrevData ^ CurData;
+		X ^= Keys::User[(PrevData >> 24) & 0xFF] + Keys::User[(PrevData >> 16) & 0xFF]
+		   + Keys::User[(PrevData >> 8) & 0xFF] + Keys::User[(PrevData >> 0) & 0xFF];
 		PrevData = CurData;
+		// CurData  = static_cast<std::uint32_t>((X << 16) | (X >> 16));
+		CurData = std::rotl(X, 16);
 	};
 #endif
 }
@@ -102,14 +101,13 @@ void VirtualPage::DecryptData(std::uint32_t PageChecksum)
 		PrevData8 = CurData8;
 	};
 #else
-	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i++ )
+	for( std::uint32_t& CurData : u32 )
 	{
-		const std::uint32_t CurData = u32[i];
-		u32[i]                      = CurData
-			   - (PrevData
-				  ^ (Keys::User[(PrevData >> 24) & 0xFF] + Keys::User[(PrevData >> 16) & 0xFF]
-					 + Keys::User[(PrevData >> 8) & 0xFF] + Keys::User[(PrevData >> 0) & 0xFF]));
-		PrevData = CurData;
+		const std::uint32_t LastData = CurData;
+		CurData -= PrevData
+				 ^ (Keys::User[(PrevData >> 24) & 0xFF] + Keys::User[(PrevData >> 16) & 0xFF]
+					+ Keys::User[(PrevData >> 8) & 0xFF] + Keys::User[(PrevData >> 0) & 0xFF]);
+		PrevData = LastData;
 	}
 #endif
 }
@@ -117,9 +115,9 @@ void VirtualPage::DecryptData(std::uint32_t PageChecksum)
 std::uint32_t VirtualPage::Checksum()
 {
 	std::uint32_t Sum = 0;
-	for( std::size_t i = 0; i < (PageSize / sizeof(std::uint32_t)); i++ )
+	for( const std::uint32_t& CurData : u32 )
 	{
-		Sum = (2 * Sum | (Sum >> 31)) ^ u32[i];
+		Sum = std::rotl(Sum, 1) ^ CurData;
 	}
 	return Sum | 1;
 }
