@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 #include <chrono>
+#include <cinttypes>
 #include <cstdint>
 #include <ctime>
 #include <fstream>
 #include <iostream>
-#include <sai.hpp>
 #include <utility>
+
+#include <sai.hpp>
 
 #include "Benchmark.hpp"
 
@@ -85,7 +87,7 @@ int main(int argc, char* argv[])
 			SaiTreeView TreeVisitor;
 			CurDocument.IterateFileSystem(TreeVisitor);
 		});
-		std::printf("Iterated VFS of %s in %zu ns\n", argv[i], Bench.count());
+		std::printf("Iterated VFS of %s in %" PRId64 " ns\n", argv[i], Bench.count());
 	}
 
 	return EXIT_SUCCESS;

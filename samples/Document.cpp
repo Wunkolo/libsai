@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: MIT
 
 #include <chrono>
+#include <cinttypes>
 #include <cstdint>
 #include <ctime>
 #include <fstream>
 #include <iostream>
-#include <sai.hpp>
 #include <utility>
 #include <vector>
+
+#include <sai.hpp>
 
 #include "Benchmark.hpp"
 
@@ -57,7 +59,9 @@ int main(int argc, char* argv[])
 				return true;
 			});
 		});
-		std::printf("\033[1mIterated Document of %s in %zu ns\033[0m\n", argv[i], Bench.count());
+		std::printf(
+			"\033[1mIterated Document of %s in %" PRId64 " ns\033[0m\n", argv[i], Bench.count()
+		);
 	}
 	return EXIT_SUCCESS;
 }
