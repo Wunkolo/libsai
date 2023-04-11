@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2017-2023 Wunkolo
 // SPDX-License-Identifier: MIT
 
+#include <cassert>
 #include <chrono>
 #include <cinttypes>
 #include <cstdint>
@@ -14,7 +15,6 @@
 
 #include "Benchmark.hpp"
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
 const char* const Help

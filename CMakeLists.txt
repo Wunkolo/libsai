@@ -97,6 +97,7 @@ if( MASTER_PROJECT )
 	add_executable(
 		Thumbnail
 		samples/Thumbnail.cpp
+		samples/stb_image_write.c
 	)
 
 	target_link_libraries(
@@ -129,10 +130,11 @@ if( MASTER_PROJECT )
 		sai
 	)
 
-	### VFS tree sample
+	### Document sample
 	add_executable(
 		Document
 		samples/Document.cpp
+		samples/stb_image_write.c
 	)
 
 	target_link_libraries(

@@ -12,7 +12,6 @@ Sample code for extracting the thumbnail image from a user-created sai file
 #include <sai.hpp>
 #include <utility>
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
 const char* const Help
