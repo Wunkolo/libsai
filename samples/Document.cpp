@@ -96,8 +96,21 @@ void ProcessLayerFile(sai::VirtualFileEntry& LayerFile)
 			std::printf("\t\tName: %.256s\n", LayerName.data());
 			break;
 		}
+		case sai::Tag<std::endian::big>("lorg"):
+		case sai::Tag<std::endian::big>("pfid"):
+		case sai::Tag<std::endian::big>("plid"):
+		case sai::Tag<std::endian::big>("lmfl"):
+		case sai::Tag<std::endian::big>("fopn"):
+		case sai::Tag<std::endian::big>("texn"):
+		case sai::Tag<std::endian::big>("texp"):
+		case sai::Tag<std::endian::big>("peff"):
+		case sai::Tag<std::endian::big>("vmrk"):
 		default:
 		{
+			std::printf(
+				"\t\tUnhandledTag: '%c%c%c%c'(0x%08x)\n", (CurTag >> 24) & 0xFF,
+				(CurTag >> 16) & 0xFF, (CurTag >> 8) & 0xFF, (CurTag >> 0) & 0xFF, CurTag
+			);
 			// for any streams that we do not handle,
 			// we just skip forward in the stream
 			LayerFile.Seek(LayerFile.Tell() + CurTagSize);
