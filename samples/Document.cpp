@@ -81,9 +81,9 @@ void ProcessLayerFile(sai::VirtualFileEntry& LayerFile)
 		{
 		case sai::Tag("name", sai::Endian::Big):
 		{
-			char LayerName[256] = {};
-			LayerFile.Read(reinterpret_cast<std::byte*>(LayerName), 256);
-			std::printf("\t\tName: %.256s\n", LayerName);
+			std::array<char, 256> LayerName = {};
+			LayerFile.Read(std::as_writable_bytes(std::span(LayerName)));
+			std::printf("\t\tName: %.256s\n", LayerName.data());
 			break;
 		}
 		default:
@@ -176,7 +176,7 @@ std::unique_ptr<std::uint32_t[]>
 
 	// Read TileMap
 	std::unique_ptr<std::byte[]> TileMap = std::make_unique<std::byte[]>(LayerTilesX * LayerTilesY);
-	LayerFile.Read(TileMap.get(), LayerTilesX * LayerTilesY);
+	LayerFile.Read({TileMap.get(), LayerTilesX * LayerTilesY});
 
 	// The resulting raster image data for this layer, RGBA 32bpp interleaved
 	// Use a vector to ensure that tiles with no data are still initialized
@@ -207,7 +207,7 @@ std::unique_ptr<std::uint32_t[]>
 			while( LayerFile.Read<std::uint16_t>(RLESize) == sizeof(std::uint16_t) )
 			{
 				assert(RLESize <= CompressedTile.size());
-				if( LayerFile.Read(CompressedTile.data(), RLESize) != RLESize )
+				if( LayerFile.Read(std::span(CompressedTile).first(RLESize)) != RLESize )
 				{
 					// Error reading RLE stream
 					break;

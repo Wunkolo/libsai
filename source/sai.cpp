@@ -537,12 +537,11 @@ std::unique_ptr<VirtualFileEntry> VirtualFileSystem::GetEntry(const char* Path)
 	return nullptr;
 }
 
-std::size_t
-	VirtualFileSystem::Read(std::size_t Offset, std::byte* Destination, std::size_t Size) const
+std::size_t VirtualFileSystem::Read(std::size_t Offset, std::span<std::byte> Destination) const
 {
 	FileStream->seekg(Offset, std::ios::beg);
-	FileStream->read(reinterpret_cast<char*>(Destination), Size);
-	return Size;
+	FileStream->read(reinterpret_cast<char*>(Destination.data()), Destination.size());
+	return Destination.size();
 }
 
 void VirtualFileSystem::IterateFileSystem(VirtualFileVisitor& Visitor)
@@ -672,9 +671,9 @@ void VirtualFileEntry::Seek(std::size_t NewOffset)
 	}
 }
 
-std::size_t VirtualFileEntry::Read(std::byte* Destination, std::size_t Size)
+std::size_t VirtualFileEntry::Read(std::span<std::byte> Destination)
 {
-	std::size_t LeftToRead    = Size;
+	std::size_t LeftToRead    = Destination.size();
 	bool        NeedsNextPage = false;
 
 	if( std::shared_ptr<ifstream> Stream = FileStream.lock() )
@@ -700,8 +699,8 @@ std::size_t VirtualFileEntry::Read(std::byte* Destination, std::size_t Size)
 			}
 
 			Stream->read(reinterpret_cast<char*>(ReadBuffer.get()), Read);
-			std::size_t BytesWrote = Size - LeftToRead;
-			std::memcpy(Destination + BytesWrote, ReadBuffer.get(), Read);
+			const std::size_t BytesWritten = Destination.size() - LeftToRead;
+			std::memcpy(Destination.data() + BytesWritten, ReadBuffer.get(), Read);
 
 			Offset += Read;
 			LeftToRead -= Read;
@@ -721,7 +720,7 @@ std::size_t VirtualFileEntry::Read(std::byte* Destination, std::size_t Size)
 		}
 	}
 
-	return Size - LeftToRead;
+	return Destination.size() - LeftToRead;
 }
 
 /// SaiDocument
@@ -770,7 +769,7 @@ std::tuple<std::unique_ptr<std::byte[]>, std::uint32_t, std::uint32_t> Document:
 		std::unique_ptr<std::byte[]> Pixels
 			= std::make_unique<std::byte[]>(PixelCount * sizeof(std::uint32_t));
 
-		Thumbnail->Read(Pixels.get(), PixelCount * sizeof(std::uint32_t));
+		Thumbnail->Read({Pixels.get(), PixelCount * sizeof(std::uint32_t)});
 
 		//// BGRA to RGBA
 		// std::size_t i = 0;

@@ -290,12 +290,12 @@ public:
 
 	std::unique_ptr<VirtualFileEntry> GetEntry(const char* Path);
 
-	std::size_t Read(std::size_t Offset, std::byte* Destination, std::size_t Size) const;
+	std::size_t Read(std::size_t Offset, std::span<std::byte> Destination) const;
 
 	template<typename T>
 	inline std::size_t Read(std::size_t Offset, T& Destination)
 	{
-		return Read(Offset, reinterpret_cast<std::byte*>(&Destination), sizeof(T));
+		return Read(Offset, {reinterpret_cast<std::byte*>(&Destination), sizeof(T)});
 	}
 
 	void IterateFileSystem(VirtualFileVisitor& Visitor);
@@ -326,19 +326,19 @@ public:
 	std::size_t Tell() const;
 	void        Seek(std::size_t NewOffset);
 
-	std::size_t Read(std::byte* Destination, std::size_t Size);
+	std::size_t Read(std::span<std::byte> Destination);
 
 	template<typename T>
 	inline std::size_t Read(T& Destination)
 	{
-		return Read(reinterpret_cast<std::byte*>(&Destination), sizeof(T));
+		return Read({reinterpret_cast<std::byte*>(&Destination), sizeof(T)});
 	}
 
 	template<typename T>
 	inline T Read()
 	{
 		T temp;
-		Read(reinterpret_cast<std::byte*>(&temp), sizeof(T));
+		Read({reinterpret_cast<std::byte*>(&temp), sizeof(T)});
 		return temp;
 	}
 
