@@ -75,6 +75,12 @@ void ProcessLayerFile(sai::VirtualFileEntry& LayerFile)
 	char Name[256] = {};
 	std::snprintf(Name, 256, "%08x", LayerHeader.Identifier);
 
+	std::printf(
+		"\t\tBlending: '%c%c%c%c'(0x%08x)\n", (LayerHeader.Blending >> 24) & 0xFF,
+		(LayerHeader.Blending >> 16) & 0xFF, (LayerHeader.Blending >> 8) & 0xFF,
+		(LayerHeader.Blending >> 0) & 0xFF, LayerHeader.Blending
+	);
+
 	// Read serialization stream
 	std::uint32_t CurTag;
 	std::uint32_t CurTagSize;
