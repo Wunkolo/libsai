@@ -25,7 +25,7 @@ VirtualPage VirtualFileEntry::GetTablePage(std::size_t Index) const
 	if( std::shared_ptr<ifstream> Stream = FileStream.lock() )
 	{
 		Stream->seekg(VirtualPage::NearestTableIndex(Index) * VirtualPage::PageSize, std::ios::beg);
-		Stream->read(reinterpret_cast<char*>(TablePage.u8), VirtualPage::PageSize);
+		Stream->read(reinterpret_cast<char*>(TablePage.u8.data()), VirtualPage::PageSize);
 	}
 	return TablePage;
 }

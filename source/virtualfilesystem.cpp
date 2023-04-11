@@ -105,11 +105,14 @@ void VirtualFileSystem::IterateFATBlock(std::size_t PageIndex, VirtualFileVisito
 	VirtualPage CurPage = {};
 	Read(PageIndex * VirtualPage::PageSize, CurPage);
 
-	for( std::size_t i = 0;
-		 i < std::extent<decltype(VirtualPage::FATEntries)>::value && CurPage.FATEntries[i].Flags;
-		 i++ )
+	for( const FATEntry& CurFATEntry : CurPage.FATEntries )
 	{
-		VirtualFileEntry CurEntry(FileStream, CurPage.FATEntries[i]);
+		if( !CurFATEntry.Flags )
+		{
+			break;
+		}
+
+		VirtualFileEntry CurEntry(FileStream, CurFATEntry);
 		switch( CurEntry.GetType() )
 		{
 		case FATEntry::EntryType::File:

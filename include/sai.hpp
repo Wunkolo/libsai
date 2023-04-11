@@ -97,23 +97,24 @@ union VirtualPage
 	}
 
 	// Data
-	std::uint8_t  u8[PageSize];
-	std::int8_t   i8[PageSize];
-	std::uint32_t u32[PageSize / sizeof(std::uint32_t)];
-	std::int32_t  i32[PageSize / sizeof(std::int32_t)];
+	std::array<std::uint8_t, PageSize>                          u8;
+	std::array<std::int8_t, PageSize>                           i8;
+	std::array<std::uint32_t, PageSize / sizeof(std::uint32_t)> u32;
+	std::array<std::int32_t, PageSize / sizeof(std::int32_t)>   i32;
 
 	// Page Table entries
 	struct PageEntry
 	{
 		std::uint32_t Checksum;
 		std::uint32_t NextPageIndex;
-	} PageEntries[PageSize / sizeof(PageEntry)];
+	};
+	std::array<PageEntry, PageSize / sizeof(PageEntry)> PageEntries;
 
 	void DecryptTable(std::uint32_t PageIndex);
 	void DecryptData(std::uint32_t PageChecksum);
 
 	// FAT Table Entries
-	FATEntry FATEntries[64];
+	std::array<FATEntry, 64> FATEntries;
 
 	/*
 	To checksum a table be sure to do "u32[0] = 0" first
@@ -121,7 +122,9 @@ union VirtualPage
 	std::uint32_t Checksum();
 };
 
-static_assert(sizeof(VirtualPage) == VirtualPage::PageSize);
+static_assert(
+	sizeof(VirtualPage) == VirtualPage::PageSize, "Size of `VirtualPage` does not match PageSize"
+);
 
 struct ThumbnailHeader
 {

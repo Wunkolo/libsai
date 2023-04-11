@@ -121,9 +121,9 @@ std::streambuf::pos_type
 			if( FetchPage(CurrentPage, &Buffer) )
 			{
 				setg(
-					reinterpret_cast<char*>(Buffer.u8),
-					reinterpret_cast<char*>(Buffer.u8) + (Position % VirtualPage::PageSize),
-					reinterpret_cast<char*>(Buffer.u8) + VirtualPage::PageSize
+					reinterpret_cast<char*>(Buffer.u8.data()),
+					reinterpret_cast<char*>(Buffer.u8.data()) + (Position % VirtualPage::PageSize),
+					reinterpret_cast<char*>(Buffer.u8.data()) + VirtualPage::PageSize
 				);
 				return true;
 			}
