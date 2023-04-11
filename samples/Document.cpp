@@ -117,7 +117,7 @@ void ProcessLayerFile(
 		LayerFile.Read<std::uint32_t>(CurTagSize);
 		switch( CurTag )
 		{
-			case sai::Tag("name"):
+			case sai::Tag("name", sai::Endian::Big):
 			{
 				char LayerName[256] = {};
 				LayerFile.Read(LayerName, 256);
