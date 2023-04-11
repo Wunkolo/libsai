@@ -1,29 +1,28 @@
 // SPDX-FileCopyrightText: Copyright (c) 2017-2023 Wunkolo
 // SPDX-License-Identifier: MIT
 
+#include <chrono>
 #include <cstdint>
 #include <ctime>
 #include <fstream>
 #include <iostream>
-#include <chrono>
+#include <sai.hpp>
 #include <utility>
 #include <vector>
-#include <sai.hpp>
 
 #include "Benchmark.hpp"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-const char* const Help =
-"Show .sai document information:\n"
-"\tDocument (filenames)\n"
-"\tWunkolo - Wunkolo@gmail.com";
+const char* const Help
+	= "Show .sai document information:\n"
+	  "\tDocument (filenames)\n"
+	  "\tWunkolo - Wunkolo@gmail.com";
 
 void ProcessLayerFile(sai::VirtualFileEntry& LayerFile);
 std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
-	const sai::LayerHeader& LayerHeader,
-	sai::VirtualFileEntry& LayerFile
+	const sai::LayerHeader& LayerHeader, sai::VirtualFileEntry& LayerFile
 );
 
 int main(int argc, char* argv[])
@@ -34,36 +33,34 @@ int main(int argc, char* argv[])
 		return EXIT_FAILURE;
 	}
 
-	for( std::size_t i = 1; i < std::size_t(argc); ++i)
+	for( std::size_t i = 1; i < std::size_t(argc); ++i )
 	{
 		sai::Document CurDocument(argv[i]);
 
 		if( !CurDocument.IsOpen() )
 		{
-			std::cout << "Error opening file for reading: " << argv[i] << std::endl;
+			std::cout << "Error opening file for reading: " << argv[i]
+					  << std::endl;
 			return EXIT_FAILURE;
 		}
 
-		const std::tuple<std::uint32_t,std::uint32_t> CanvasSize
+		const std::tuple<std::uint32_t, std::uint32_t> CanvasSize
 			= CurDocument.GetCanvasSize();
 		std::printf(
-			"\033[1mWidth: %u Height: %u\033[0m\n",
-			std::get<0>(CanvasSize), std::get<1>(CanvasSize)
+			"\033[1mWidth: %u Height: %u\033[0m\n", std::get<0>(CanvasSize),
+			std::get<1>(CanvasSize)
 		);
 
 		const auto Bench = Benchmark<std::chrono::nanoseconds>::Run(
-			[&CurDocument]() -> void
-			{
+			[&CurDocument]() -> void {
 				CurDocument.IterateLayerFiles(
-					[](sai::VirtualFileEntry& LayerFile)
-					{
+					[](sai::VirtualFileEntry& LayerFile) {
 						ProcessLayerFile(LayerFile);
 						return true;
 					}
 				);
 				CurDocument.IterateSubLayerFiles(
-					[](sai::VirtualFileEntry& SubLayerFile)
-					{
+					[](sai::VirtualFileEntry& SubLayerFile) {
 						ProcessLayerFile(SubLayerFile);
 						return true;
 					}
@@ -71,18 +68,16 @@ int main(int argc, char* argv[])
 			}
 		);
 		std::printf(
-			"\033[1mIterated Document of %s in %zu ns\033[0m\n", argv[i], Bench.count()
+			"\033[1mIterated Document of %s in %zu ns\033[0m\n", argv[i],
+			Bench.count()
 		);
 	}
 	return EXIT_SUCCESS;
 }
 
-void ProcessLayerFile(
-	sai::VirtualFileEntry& LayerFile
-)
+void ProcessLayerFile(sai::VirtualFileEntry& LayerFile)
 {
-	const sai::LayerHeader LayerHeader
-		= LayerFile.Read<sai::LayerHeader>();
+	const sai::LayerHeader LayerHeader = LayerFile.Read<sai::LayerHeader>();
 
 	std::printf("\t\033[1m- \033[93m\"%08x\"\033[0m\n", LayerHeader.Identifier);
 
@@ -97,49 +92,47 @@ void ProcessLayerFile(
 		LayerFile.Read<std::uint32_t>(CurTagSize);
 		switch( CurTag )
 		{
-			case sai::Tag("name", sai::Endian::Big):
-			{
-				char LayerName[256] = {};
-				LayerFile.Read(LayerName, 256);
-				std::printf("\t\tName: %.256s\n", LayerName);
-				break;
-			}
-			default:
-			{
-				// for any streams that we do not handle,
-				// we just skip forward in the stream
-				LayerFile.Seek(LayerFile.Tell() + CurTagSize);
-				break;
-			}
+		case sai::Tag("name", sai::Endian::Big):
+		{
+			char LayerName[256] = {};
+			LayerFile.Read(LayerName, 256);
+			std::printf("\t\tName: %.256s\n", LayerName);
+			break;
+		}
+		default:
+		{
+			// for any streams that we do not handle,
+			// we just skip forward in the stream
+			LayerFile.Seek(LayerFile.Tell() + CurTagSize);
+			break;
+		}
 		}
 	}
 	switch( static_cast<sai::LayerType>(LayerHeader.Type) )
 	{
-		case sai::LayerType::Layer:
+	case sai::LayerType::Layer:
+	{
+		if( auto LayerPixels = ReadRasterLayer(LayerHeader, LayerFile) )
 		{
-			if( auto LayerPixels = ReadRasterLayer(LayerHeader, LayerFile) )
-			{
-				stbi_write_png(
-					(std::string(Name) + ".png").c_str(),
-					LayerHeader.Bounds.Width, LayerHeader.Bounds.Height,
-					4, LayerPixels.get(), 0
-				);
-			}
-			break;
+			stbi_write_png(
+				(std::string(Name) + ".png").c_str(), LayerHeader.Bounds.Width,
+				LayerHeader.Bounds.Height, 4, LayerPixels.get(), 0
+			);
 		}
-		case sai::LayerType::Unknown4:
-		case sai::LayerType::Linework:
-		case sai::LayerType::Mask:
-		case sai::LayerType::Unknown7:
-		case sai::LayerType::Set:
-		default:
-			break;
+		break;
+	}
+	case sai::LayerType::Unknown4:
+	case sai::LayerType::Linework:
+	case sai::LayerType::Mask:
+	case sai::LayerType::Unknown7:
+	case sai::LayerType::Set:
+	default:
+		break;
 	}
 }
 
-
 void RLEDecompressStride(
-	std::uint8_t* Destination, const std::uint8_t *Source, std::size_t Stride,
+	std::uint8_t* Destination, const std::uint8_t* Source, std::size_t Stride,
 	std::size_t StrideCount, std::size_t Channel
 )
 {
@@ -185,14 +178,11 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 	const sai::LayerHeader& LayerHeader, sai::VirtualFileEntry& LayerFile
 )
 {
-	const std::size_t TileSize = 32u;
-	const std::size_t LayerTilesX = LayerHeader.Bounds.Width  / TileSize;
+	const std::size_t TileSize    = 32u;
+	const std::size_t LayerTilesX = LayerHeader.Bounds.Width / TileSize;
 	const std::size_t LayerTilesY = LayerHeader.Bounds.Height / TileSize;
-	const auto Index2D = []
-	(std::size_t X, std::size_t Y, std::size_t Stride) -> std::size_t
-	{
-		return X + (Y * Stride);
-	};
+	const auto Index2D = [](std::size_t X, std::size_t Y, std::size_t Stride
+						 ) -> std::size_t { return X + (Y * Stride); };
 	// Do not use a std::vector<bool> as this is implemented as a specialized
 	// type that does not implement individual bool values as bytes, but rather
 	// as packed bits within a word.
@@ -205,14 +195,17 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 	// The resulting raster image data for this layer, RGBA 32bpp interleaved
 	// Use a vector to ensure that tiles with no data are still initialized
 	// to #00000000
-	// Also note that the claim that SystemMax has made involving 16bit color depth
-	// may actually only be true at run-time. All raster data found in files are stored at
-	// 8bpc while only some run-time color arithmetic converts to 16-bit
+	// Also note that the claim that SystemMax has made involving 16bit color
+	// depth may actually only be true at run-time. All raster data found in
+	// files are stored at 8bpc while only some run-time color arithmetic
+	// converts to 16-bit
 	std::unique_ptr<std::uint32_t[]> LayerImage
-		= std::make_unique<std::uint32_t[]>(LayerHeader.Bounds.Width * LayerHeader.Bounds.Height);
+		= std::make_unique<std::uint32_t[]>(
+			LayerHeader.Bounds.Width * LayerHeader.Bounds.Height
+		);
 
 	// 32 x 32 Tile of B8G8R8A8 pixels
-	std::array<std::uint8_t, 0x1000> CompressedTile = {};
+	std::array<std::uint8_t, 0x1000> CompressedTile   = {};
 	std::array<std::uint8_t, 0x1000> DecompressedTile = {};
 
 	// Iterate 32x32 tile chunks row by row
@@ -220,13 +213,15 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 	{
 		for( std::size_t x = 0; x < LayerTilesX; ++x )
 		{
-			 // Process active Tiles
-			if( !TileMap[Index2D(x, y, LayerTilesX)] ) continue;
+			// Process active Tiles
+			if( !TileMap[Index2D(x, y, LayerTilesX)] )
+				continue;
 
-			std::uint8_t CurChannel = 0;
-			std::uint16_t RLESize = 0;
+			std::uint8_t  CurChannel = 0;
+			std::uint16_t RLESize    = 0;
 			// Iterate RLE streams for each channel
-			while( LayerFile.Read<std::uint16_t>(RLESize) == sizeof(std::uint16_t) )
+			while( LayerFile.Read<std::uint16_t>(RLESize)
+				   == sizeof(std::uint16_t) )
 			{
 				assert(RLESize <= CompressedTile.size());
 				if( LayerFile.Read(CompressedTile.data(), RLESize) != RLESize )
@@ -255,9 +250,11 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 
 			// Write 32x32 tile into final image
 			const std::uint32_t* ImageSource
-				= reinterpret_cast<const std::uint32_t*>(DecompressedTile.data());
+				= reinterpret_cast<const std::uint32_t*>(DecompressedTile.data()
+				);
 			// Current 32x32 tile within final image
-			std::uint32_t* ImageDest = LayerImage.get()
+			std::uint32_t* ImageDest
+				= LayerImage.get()
 				+ Index2D(x * TileSize, y * LayerHeader.Bounds.Width, TileSize);
 			for( std::size_t i = 0; i < (TileSize * TileSize); i++ )
 			{
@@ -265,9 +262,9 @@ std::unique_ptr<std::uint32_t[]> ReadRasterLayer(
 				///
 				// Do any Per-Pixel processing you need to do here
 				///
-				ImageDest[
-					Index2D(i % TileSize, i / TileSize, LayerHeader.Bounds.Width)
-				] = CurPixel;
+				ImageDest[Index2D(
+					i % TileSize, i / TileSize, LayerHeader.Bounds.Width
+				)] = CurPixel;
 			}
 		}
 	}

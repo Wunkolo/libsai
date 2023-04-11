@@ -5,19 +5,19 @@
 Sample code to decrypt any user-created .sai file
 */
 
+#include <chrono>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
-#include <chrono>
-#include <utility>
 #include <sai.hpp>
+#include <utility>
 
 #include "Benchmark.hpp"
 
-const char* const Help =
-"Decrypt user-created .sai files:\n"
-"\tDecrypt.exe (filename) (output)\n"
-"\tWunkolo - Wunkolo@gmail.com";
+const char* const Help
+	= "Decrypt user-created .sai files:\n"
+	  "\tDecrypt.exe (filename) (output)\n"
+	  "\tWunkolo - Wunkolo@gmail.com";
 
 int main(int argc, char* argv[])
 {
@@ -46,12 +46,10 @@ int main(int argc, char* argv[])
 	}
 
 	std::cout << "File decrypted in:"
-		<< Benchmark<std::chrono::nanoseconds>::Run(
-		[&]() -> void
-	{
-		FileOut << &FileIn;
-	}
-	).count() << "ns" << std::endl;
+			  << Benchmark<std::chrono::nanoseconds>::Run([&]() -> void {
+					 FileOut << &FileIn;
+				 }).count()
+			  << "ns" << std::endl;
 
 	return EXIT_SUCCESS;
 }
