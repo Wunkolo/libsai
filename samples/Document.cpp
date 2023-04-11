@@ -118,7 +118,7 @@ void ProcessLayerFile(sai::VirtualFileEntry& LayerFile)
 	}
 }
 
-void RLEDecompressStride(
+static void RLEDecompressStride(
 	std::byte* Destination, const std::byte* Source, std::size_t Stride, std::size_t StrideCount,
 	std::size_t Channel
 )
