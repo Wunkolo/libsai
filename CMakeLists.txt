@@ -9,6 +9,9 @@ set( CMAKE_COLOR_MAKEFILE ON )
 set( CMAKE_VERBOSE_MAKEFILE ON )
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
+# Create Universal Binary on macOS
+set( CMAKE_OSX_ARCHITECTURES "arm64;x86_64" )
+
 ### libsai
 add_library(
 	sai
@@ -20,14 +23,12 @@ target_include_directories(
 	include
 )
 
-
 if( MSVC )
 	target_compile_options( sai PUBLIC /W3 )
 elseif( CMAKE_COMPILER_IS_GNUCXX )
 	target_compile_options( sai PUBLIC -Wall )
 	target_compile_options( sai PUBLIC -Wextra )
 endif()
-
 
 ### Decryption sample
 add_executable(
