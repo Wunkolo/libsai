@@ -18,7 +18,7 @@
 namespace sai
 {
 
-template<std::endian Endianness = std::endian::little, std::size_t N>
+template<std::endian Endianness = std::endian::big, std::size_t N>
 inline constexpr std::uint32_t Tag(const char (&TagString)[N])
 {
 	static_assert(N == 5, "Tag must be 4 characters");
@@ -49,15 +49,15 @@ enum class LayerType
 
 enum class BlendingModes : std::uint32_t
 {
-	PassThrough = Tag<std::endian::big>("pass"),
-	Normal      = Tag<std::endian::big>("norm"),
-	Multiply    = Tag<std::endian::big>("mul "),
-	Screen      = Tag<std::endian::big>("scrn"),
-	Overlay     = Tag<std::endian::big>("over"),
-	Luminosity  = Tag<std::endian::big>("add "),
-	Shade       = Tag<std::endian::big>("sub "),
-	LumiShade   = Tag<std::endian::big>("adsb"),
-	Binary      = Tag<std::endian::big>("cbin")
+	PassThrough = Tag("pass"),
+	Normal      = Tag("norm"),
+	Multiply    = Tag("mul "),
+	Screen      = Tag("scrn"),
+	Overlay     = Tag("over"),
+	Luminosity  = Tag("add "),
+	Shade       = Tag("sub "),
+	LumiShade   = Tag("adsb"),
+	Binary      = Tag("cbin")
 };
 
 #pragma pack(push, 1)

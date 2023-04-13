@@ -41,7 +41,7 @@ std::tuple<std::unique_ptr<std::byte[]>, std::uint32_t, std::uint32_t> Document:
 		Thumbnail->Read(Header.Height);
 		Thumbnail->Read(Header.Magic);
 
-		if( Header.Magic != sai::Tag("BM32") )
+		if( Header.Magic != sai::Tag<std::endian::little>("BM32") )
 		{
 			return std::make_tuple(nullptr, 0, 0);
 		}

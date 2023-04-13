@@ -89,22 +89,22 @@ void ProcessLayerFile(sai::VirtualFileEntry& LayerFile)
 		LayerFile.Read<std::uint32_t>(CurTagSize);
 		switch( CurTag )
 		{
-		case sai::Tag<std::endian::big>("name"):
+		case sai::Tag("name"):
 		{
 			std::array<char, 256> LayerName = {};
 			LayerFile.Read(std::as_writable_bytes(std::span(LayerName)));
 			std::printf("\t\tName: %.256s\n", LayerName.data());
 			break;
 		}
-		case sai::Tag<std::endian::big>("lorg"):
-		case sai::Tag<std::endian::big>("pfid"):
-		case sai::Tag<std::endian::big>("plid"):
-		case sai::Tag<std::endian::big>("lmfl"):
-		case sai::Tag<std::endian::big>("fopn"):
-		case sai::Tag<std::endian::big>("texn"):
-		case sai::Tag<std::endian::big>("texp"):
-		case sai::Tag<std::endian::big>("peff"):
-		case sai::Tag<std::endian::big>("vmrk"):
+		case sai::Tag("lorg"):
+		case sai::Tag("pfid"):
+		case sai::Tag("plid"):
+		case sai::Tag("lmfl"):
+		case sai::Tag("fopn"):
+		case sai::Tag("texn"):
+		case sai::Tag("texp"):
+		case sai::Tag("peff"):
+		case sai::Tag("vmrk"):
 		default:
 		{
 			std::printf(
@@ -118,11 +118,12 @@ void ProcessLayerFile(sai::VirtualFileEntry& LayerFile)
 		}
 		}
 	}
+
 	switch( static_cast<sai::LayerType>(LayerHeader.Type) )
 	{
 	case sai::LayerType::Layer:
 	{
-		if( auto LayerPixels = ReadRasterLayer(LayerHeader, LayerFile) )
+		if( auto LayerPixels = ReadRasterLayer(LayerHeader, LayerFile); LayerPixels )
 		{
 			stbi_write_png(
 				(std::string(Name) + ".png").c_str(), LayerHeader.Bounds.Width,
