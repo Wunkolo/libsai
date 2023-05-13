@@ -877,6 +877,104 @@ for( std::size_t y = 0; y < (LayerHead.Bounds.Height / 32); y++ )
 ```
 
 ---
+
+## Mask Layers
+
+Mask layers consist of 16bpc grayscale pixels, stored in big endian. They can be read with the same procedure that `raster` data uses.
+
+This is a snippet with the current implementation of `ReadRasterLayer` on `Document.cpp`, but using `int16_t` and a smaller `Compress` and `Decompressed` buffer instead:
+
+```cpp
+std::unique_ptr<std::int16_t[]> ReadMaskLayer(
+	const sai::LayerHeader& LayerHeader, sai::VirtualFileEntry& LayerFile
+)
+{
+	const std::size_t TileSize    = 32u;
+	const std::size_t LayerTilesX = LayerHeader.Bounds.Width / TileSize;
+	const std::size_t LayerTilesY = LayerHeader.Bounds.Height / TileSize;
+	const auto Index2D = [](std::size_t X, std::size_t Y, std::size_t Stride
+						 ) -> std::size_t { return X + (Y * Stride); };
+	// Do not use a std::vector<bool> as this is implemented as a specialized
+	// type that does not implement individual bool values as bytes, but rather
+	// as packed bits within a word.
+
+	std::unique_ptr<std::uint8_t[]> TileMap
+		= std::make_unique<std::uint8_t[]>(LayerTilesX * LayerTilesY);
+	LayerFile.Read(TileMap.get(), LayerTilesX * LayerTilesY);
+
+	std::unique_ptr<std::int16_t[]> LayerImage
+		= std::make_unique<std::int16_t[]>(
+			LayerHeader.Bounds.Width * LayerHeader.Bounds.Height
+		);
+
+	// 32 x 32 Tile of G8A8 pixels
+	std::array<std::uint8_t, 0x800> CompressedTile   = {};
+	std::array<std::uint8_t, 0x800> DecompressedTile = {};
+
+	// Iterate 32x32 tile chunks row by row
+	for( std::size_t y = 0; y < LayerTilesY; ++y )
+	{
+		for( std::size_t x = 0; x < LayerTilesX; ++x )
+		{
+			// Process active Tiles
+			if( !TileMap[Index2D(x, y, LayerTilesX)] )
+				continue;
+
+			std::uint8_t  CurChannel = 0;
+			std::uint16_t RLESize    = 0;
+			// Iterate RLE streams for each channel
+			while( LayerFile.Read<std::uint16_t>(RLESize)
+				   == sizeof(std::uint16_t) )
+			{
+				assert(RLESize <= CompressedTile.size());
+				if( LayerFile.Read(CompressedTile.data(), RLESize) != RLESize )
+				{
+					// Error reading RLE stream
+					break;
+				}
+				// Decompress and place into the appropriate interleaved channel
+				RLEDecompressStride(
+					DecompressedTile.data(), CompressedTile.data(),
+					sizeof(std::int16_t), 0x1000 / sizeof(std::uint32_t),
+					CurChannel
+				);
+				++CurChannel;
+				if( CurChannel == 2 )
+				{
+					break;
+				}
+			}
+
+			// Write 32x32 tile into final image
+			const std::int16_t* ImageSource
+				= reinterpret_cast<const std::int16_t*>(DecompressedTile.data()
+				);
+			// Current 32x32 tile within final image
+			std::int16_t* ImageDest
+				= LayerImage.get()
+				+ Index2D(x * TileSize, y * LayerHeader.Bounds.Width, TileSize);
+			for( std::size_t i = 0; i < (TileSize * TileSize); i++ )
+			{
+				std::int16_t CurPixel = ImageSource[i];
+				///
+				// Do any Per-Pixel processing you need to do here
+				///
+				ImageDest[Index2D(
+					i % TileSize, i / TileSize, LayerHeader.Bounds.Width
+				)] = CurPixel;
+			}
+		}
+	}
+	return LayerImage;
+}
+```
+
+### LayerType::Unknown4 and LayerType::Unknown7
+
+Both of this types use the same reading/writing procedure that mask layers, which means that they are probably related to greyscale/monochrome color formats ( although, is not clear if they are actually used at all ).
+
+---
+
 ## Linework Layers
 
 Todo
