@@ -10,35 +10,9 @@
 #include <string_view>
 #include <vector>
 
+#include <sai2.hpp>
+
 #include "stb_image_write.h"
-
-struct Sai2Header
-{
-	std::array<char, 16> Identifier;
-
-	std::uint8_t  Flags0;
-	std::uint8_t  Flags1; // Indicates if thumbnail has transparency
-	std::uint8_t  Flags2;
-	std::uint8_t  Flags3;
-	std::uint32_t Width;
-	std::uint32_t Height;
-	std::uint32_t PrintingResolution;
-	std::uint32_t TableCount;
-	std::uint32_t SelectedLayer;
-	std::uint64_t UnknownA;
-	std::uint64_t UnknownB;
-	std::uint32_t UnknownFlags;
-	std::uint32_t UnknownBlendingMode;
-};
-static_assert(sizeof(Sai2Header) == 64);
-
-struct Sai2TableEntry
-{
-	std::uint32_t Name;
-	std::uint32_t LayerID;
-	std::uint64_t BlobsOffset;
-};
-static_assert(sizeof(Sai2TableEntry) == 16);
 
 template<typename T>
 const T& ReadType(std::span<const std::byte>& Bytes)
@@ -49,19 +23,9 @@ const T& ReadType(std::span<const std::byte>& Bytes)
 	return Result;
 }
 
-template<std::endian Endianness = std::endian::little, std::size_t N>
-inline constexpr std::uint32_t Tag(const char (&TagString)[N])
-{
-	return (
-		(TagString[3] << 24) | (TagString[2] << 16) | (TagString[1] << 8)
-		| (TagString[0] << 0)
-	);
-}
-
 bool ExtractFile(const std::span<const std::byte> FileData);
 bool ExtractThumbnail(
-	const Sai2Header& Header, const Sai2TableEntry& TableEntry,
-	std::span<const std::byte> Bytes
+	const sai2::Header& Header, const sai2::TableEntry& TableEntry, std::span<const std::byte> Bytes
 );
 
 int main(int argc, char* argv[])
@@ -77,8 +41,7 @@ int main(int argc, char* argv[])
 	{
 		std::puts(Arg.data());
 		const std::filesystem::path FilePath(Arg);
-		if( !(std::filesystem::exists(FilePath)
-			  && std::filesystem::is_regular_file(FilePath)) )
+		if( !(std::filesystem::exists(FilePath) && std::filesystem::is_regular_file(FilePath)) )
 		{
 			// Not a file
 			std::printf("Invalid path %s\n", Arg.data());
@@ -109,39 +72,35 @@ int main(int argc, char* argv[])
 bool ExtractFile(const std::span<const std::byte> FileData)
 {
 	std::span<const std::byte> Bytes  = FileData;
-	const Sai2Header&          Header = ReadType<Sai2Header>(Bytes);
+	const sai2::Header&        Header = ReadType<sai2::Header>(Bytes);
 
 	std::printf("%.*s\n", Header.Identifier.size(), Header.Identifier.data());
 
-	const std::span<const Sai2TableEntry> TableEntries(
-		reinterpret_cast<const Sai2TableEntry*>(Bytes.data()), Header.TableCount
+	const std::span<const sai2::TableEntry> TableEntries(
+		reinterpret_cast<const sai2::TableEntry*>(Bytes.data()), Header.TableCount
 	);
 
-	Bytes = Bytes.subspan(Header.TableCount * sizeof(Sai2TableEntry));
+	Bytes = Bytes.subspan(Header.TableCount * sizeof(sai2::TableEntry));
 
-	for( std::size_t TableEntryIndex = 0; TableEntryIndex < Header.TableCount;
-		 ++TableEntryIndex )
+	for( std::size_t TableEntryIndex = 0; TableEntryIndex < Header.TableCount; ++TableEntryIndex )
 	{
-		const Sai2TableEntry& TableEntry = TableEntries[TableEntryIndex];
+		const sai2::TableEntry& TableEntry = TableEntries[TableEntryIndex];
 
 		const std::size_t DataSize
 			= ((TableEntryIndex + 1) == Header.TableCount)
 				? std::dynamic_extent
-				: (TableEntries[TableEntryIndex + 1].BlobsOffset
-				   - TableEntry.BlobsOffset);
+				: (TableEntries[TableEntryIndex + 1].BlobsOffset - TableEntry.BlobsOffset);
 
 		std::printf(
-			"%.4s:%08X @ %016lX\n", &TableEntry.Name, TableEntry.LayerID,
-			TableEntry.BlobsOffset
+			"%.4s:%08X @ %016lX\n", &TableEntry.Type, TableEntry.LayerID, TableEntry.BlobsOffset
 		);
 
-		switch( TableEntry.Name )
+		switch( TableEntry.Type )
 		{
-		case Tag("intg"):
+		case sai2::TableDataType::Thumbnail:
 		{
 			ExtractThumbnail(
-				Header, TableEntry,
-				FileData.subspan(TableEntry.BlobsOffset, DataSize)
+				Header, TableEntry, FileData.subspan(TableEntry.BlobsOffset, DataSize)
 			);
 			break;
 		}
@@ -153,8 +112,7 @@ bool ExtractFile(const std::span<const std::byte> FileData)
 
 std::size_t DecompressRasterData(
 	std::span<const std::byte> Compressed, std::span<std::int16_t> Decompressed,
-	std::uint32_t PixelCount, std::uint8_t OutputChannels,
-	std::uint8_t InputChannels
+	std::uint32_t PixelCount, std::uint8_t OutputChannels, std::uint8_t InputChannels
 )
 {
 	const std::size_t CompressedSize = Compressed.size_bytes();
@@ -162,8 +120,7 @@ std::size_t DecompressRasterData(
 	std::uint32_t RemainingBits    = 0;
 	std::uint64_t CurControlMask64 = 0;
 
-	for( std::uint8_t CurrentChannel = 0; CurrentChannel < InputChannels;
-		 ++CurrentChannel )
+	for( std::uint8_t CurrentChannel = 0; CurrentChannel < InputChannels; ++CurrentChannel )
 	{
 
 		std::uint8_t CurChannelPixelCount = 0;
@@ -179,9 +136,7 @@ std::size_t DecompressRasterData(
 				const std::uint32_t ShiftAmount = RemainingBits;
 				RemainingBits += 32;
 				CurControlMask64
-					|= (static_cast<std::uint64_t>(
-							ReadType<std::uint32_t>(Compressed)
-						)
+					|= (static_cast<std::uint64_t>(ReadType<std::uint32_t>(Compressed))
 						<< ShiftAmount);
 			}
 
@@ -190,15 +145,12 @@ std::size_t DecompressRasterData(
 				return 0;
 			}
 
-			const std::uint8_t FirstSetBitIndex
-				= std::countr_zero(CurControlMask64);
+			const std::uint8_t FirstSetBitIndex = std::countr_zero(CurControlMask64);
 
-			const std::uint64_t NextSetBitMask
-				= CurControlMask64 >> (FirstSetBitIndex + 1);
-			CurControlMask64 = NextSetBitMask >> 1;
+			const std::uint64_t NextSetBitMask = CurControlMask64 >> (FirstSetBitIndex + 1);
+			CurControlMask64                   = NextSetBitMask >> 1;
 
-			const std::uint32_t CurOpCode
-				= (2 * FirstSetBitIndex) | (NextSetBitMask & 1);
+			const std::uint32_t CurOpCode = (2 * FirstSetBitIndex) | (NextSetBitMask & 1);
 
 			RemainingBits += -2 - FirstSetBitIndex;
 
@@ -211,15 +163,12 @@ std::size_t DecompressRasterData(
 			else if( CurOpCode <= 0xE )
 			{
 				const std::int32_t BitActiveMask
-					= -(((std::uint32_t)CurControlMask64 & (1 << CurOpCode))
-						!= 0);
+					= -(((std::uint32_t)CurControlMask64 & (1 << CurOpCode)) != 0);
 
 				const std::int16_t ChannelValue
 					= (BitActiveMask & 1)
 					+ (BitActiveMask
-					   ^ (((1 << CurOpCode)
-						   | (CurControlMask64 & ((1 << CurOpCode) - 1)))
-						  - 1));
+					   ^ (((1 << CurOpCode) | (CurControlMask64 & ((1 << CurOpCode) - 1))) - 1));
 
 				CurChannelWrite[0] = ChannelValue;
 
@@ -235,20 +184,16 @@ std::size_t DecompressRasterData(
 			// Fill pixel channels with zeroes
 			else if( CurOpCode == 0xF )
 			{
-				const std::uint64_t ZeroFillCount
-					= (CurControlMask64 & 0x7F) + 8;
+				const std::uint64_t ZeroFillCount = (CurControlMask64 & 0x7F) + 8;
 				for( std::size_t i = 0; i < ZeroFillCount; ++i )
 				{
 					CurChannelWrite[i * OutputChannels] = 0;
 				}
 
 				// Next Pixel
-				assert(
-					CurChannelWrite.size() >= (OutputChannels * ZeroFillCount)
-				);
+				assert(CurChannelWrite.size() >= (OutputChannels * ZeroFillCount));
 				CurChannelPixelCount += ZeroFillCount;
-				CurChannelWrite
-					= CurChannelWrite.subspan(OutputChannels * ZeroFillCount);
+				CurChannelWrite = CurChannelWrite.subspan(OutputChannels * ZeroFillCount);
 
 				// Next bits
 				RemainingBits -= 7;
@@ -271,8 +216,7 @@ std::size_t DecompressRasterData(
 	// Pad unused channels with zero
 	if( InputChannels < OutputChannels )
 	{
-		for( std::size_t CurChannel = InputChannels;
-			 CurChannel < OutputChannels; ++CurChannel )
+		for( std::size_t CurChannel = InputChannels; CurChannel < OutputChannels; ++CurChannel )
 		{
 			auto CurChannelWrite = Decompressed.subspan(CurChannel);
 
@@ -288,18 +232,16 @@ std::size_t DecompressRasterData(
 }
 
 bool ExtractThumbnail(
-	const Sai2Header& Header, const Sai2TableEntry& TableEntry,
-	std::span<const std::byte> Bytes
+	const sai2::Header& Header, const sai2::TableEntry& TableEntry, std::span<const std::byte> Bytes
 )
 {
 	const std::string FileName = std::to_string(TableEntry.BlobsOffset);
 
-	const std::uint32_t Format = ReadType<std::uint32_t>(Bytes);
-	assert(Format == Tag("dpcm"));
+	const sai2::BlobDataType Format = ReadType<sai2::BlobDataType>(Bytes);
+	assert(Format == sai2::BlobDataType::DeltaPixelsCompressed);
 	const std::uint32_t BytesSize = ReadType<std::uint32_t>(Bytes);
 
-	const std::uint32_t ThumbnailChannels
-		= ((((Header.Flags1 & 7) == 0)) != 0) + 3;
+	const std::uint32_t ThumbnailChannels = ((((Header.Flags1 & 7) == 0)) != 0) + 3;
 
 	constexpr std::uint32_t TileSize = 256u;
 
@@ -325,8 +267,8 @@ bool ExtractThumbnail(
 
 		for( ; CurTileXIndex < TilesX; ++CurTileXIndex )
 		{
-			const std::uint32_t TileBegX = CurTileXIndex * TileSize;
-			const std::uint32_t TileEndX = std::min(TileBegX + TileSize, Width);
+			const std::uint32_t TileBegX  = CurTileXIndex * TileSize;
+			const std::uint32_t TileEndX  = std::min(TileBegX + TileSize, Width);
 			const std::uint32_t TileSizeX = TileEndX - TileBegX;
 
 			const std::uint32_t RowReadSize = 3 * ThumbnailChannels * TileSizeX;
@@ -337,8 +279,7 @@ bool ExtractThumbnail(
 				 PrevTileXIndex               = ++CurTileRowIndex )
 			{
 				// Read compressed tile row data
-				const std::span<const std::byte> CurTileBytes
-					= Bytes.first(RowReadSize);
+				const std::span<const std::byte> CurTileBytes = Bytes.first(RowReadSize);
 
 				// Decompress row
 				std::array<std::int16_t, 256 * 4> TileRowData16;
