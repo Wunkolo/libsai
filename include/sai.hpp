@@ -93,11 +93,11 @@ union VirtualPage
 	}
 	static constexpr bool IsTableIndex(std::size_t PageIndex)
 	{
-		return (PageIndex % TableSpan) ? false : true;
+		return (PageIndex % TableSpan) == 0;
 	}
 	static constexpr bool IsDataIndex(std::size_t PageIndex)
 	{
-		return (PageIndex % TableSpan) ? true : false;
+		return (PageIndex % TableSpan) != 0;
 	}
 
 	// Data

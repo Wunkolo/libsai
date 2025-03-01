@@ -138,7 +138,7 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 		return false;
 	}
 
-	if( PageIndex % VirtualPage::TableSpan == 0 ) // Table Block
+	if( VirtualPage::IsTableIndex(PageIndex) ) // Table Block
 	{
 		if( PageIndex == TableCacheIndex )
 		{
@@ -177,8 +177,7 @@ bool ifstreambuf::FetchPage(std::uint32_t PageIndex, VirtualPage* Dest)
 		}
 		// Prefetch nearest table
 		// Ensure it is in the cache
-		const std::uint32_t NearestTable
-			= (PageIndex / VirtualPage::TableSpan) * VirtualPage::TableSpan;
+		const std::uint32_t NearestTable = VirtualPage::NearestTableIndex(PageIndex);
 
 		if( FetchPage(NearestTable, nullptr) == false )
 		{
