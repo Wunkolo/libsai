@@ -3,13 +3,13 @@ name: Build
 on:
   push:
     branches:
-    - main
-    - dev
+      - main
+      - dev
   pull_request:
     branches:
-    - main
+      - main
     paths-ignore:
-      - '**.md'
+      - "**.md"
   release:
 
 env:
@@ -19,33 +19,30 @@ jobs:
   macos-build:
     runs-on: macos-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        submodules: 'recursive'
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
 
-    - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+      - name: Configure CMake
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel 8
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel 8
 
   linux-build:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        submodules: 'recursive'
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
 
-    - name: Configure CMake
-      env:
-        CC: "gcc-10"
-        CXX: "g++-10"
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+      - name: Configure CMake
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel 8
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel 8
 
   windows-build:
     runs-on: windows-latest
@@ -54,18 +51,18 @@ jobs:
         arch: [x86, x64, x64_arm64]
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        submodules: 'recursive'
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
 
-    - name: Configure msvc
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        arch: ${{matrix.arch}}
+      - name: Configure msvc
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{matrix.arch}}
 
-    - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -G "NMake Makefiles"
+      - name: Configure CMake
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -G "NMake Makefiles"
 
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel 8
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel 8
