@@ -34,7 +34,7 @@ static_assert(sizeof(CanvasHeader) == 64);
 
 enum class CanvasDataType : std::uint32_t
 {
-	Thumbnail = Tag("intg"),
+	Thumbnail = TagLE("intg"),
 };
 
 struct CanvasEntry
@@ -48,7 +48,7 @@ static_assert(sizeof(CanvasEntry) == 16);
 enum class BlobDataType : std::uint32_t
 {
 	// Delta-compressed pixel stream with an additional "RLE" compression
-	DeltaPixelsCompressed = Tag("dpcm"),
+	DeltaPixelsCompressed = TagLE("dpcm"),
 };
 
 } // namespace sai2
