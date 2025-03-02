@@ -109,7 +109,7 @@ if( MASTER_PROJECT )
 	### Thumbnail-Sai2 sample
 	add_executable(
 		Thumbnail-Sai2
-		samples/Thumbnail-Sai1.cpp
+		samples/Thumbnail-Sai2.cpp
 		samples/stb_image_write.c
 	)
 	target_link_libraries(
