@@ -294,7 +294,7 @@ bool ExtractThumbnail(
 	const std::uint32_t TilesX = (Width + (TileSize - 1)) / TileSize;
 	const std::uint32_t TilesY = (Height + (TileSize - 1)) / TileSize;
 
-	std::uint8_t PrevTileXIndex = 0;
+	std::uint32_t PrevTileXIndex = 0;
 
 	for( std::uint32_t CurTileYIndex = 0; CurTileYIndex < TilesY;
 		 ++CurTileYIndex )
@@ -319,15 +319,15 @@ bool ExtractThumbnail(
 			assert(Bytes.size_bytes() >= RowReadSize);
 
 			/// Compressed rows
-			for( std::uint8_t CurTileRowIndex = 0; CurTileRowIndex < TileSizeY;
-				 PrevTileXIndex               = ++CurTileRowIndex )
+			for( std::uint32_t CurTileRowIndex = 0; CurTileRowIndex < TileSizeY;
+				 PrevTileXIndex                = ++CurTileRowIndex )
 			{
 				// Read compressed tile row data
 				const std::span<const std::byte> CurTileBytes
 					= Bytes.first(RowReadSize);
 
 				// Decompress row
-				std::array<std::int16_t, 256 * 4 + 1> TileRowData16;
+				std::array<std::int16_t, 256 * 4> TileRowData16;
 				TileRowData16.fill(-1);
 				const std::size_t ConsumedBytes = DecompressRasterData(
 					CurTileBytes, TileRowData16, TileSizeX, 4, ThumbnailChannels
