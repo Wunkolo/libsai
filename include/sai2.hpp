@@ -14,12 +14,14 @@ using namespace sai;
 
 struct CanvasHeader
 {
+	// "SAI-CANVAS-TYPE0"
 	std::array<char, 16> Identifier;
 
-	std::uint8_t  Flags0;
-	std::uint8_t  Flags1; // & 0x7 Indicates if thumbnail has transparency?
-	std::uint8_t  Flags2;
-	std::uint8_t  Flags3;
+	std::uint8_t Flags0;
+	std::uint8_t Flags1; // & 0x7 Indicates if thumbnail has transparency?
+	std::uint8_t Flags2;
+	std::uint8_t Flags3;
+
 	std::uint32_t Width;
 	std::uint32_t Height;
 	std::uint32_t PrintingResolution;
