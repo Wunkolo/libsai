@@ -24,4 +24,15 @@ inline constexpr std::uint32_t Tag(const char (&TagString)[N])
 		);
 	}
 }
+
+template<std::size_t N>
+inline constexpr std::uint32_t TagLE(const char (&TagString)[N])
+{
+	return Tag<std::endian::little, N>(TagString);
+}
+template<std::size_t N>
+inline constexpr std::uint32_t TagBE(const char (&TagString)[N])
+{
+	return Tag<std::endian::little, N>(TagString);
+}
 } // namespace sai
