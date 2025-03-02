@@ -12,7 +12,7 @@ namespace sai2
 {
 using namespace sai;
 
-struct Header
+struct CanvasHeader
 {
 	std::array<char, 16> Identifier;
 
@@ -30,20 +30,20 @@ struct Header
 	std::uint32_t UnknownFlags;
 	std::uint32_t UnknownBlendingMode;
 };
-static_assert(sizeof(Header) == 64);
+static_assert(sizeof(CanvasHeader) == 64);
 
-enum class TableDataType : std::uint32_t
+enum class CanvasDataType : std::uint32_t
 {
 	Thumbnail = Tag("intg"),
 };
 
-struct TableEntry
+struct CanvasEntry
 {
-	TableDataType Type;
-	std::uint32_t LayerID;
-	std::uint64_t BlobsOffset;
+	CanvasDataType Type;
+	std::uint32_t  LayerID;
+	std::uint64_t  BlobsOffset; // Absolute file offset
 };
-static_assert(sizeof(TableEntry) == 16);
+static_assert(sizeof(CanvasEntry) == 16);
 
 enum class BlobDataType : std::uint32_t
 {

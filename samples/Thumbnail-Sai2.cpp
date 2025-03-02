@@ -14,6 +14,8 @@
 
 #include "stb_image_write.h"
 
+// Read a type from a span of bytes, and offset the span
+// forward by the size of the type
 template<typename T>
 const T& ReadType(std::span<const std::byte>& Bytes)
 {
@@ -25,7 +27,8 @@ const T& ReadType(std::span<const std::byte>& Bytes)
 
 bool ExtractFile(const std::span<const std::byte> FileData);
 bool ExtractThumbnail(
-	const sai2::Header& Header, const sai2::TableEntry& TableEntry, std::span<const std::byte> Bytes
+	const sai2::CanvasHeader& Header, const sai2::CanvasEntry& TableEntry,
+	std::span<const std::byte> Bytes
 );
 
 int main(int argc, char* argv[])
@@ -72,19 +75,19 @@ int main(int argc, char* argv[])
 bool ExtractFile(const std::span<const std::byte> FileData)
 {
 	std::span<const std::byte> Bytes  = FileData;
-	const sai2::Header&        Header = ReadType<sai2::Header>(Bytes);
+	const sai2::CanvasHeader&  Header = ReadType<sai2::CanvasHeader>(Bytes);
 
 	std::printf("%.*s\n", Header.Identifier.size(), Header.Identifier.data());
 
-	const std::span<const sai2::TableEntry> TableEntries(
-		reinterpret_cast<const sai2::TableEntry*>(Bytes.data()), Header.TableCount
+	const std::span<const sai2::CanvasEntry> TableEntries(
+		reinterpret_cast<const sai2::CanvasEntry*>(Bytes.data()), Header.TableCount
 	);
 
-	Bytes = Bytes.subspan(Header.TableCount * sizeof(sai2::TableEntry));
+	Bytes = Bytes.subspan(Header.TableCount * sizeof(sai2::CanvasEntry));
 
 	for( std::size_t TableEntryIndex = 0; TableEntryIndex < Header.TableCount; ++TableEntryIndex )
 	{
-		const sai2::TableEntry& TableEntry = TableEntries[TableEntryIndex];
+		const sai2::CanvasEntry& TableEntry = TableEntries[TableEntryIndex];
 
 		const std::size_t DataSize
 			= ((TableEntryIndex + 1) == Header.TableCount)
@@ -97,7 +100,7 @@ bool ExtractFile(const std::span<const std::byte> FileData)
 
 		switch( TableEntry.Type )
 		{
-		case sai2::TableDataType::Thumbnail:
+		case sai2::CanvasDataType::Thumbnail:
 		{
 			ExtractThumbnail(
 				Header, TableEntry, FileData.subspan(TableEntry.BlobsOffset, DataSize)
@@ -232,7 +235,8 @@ std::size_t DecompressRasterData(
 }
 
 bool ExtractThumbnail(
-	const sai2::Header& Header, const sai2::TableEntry& TableEntry, std::span<const std::byte> Bytes
+	const sai2::CanvasHeader& Header, const sai2::CanvasEntry& TableEntry,
+	std::span<const std::byte> Bytes
 )
 {
 	const std::string FileName = std::to_string(TableEntry.BlobsOffset);
@@ -241,6 +245,7 @@ bool ExtractThumbnail(
 	assert(Format == sai2::BlobDataType::DeltaPixelsCompressed);
 	const std::uint32_t BytesSize = ReadType<std::uint32_t>(Bytes);
 
+	// 3 channels minimum, four if the header seems to indicate that there is transparency
 	const std::uint32_t ThumbnailChannels = ((((Header.Flags1 & 7) == 0)) != 0) + 3;
 
 	constexpr std::uint32_t TileSize = 256u;
@@ -293,7 +298,7 @@ bool ExtractThumbnail(
 				// std::array<std::uint32_t, 256 * 4> TileRowData32;
 				// TileRowData32.fill(0xFFFF0000);
 
-				// Next Row(only offset by the number of fully consumed bytes)
+				// Offset by the number of fully consumed bytes
 				Bytes = Bytes.subspan(ConsumedBytes);
 			}
 			///
