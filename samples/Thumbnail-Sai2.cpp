@@ -12,6 +12,8 @@
 
 #include <sai2.hpp>
 
+#include <immintrin.h>
+
 #include "stb_image_write.h"
 
 // Read a type from a span of bytes, and offset the span
@@ -119,7 +121,7 @@ bool ExtractFile(const std::span<const std::byte> FileData)
 	return true;
 }
 
-std::size_t DecompressRasterData(
+std::size_t UnpackDeltaRLE16(
 	std::span<const std::byte> Compressed, std::span<std::int16_t> Decompressed,
 	std::uint32_t PixelCount, std::uint8_t OutputChannels,
 	std::uint8_t InputChannels
@@ -268,6 +270,54 @@ std::size_t DecompressRasterData(
 	return (CompressedSize - Compressed.size_bytes()) - ((RemainingBits / 8));
 }
 
+uint32_t DeltaUnpack16(
+	uint32_t* Dest32, const uint32_t* CompositeImage,
+	const std::uint64_t* DeltaEncoded16bpc, std::uint32_t CurTileWidth
+)
+{
+	uint32_t result = 65280ULL;
+
+	// 0x0000, 0x0000, 0x0000, 0x0000, 0xff00, 0xff00, 0xff00, 0xff00
+	const __m128i VecFF00 = _mm_shufflelo_epi16(_mm_cvtsi32_si128(0xFF00u), 0);
+
+	__m128i Previous32 = _mm_setzero_si128();
+	__m128i Sum16      = _mm_setzero_si128();
+	do
+	{
+		--CurTileWidth;
+		const __m128i UnknownWidened16bpc = _mm_unpacklo_epi8(
+			_mm_cvtsi32_si128(*CompositeImage), _mm_setzero_si128()
+		);
+		const __m128i CurrentDelta = _mm_loadl_epi64(
+			reinterpret_cast<const __m128i*>(DeltaEncoded16bpc)
+		);
+
+		Sum16 = _mm_add_epi16(
+			_mm_subs_epu16(
+				_mm_adds_epu16(
+					_mm_subs_epu16(
+						_mm_add_epi16(Sum16, UnknownWidened16bpc), Previous32
+					),
+					VecFF00
+				),
+				VecFF00
+			),
+			CurrentDelta
+		);
+		const __m128i CurPixel16bpc = _mm_move_epi64(Sum16);
+
+		// Saturate 16u->8u
+		*Dest32
+			= _mm_cvtsi128_si32(_mm_packus_epi16(CurPixel16bpc, CurPixel16bpc));
+
+		++DeltaEncoded16bpc;
+		++CompositeImage;
+		++Dest32;
+		Previous32 = _mm_move_epi64(UnknownWidened16bpc);
+	} while( CurTileWidth );
+	return result;
+}
+
 bool ExtractThumbnail(
 	const sai2::CanvasHeader& Header, const sai2::CanvasEntry& TableEntry,
 	std::span<const std::byte> Bytes
@@ -329,14 +379,22 @@ bool ExtractThumbnail(
 				// Decompress row
 				std::array<std::int16_t, 256 * 4> TileRowData16;
 				TileRowData16.fill(-1);
-				const std::size_t ConsumedBytes = DecompressRasterData(
+				const std::size_t ConsumedBytes = UnpackDeltaRLE16(
 					CurTileBytes, TileRowData16, TileSizeX, 4, ThumbnailChannels
 				);
 				assert(ConsumedBytes > 0);
 
 				// Delta-encoded bytes, expand from 8->16bpc
-				// std::array<std::uint32_t, 256 * 4> TileRowData32;
-				// TileRowData32.fill(0xFFFF0000);
+				// AA|RR|GG|BB / BB|GG|RR|AA
+				std::array<std::uint32_t, 256> TileRowData32;
+				TileRowData32.fill(0);
+
+				std::array<std::uint32_t, 256> CompositeImage;
+				CompositeImage.fill(0);
+				DeltaUnpack16(
+					TileRowData32.data(), CompositeImage.data(),
+					(uint64_t*)TileRowData16.data(), TileSizeX
+				);
 
 				// Offset by the number of fully consumed bytes
 				Bytes = Bytes.subspan(ConsumedBytes);
