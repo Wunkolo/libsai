@@ -12,8 +12,6 @@
 
 #include <sai2.hpp>
 
-#include <immintrin.h>
-
 #include "stb_image_write.h"
 
 // Read a type from a span of bytes, and offset the span
@@ -276,61 +274,207 @@ std::size_t UnpackDeltaRLE16(
 	return (CompressedSize - Compressed.size_bytes()) - ((RemainingBits / 8));
 }
 
-uint32_t DeltaUnpack16(
-	uint32_t* Dest32, const std::uint32_t* CompositeImage,
-	const std::uint64_t* DeltaEncoded16bpc, std::uint32_t CurTileWidth
+union Pixel16Bpc
+{
+	std::array<std::int16_t, 4>  i16;
+	std::array<std::uint16_t, 4> u16;
+	std::uint64_t                u64;
+
+	// Saturated 16bpc->8bpc
+	std::uint32_t To8BpcSaturated() const
+	{
+		std::uint32_t Result = 0u;
+		for( std::uint8_t CurChannel = 0u; CurChannel < 4u; ++CurChannel )
+		{
+			const std::uint8_t ChannelValue = std::uint8_t(
+				u16[CurChannel] > 0xFFu ? 0xFFu : u16[CurChannel]
+			);
+
+			Result |= (std::uint32_t(ChannelValue) << (CurChannel * 8u));
+		}
+		return Result;
+	}
+
+	static Pixel16Bpc From8Bpc(std::uint32_t Pixel)
+	{
+		Pixel16Bpc Result;
+		for( std::uint8_t CurChannel = 0u; CurChannel < 4u; ++CurChannel )
+		{
+			Result.u16[CurChannel] = ((Pixel >> (8u * CurChannel)) & 0xFFu);
+		}
+		return Result;
+	}
+};
+static_assert(sizeof(Pixel16Bpc) == sizeof(std::uint64_t));
+
+inline Pixel16Bpc Add16Bpc(const Pixel16Bpc A, const Pixel16Bpc B)
+{
+	Pixel16Bpc Result;
+	std::transform(
+		A.u16.begin(), A.u16.end(), B.u16.begin(), Result.u16.begin(),
+		std::plus<std::uint16_t>()
+	);
+	return Result;
+}
+
+template<typename T>
+	requires std::integral<T>
+T AddSaturated(T A, T B)
+{
+	if constexpr( std::is_signed<T>::value )
+	{
+		if( A > 0 && B > std::numeric_limits<T>::max() - A )
+		{
+			return std::numeric_limits<T>::max();
+		}
+		else if( A < 0 && B < std::numeric_limits<T>::min() - A )
+		{
+			return std::numeric_limits<T>::min();
+		}
+	}
+	else if( B > std::numeric_limits<T>::max() - A )
+	{
+		return std::numeric_limits<T>::max();
+	}
+	return A + B;
+}
+
+template<typename T>
+	requires std::integral<T>
+T SubSaturated(T A, T B)
+{
+	if( B > 0 && A < std::numeric_limits<T>::min() + B )
+	{
+		return std::numeric_limits<T>::min();
+	}
+	else if( B < 0 && A > std::numeric_limits<T>::max() + B )
+	{
+		return std::numeric_limits<T>::max();
+	}
+	else
+	{
+		return A - B;
+	}
+}
+
+inline Pixel16Bpc AddSaturated16Bpc(const Pixel16Bpc A, const Pixel16Bpc B)
+{
+	Pixel16Bpc Result;
+	std::
+		transform(A.u16.begin(), A.u16.end(), B.u16.begin(), Result.u16.begin(), AddSaturated<std::uint16_t>);
+	return Result;
+}
+
+inline Pixel16Bpc SubSaturated16Bpc(const Pixel16Bpc A, const Pixel16Bpc B)
+{
+	Pixel16Bpc Result;
+	std::
+		transform(A.u16.begin(), A.u16.end(), B.u16.begin(), Result.u16.begin(), SubSaturated<std::uint16_t>);
+	return Result;
+}
+
+uint32_t DeltaUnpackRow16Bpc(
+	uint32_t* Dest8Bpc, const std::uint32_t* PreviousRow8Bpc,
+	const std::uint64_t* DeltaEncoded16Bpc, const std::uint32_t PixelCount
 )
 {
 	uint32_t result = 65280ULL;
 
 	// 0x0000, 0x0000, 0x0000, 0x0000, 0xff00, 0xff00, 0xff00, 0xff00
-	const __m128i VecFF00 = _mm_shufflelo_epi16(_mm_cvtsi32_si128(0xFF00u), 0);
+	Pixel16Bpc PixelFF00;
+	PixelFF00.u16.fill(0xFF00u);
 
-	__m128i Previous32 = _mm_setzero_si128();
-	__m128i Sum16      = _mm_setzero_si128();
-	do
+	Pixel16Bpc PreviousRowPixel16Bpc = {};
+	Pixel16Bpc Sum16Bpc              = {};
+	for( std::size_t i = 0; i < PixelCount; ++i )
 	{
-		--CurTileWidth;
-		const __m128i UnknownWidened16bpc = _mm_unpacklo_epi8(
-			_mm_cvtsi32_si128(*CompositeImage), _mm_setzero_si128()
-		);
-		const __m128i CurrentDelta = _mm_loadl_epi64(
-			reinterpret_cast<const __m128i*>(DeltaEncoded16bpc)
-		);
+		// 8->16bpc
+		const Pixel16Bpc CurPreviousRowPixel16Bpc
+			= Pixel16Bpc::From8Bpc(*PreviousRow8Bpc);
 
-		Sum16 = _mm_add_epi16(
-			_mm_subs_epu16(
-				_mm_adds_epu16(
-					_mm_subs_epu16(
-						_mm_add_epi16(Sum16, UnknownWidened16bpc), Previous32
+		const Pixel16Bpc& CurrentPixelDelta
+			= *reinterpret_cast<const Pixel16Bpc*>(DeltaEncoded16Bpc);
+
+		Sum16Bpc = Add16Bpc(
+			SubSaturated16Bpc(
+				AddSaturated16Bpc(
+					SubSaturated16Bpc(
+						Add16Bpc(Sum16Bpc, CurPreviousRowPixel16Bpc),
+						PreviousRowPixel16Bpc
 					),
-					VecFF00
+					PixelFF00
 				),
-				VecFF00
+				PixelFF00
 			),
-			CurrentDelta
+			CurrentPixelDelta
 		);
-		const __m128i CurPixel16bpc = _mm_move_epi64(Sum16);
 
 		// Saturate 16u->8u
-		*Dest32
-			= _mm_cvtsi128_si32(_mm_packus_epi16(CurPixel16bpc, CurPixel16bpc));
+		*Dest8Bpc = Sum16Bpc.To8BpcSaturated();
 
-		++DeltaEncoded16bpc;
-		++CompositeImage;
-		++Dest32;
-		Previous32 = _mm_move_epi64(UnknownWidened16bpc);
-	} while( CurTileWidth );
+		++DeltaEncoded16Bpc;
+		++PreviousRow8Bpc;
+		++Dest8Bpc;
+
+		PreviousRowPixel16Bpc = CurPreviousRowPixel16Bpc;
+	}
 	return result;
 }
+
+// uint32_t DeltaUnpackRow16BpcSSE(
+// 	uint32_t* Dest8Bpc, const std::uint32_t* PreviousRow8Bpc,
+// 	const std::uint64_t* DeltaEncoded16Bpc, const std::uint32_t PixelCount
+// )
+// {
+// 	uint32_t result = 65280ULL;
+
+// 	// 0x0000, 0x0000, 0x0000, 0x0000, 0xff00, 0xff00, 0xff00, 0xff00
+// 	const __m128i VecFF00 = _mm_shufflelo_epi16(_mm_cvtsi32_si128(0xFF00u), 0);
+
+// 	__m128i PreviousRowPixel16Bpc = _mm_setzero_si128();
+// 	__m128i Sum16Bpc              = _mm_setzero_si128();
+// 	for( std::size_t i = 0; i < PixelCount; ++i )
+// 	{
+// 		// 8->16bpc
+// 		const __m128i CurPreviousRowPixel16Bpc = _mm_unpacklo_epi8(
+// 			_mm_cvtsi32_si128(*PreviousRow8Bpc), _mm_setzero_si128()
+// 		);
+// 		const __m128i CurrentDelta = _mm_loadl_epi64(
+// 			reinterpret_cast<const __m128i*>(DeltaEncoded16Bpc)
+// 		);
+
+// 		Sum16Bpc = _mm_add_epi16(
+// 			_mm_subs_epu16(
+// 				_mm_adds_epu16(
+// 					_mm_subs_epu16(
+// 						_mm_add_epi16(Sum16Bpc, CurPreviousRowPixel16Bpc),
+// 						PreviousRowPixel16Bpc
+// 					),
+// 					VecFF00
+// 				),
+// 				VecFF00
+// 			),
+// 			CurrentDelta
+// 		);
+// 		const __m128i CurPixel16bpc = _mm_move_epi64(Sum16Bpc);
+
+// 		// Saturate 16u->8u
+// 		*Dest8Bpc
+// 			= _mm_cvtsi128_si32(_mm_packus_epi16(CurPixel16bpc, CurPixel16bpc));
+
+// 		++DeltaEncoded16Bpc;
+// 		++PreviousRow8Bpc;
+// 		++Dest8Bpc;
+// 		PreviousRowPixel16Bpc = _mm_move_epi64(CurPreviousRowPixel16Bpc);
+// 	}
+// 	return result;
+// }
 
 bool ExtractThumbnail(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
 )
 {
-	const std::string FileName = std::to_string(TableEntry.BlobsOffset);
-
 	const sai2::BlobDataType Format = ReadType<sai2::BlobDataType>(Bytes);
 	assert(Format == sai2::BlobDataType::DeltaPixelsCompressed);
 
@@ -363,10 +507,11 @@ bool ExtractThumbnail(
 
 		const std::uint16_t TileBeginChecksum = ReadType<std::uint16_t>(Bytes);
 		// High byte should equal Tile Index X
-		assert((TileBeginChecksum >> 8) == PrevTileXIndex);
+		// assert((TileBeginChecksum >> 8) == PrevTileXIndex);
 
 		std::array<std::uint32_t, 256> CompositeRow = {};
-		CompositeRow.fill(0xFF000000);
+		// CompositeRow.fill(0xFF000000);
+		CompositeRow.fill(0);
 
 		for( ; CurTileXIndex < TilesX; ++CurTileXIndex )
 		{
@@ -402,7 +547,7 @@ bool ExtractThumbnail(
 				std::span<std::uint32_t> TileRowData32
 					= std::span(TileImage).subspan(256 * CurTileRowIndex);
 
-				DeltaUnpack16(
+				DeltaUnpackRow16Bpc(
 					TileRowData32.data(), PreviousRow.data(),
 					(uint64_t*)RowDelta16.data(), TileSizeX
 				);
@@ -413,6 +558,12 @@ bool ExtractThumbnail(
 				Bytes = Bytes.subspan(ConsumedBytes);
 			}
 			///
+
+			// Fill alpha(for now)
+			for( auto& Pixel : TileImage )
+			{
+				Pixel |= 0xFF'00'00'00;
+			}
 
 			//// BGRA to RGBA
 			for( std::uint32_t& Pixel : TileImage )
