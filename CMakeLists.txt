@@ -93,15 +93,27 @@ target_include_directories(
 )
 
 if( MASTER_PROJECT )
-	### Decryption sample
+	### Thumbnail-Sai1 sample
 	add_executable(
-		Thumbnail
-		samples/Thumbnail.cpp
+		Thumbnail-Sai1
+		samples/Thumbnail-Sai1.cpp
 		samples/stb_image_write.c
 	)
-
 	target_link_libraries(
-		Thumbnail
+		Thumbnail-Sai1
+		PRIVATE
+		sai
+	)
+
+
+	### Thumbnail-Sai2 sample
+	add_executable(
+		Thumbnail-Sai2
+		samples/Thumbnail-Sai2.cpp
+		samples/stb_image_write.c
+	)
+	target_link_libraries(
+		Thumbnail-Sai2
 		PRIVATE
 		sai
 	)
