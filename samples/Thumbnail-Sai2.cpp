@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 {
 	std::vector<std::string_view> Args;
 
-	for( std::size_t i = 1; i < argc; ++i )
+	for( std::size_t i = 1; i < std::size_t(argc); ++i )
 	{
 		Args.emplace_back(argv[i]);
 	}
