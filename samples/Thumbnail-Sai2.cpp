@@ -25,9 +25,13 @@ const T& ReadType(std::span<const std::byte>& Bytes)
 	return Result;
 }
 
-bool ExtractFile(
+bool GetThumbnail(
 	const std::filesystem::path&     FilePath,
 	const std::span<const std::byte> FileData
+);
+bool ExtractThumbnailOld(
+	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
+	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
 );
 bool ExtractThumbnail(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
@@ -64,7 +68,7 @@ int main(int argc, char* argv[])
 			File.read(reinterpret_cast<char*>(FileData.data()), FileSize);
 			File.close();
 
-			ExtractFile(FilePath, FileData);
+			GetThumbnail(FilePath, FileData);
 		}
 		else
 		{
@@ -76,7 +80,7 @@ int main(int argc, char* argv[])
 	return EXIT_SUCCESS;
 }
 
-bool ExtractFile(
+bool GetThumbnail(
 	const std::filesystem::path&     FilePath,
 	const std::span<const std::byte> FileData
 )
@@ -111,12 +115,24 @@ bool ExtractFile(
 
 		switch( TableEntry.Type )
 		{
-		case sai2::CanvasDataType::Thumbnail:
+		case sai2::CanvasDataType::ThumbnailOld:
 		{
-			ExtractThumbnail(
+			return ExtractThumbnailOld(
 				FilePath, Header, TableEntry,
 				FileData.subspan(TableEntry.BlobsOffset, DataSize)
 			);
+			break;
+		}
+		case sai2::CanvasDataType::Thumbnail:
+		{
+			return ExtractThumbnail(
+				FilePath, Header, TableEntry,
+				FileData.subspan(TableEntry.BlobsOffset, DataSize)
+			);
+			break;
+		}
+		default:
+		{
 			break;
 		}
 		}
@@ -470,6 +486,20 @@ uint32_t DeltaUnpackRow16Bpc(
 // 	return result;
 // }
 
+bool ExtractThumbnailOld(
+	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
+	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
+)
+{
+	const std::uint32_t Width  = ReadType<std::uint32_t>(Bytes);
+	const std::uint32_t Height = ReadType<std::uint32_t>(Bytes);
+
+	const sai2::BlobDataType Format = ReadType<sai2::BlobDataType>(Bytes);
+	assert(Format == sai2::BlobDataType::Fssj);
+
+	return true;
+}
+
 bool ExtractThumbnail(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
@@ -507,10 +537,9 @@ bool ExtractThumbnail(
 
 		const std::uint16_t TileBeginChecksum = ReadType<std::uint16_t>(Bytes);
 		// High byte should equal Tile Index X
-		// assert((TileBeginChecksum >> 8) == PrevTileXIndex);
+		assert((TileBeginChecksum >> 8) == PrevTileXIndex);
 
 		std::array<std::uint32_t, 256> CompositeRow = {};
-		// CompositeRow.fill(0xFF000000);
 		CompositeRow.fill(0);
 
 		for( ; CurTileXIndex < TilesX; ++CurTileXIndex )

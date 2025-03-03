@@ -14,13 +14,15 @@ inline constexpr std::uint32_t Tag(const char (&TagString)[N])
 	if constexpr( Endianness == std::endian::big )
 	{
 		return (
-			(TagString[3] << 0) | (TagString[2] << 8) | (TagString[1] << 16) | (TagString[0] << 24)
+			(TagString[3] << 0) | (TagString[2] << 8) | (TagString[1] << 16)
+			| (TagString[0] << 24)
 		);
 	}
 	else
 	{
 		return (
-			(TagString[3] << 24) | (TagString[2] << 16) | (TagString[1] << 8) | (TagString[0] << 0)
+			(TagString[3] << 24) | (TagString[2] << 16) | (TagString[1] << 8)
+			| (TagString[0] << 0)
 		);
 	}
 }
@@ -33,6 +35,6 @@ inline constexpr std::uint32_t TagLE(const char (&TagString)[N])
 template<std::size_t N>
 inline constexpr std::uint32_t TagBE(const char (&TagString)[N])
 {
-	return Tag<std::endian::little, N>(TagString);
+	return Tag<std::endian::big, N>(TagString);
 }
 } // namespace sai
