@@ -27,10 +27,13 @@ const T& ReadType(std::span<const std::byte>& Bytes)
 	return Result;
 }
 
-bool ExtractFile(const std::span<const std::byte> FileData);
+bool ExtractFile(
+	const std::filesystem::path&     FilePath,
+	const std::span<const std::byte> FileData
+);
 bool ExtractThumbnail(
-	const sai2::CanvasHeader& Header, const sai2::CanvasEntry& TableEntry,
-	std::span<const std::byte> Bytes
+	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
+	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
 );
 
 int main(int argc, char* argv[])
@@ -63,7 +66,7 @@ int main(int argc, char* argv[])
 			File.read(reinterpret_cast<char*>(FileData.data()), FileSize);
 			File.close();
 
-			ExtractFile(FileData);
+			ExtractFile(FilePath, FileData);
 		}
 		else
 		{
@@ -75,7 +78,10 @@ int main(int argc, char* argv[])
 	return EXIT_SUCCESS;
 }
 
-bool ExtractFile(const std::span<const std::byte> FileData)
+bool ExtractFile(
+	const std::filesystem::path&     FilePath,
+	const std::span<const std::byte> FileData
+)
 {
 	std::span<const std::byte> Bytes  = FileData;
 	const sai2::CanvasHeader&  Header = ReadType<sai2::CanvasHeader>(Bytes);
@@ -110,7 +116,7 @@ bool ExtractFile(const std::span<const std::byte> FileData)
 		case sai2::CanvasDataType::Thumbnail:
 		{
 			ExtractThumbnail(
-				Header, TableEntry,
+				FilePath, Header, TableEntry,
 				FileData.subspan(TableEntry.BlobsOffset, DataSize)
 			);
 			break;
@@ -271,7 +277,7 @@ std::size_t UnpackDeltaRLE16(
 }
 
 uint32_t DeltaUnpack16(
-	uint32_t* Dest32, const uint32_t* CompositeImage,
+	uint32_t* Dest32, const std::uint32_t* CompositeImage,
 	const std::uint64_t* DeltaEncoded16bpc, std::uint32_t CurTileWidth
 )
 {
@@ -319,8 +325,8 @@ uint32_t DeltaUnpack16(
 }
 
 bool ExtractThumbnail(
-	const sai2::CanvasHeader& Header, const sai2::CanvasEntry& TableEntry,
-	std::span<const std::byte> Bytes
+	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
+	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
 )
 {
 	const std::string FileName = std::to_string(TableEntry.BlobsOffset);
@@ -359,6 +365,9 @@ bool ExtractThumbnail(
 		// High byte should equal Tile Index X
 		assert((TileBeginChecksum >> 8) == PrevTileXIndex);
 
+		std::array<std::uint32_t, 256> CompositeRow = {};
+		CompositeRow.fill(0xFF000000);
+
 		for( ; CurTileXIndex < TilesX; ++CurTileXIndex )
 		{
 			const std::uint32_t TileBegX = CurTileXIndex * TileSize;
@@ -367,6 +376,11 @@ bool ExtractThumbnail(
 
 			const std::uint32_t RowReadSize = 3 * ThumbnailChannels * TileSizeX;
 			assert(Bytes.size_bytes() >= RowReadSize);
+
+			// AA|RR|GG|BB / BB|GG|RR|AA
+			std::array<std::uint32_t, 256 * 256> TileImage;
+
+			std::span<const std::uint32_t> PreviousRow(CompositeRow);
 
 			/// Compressed rows
 			for( std::uint32_t CurTileRowIndex = 0; CurTileRowIndex < TileSizeY;
@@ -377,29 +391,47 @@ bool ExtractThumbnail(
 					= Bytes.first(RowReadSize);
 
 				// Decompress row
-				std::array<std::int16_t, 256 * 4> TileRowData16;
-				TileRowData16.fill(-1);
+				std::array<std::int16_t, 256 * 4> RowDelta16;
+				RowDelta16.fill(-1);
 				const std::size_t ConsumedBytes = UnpackDeltaRLE16(
-					CurTileBytes, TileRowData16, TileSizeX, 4, ThumbnailChannels
+					CurTileBytes, RowDelta16, TileSizeX, 4, ThumbnailChannels
 				);
 				assert(ConsumedBytes > 0);
 
-				// Delta-encoded bytes, expand from 8->16bpc
-				// AA|RR|GG|BB / BB|GG|RR|AA
-				std::array<std::uint32_t, 256> TileRowData32;
-				TileRowData32.fill(0);
+				// Row to write to
+				std::span<std::uint32_t> TileRowData32
+					= std::span(TileImage).subspan(256 * CurTileRowIndex);
 
-				std::array<std::uint32_t, 256> CompositeImage;
-				CompositeImage.fill(0);
 				DeltaUnpack16(
-					TileRowData32.data(), CompositeImage.data(),
-					(uint64_t*)TileRowData16.data(), TileSizeX
+					TileRowData32.data(), PreviousRow.data(),
+					(uint64_t*)RowDelta16.data(), TileSizeX
 				);
+
+				PreviousRow = TileRowData32;
 
 				// Offset by the number of fully consumed bytes
 				Bytes = Bytes.subspan(ConsumedBytes);
 			}
 			///
+
+			//// BGRA to RGBA
+			for( std::uint32_t& Pixel : TileImage )
+			{
+				// Swap B and R channels
+				const std::uint8_t R = ((Pixel >> 16));
+				const std::uint8_t B = ((Pixel >> 0));
+				Pixel = (Pixel & 0xFF'00'FF'00) | R | (std::uint32_t(B) << 16);
+			}
+
+			// Write to file
+			std::filesystem::path DestPath(FilePath);
+			DestPath.replace_filename(FilePath.stem().string() + "-thumbnail");
+			DestPath.replace_extension("png");
+
+			stbi_write_png(
+				DestPath.c_str(), TileSizeX, TileSizeY, 4, TileImage.data(),
+				256 * sizeof(std::uint32_t)
+			);
 		}
 	}
 	const std::uint16_t TileEndChecksum = ReadType<std::uint16_t>(Bytes);
