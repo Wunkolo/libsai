@@ -429,8 +429,8 @@ bool ExtractThumbnail(
 			DestPath.replace_extension("png");
 
 			stbi_write_png(
-				DestPath.c_str(), TileSizeX, TileSizeY, 4, TileImage.data(),
-				256 * sizeof(std::uint32_t)
+				DestPath.string().c_str(), TileSizeX, TileSizeY, 4,
+				TileImage.data(), 256 * sizeof(std::uint32_t)
 			);
 		}
 	}
