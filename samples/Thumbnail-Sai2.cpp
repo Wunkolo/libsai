@@ -497,6 +497,30 @@ bool ExtractThumbnailOld(
 	const sai2::BlobDataType Format = ReadType<sai2::BlobDataType>(Bytes);
 	assert(Format == sai2::BlobDataType::Fssj);
 
+	std::array<std::byte, 4096> BlockBuffer;
+
+	const std::size_t FssjDataSize = Bytes.size_bytes();
+
+	std::size_t BlockCount = 0u;
+	for( std::size_t FssjDataOffset = 0; FssjDataOffset < FssjDataSize;
+		 ++BlockCount )
+	{
+		std::size_t CurBlockSize = 4096u;
+		if( FssjDataSize - FssjDataOffset < 4096u )
+		{
+			CurBlockSize = FssjDataSize - FssjDataOffset;
+		}
+		if( !CurBlockSize )
+		{
+			break;
+		}
+
+		const std::span<const std::byte> CurFssjData
+			= Bytes.subspan(FssjDataOffset, CurBlockSize);
+
+		FssjDataOffset += CurBlockSize;
+	}
+
 	return true;
 }
 
