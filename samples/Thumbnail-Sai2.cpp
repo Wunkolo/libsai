@@ -499,8 +499,6 @@ bool ExtractThumbnailOld(
 	const sai2::BlobDataType Format = ReadType<sai2::BlobDataType>(Bytes);
 	assert(Format == sai2::BlobDataType::Fssj);
 
-	std::array<std::byte, 4096> BlockBuffer;
-
 	const std::size_t FssjDataSize = Bytes.size_bytes();
 
 	std::size_t BlockCount = 0u;
