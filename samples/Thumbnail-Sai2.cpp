@@ -501,22 +501,27 @@ bool ExtractThumbnailOld(
 
 	const std::size_t FssjDataSize = Bytes.size_bytes();
 
-	std::size_t BlockCount = 0u;
+	std::size_t BlockID = 0u;
 	for( std::size_t FssjDataOffset = 0; FssjDataOffset < FssjDataSize;
-		 ++BlockCount )
+		 ++BlockID )
 	{
 		std::size_t CurBlockSize = 4096u;
-		if( FssjDataSize - FssjDataOffset < 4096u )
+		if( (FssjDataSize - FssjDataOffset) < 4096u )
 		{
-			CurBlockSize = FssjDataSize - FssjDataOffset;
+			CurBlockSize = (FssjDataSize - FssjDataOffset);
 		}
-		if( !CurBlockSize )
+		if( CurBlockSize == 0u )
 		{
 			break;
 		}
 
 		const std::span<const std::byte> CurFssjData
 			= Bytes.subspan(FssjDataOffset, CurBlockSize);
+
+		// BlockID must be the used to indicate which exact (X,Y) tile this data
+		// is for:
+		// For a 267x475 image: There are 8 blocks, the last block being 3888
+		// bytes rather than 4096
 
 		FssjDataOffset += CurBlockSize;
 	}
