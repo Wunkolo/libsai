@@ -389,6 +389,8 @@ inline Pixel16Bpc SubSaturated16Bpc(const Pixel16Bpc A, const Pixel16Bpc B)
 	return Result;
 }
 
+// This looks kind of like the "Up" png-filter seen here:
+// http://www.libpng.org/pub/png/spec/1.2/PNG-Filters.html
 uint32_t DeltaUnpackRow16Bpc(
 	uint32_t* Dest8Bpc, const std::uint32_t* PreviousRow8Bpc,
 	const std::uint64_t* DeltaEncoded16Bpc, const std::uint32_t PixelCount
