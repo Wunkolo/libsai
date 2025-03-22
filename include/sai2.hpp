@@ -51,10 +51,10 @@ static_assert(sizeof(CanvasEntry) == 16);
 enum class BlobDataType : std::uint32_t
 {
 	// Delta-compressed pixel stream with an additional "RLE" compression
-	DeltaPixelsCompressed = TagBE("mcpd"),
+	DeltaPixelsCompressed = TagLE("dpcm"),
 
 	// Older image format used for thumbnails?
-	Fssj = TagBE("fssj"),
+	Fssj = TagLE("jssf"),
 };
 
 } // namespace sai2
