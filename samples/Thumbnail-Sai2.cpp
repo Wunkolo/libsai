@@ -29,11 +29,11 @@ bool GetThumbnail(
 	const std::filesystem::path&     FilePath,
 	const std::span<const std::byte> FileData
 );
-bool ExtractThumbnailOld(
+bool ExtractThumbnailJssf(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
 );
-bool ExtractThumbnail(
+bool ExtractThumbnailDeltaCompressed(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
 );
@@ -117,7 +117,7 @@ bool GetThumbnail(
 		{
 		case sai2::CanvasDataType::ThumbnailOld:
 		{
-			return ExtractThumbnailOld(
+			return ExtractThumbnailJssf(
 				FilePath, Header, TableEntry,
 				FileData.subspan(TableEntry.BlobsOffset, DataSize)
 			);
@@ -125,7 +125,7 @@ bool GetThumbnail(
 		}
 		case sai2::CanvasDataType::Thumbnail:
 		{
-			return ExtractThumbnail(
+			return ExtractThumbnailDeltaCompressed(
 				FilePath, Header, TableEntry,
 				FileData.subspan(TableEntry.BlobsOffset, DataSize)
 			);
@@ -488,7 +488,7 @@ uint32_t DeltaUnpackRow16Bpc(
 // 	return result;
 // }
 
-bool ExtractThumbnailOld(
+bool ExtractThumbnailJssf(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
 )
@@ -497,39 +497,39 @@ bool ExtractThumbnailOld(
 	const std::uint32_t Height = ReadType<std::uint32_t>(Bytes);
 
 	const sai2::BlobDataType Format = ReadType<sai2::BlobDataType>(Bytes);
-	assert(Format == sai2::BlobDataType::Fssj);
+	assert(Format == sai2::BlobDataType::Jssf);
 
-	const std::size_t FssjDataSize = Bytes.size_bytes();
+	const std::size_t JssfDataSize = Bytes.size_bytes();
 
 	std::size_t BlockID = 0u;
-	for( std::size_t FssjDataOffset = 0; FssjDataOffset < FssjDataSize;
+	for( std::size_t JssfDataOffset = 0; JssfDataOffset < JssfDataSize;
 		 ++BlockID )
 	{
 		std::size_t CurBlockSize = 4096u;
-		if( (FssjDataSize - FssjDataOffset) < 4096u )
+		if( (JssfDataSize - JssfDataOffset) < 4096u )
 		{
-			CurBlockSize = (FssjDataSize - FssjDataOffset);
+			CurBlockSize = (JssfDataSize - JssfDataOffset);
 		}
 		if( CurBlockSize == 0u )
 		{
 			break;
 		}
 
-		const std::span<const std::byte> CurFssjData
-			= Bytes.subspan(FssjDataOffset, CurBlockSize);
+		const std::span<const std::byte> CurJssfData
+			= Bytes.subspan(JssfDataOffset, CurBlockSize);
 
 		// BlockID must be the used to indicate which exact (X,Y) tile this data
 		// is for:
 		// For a 267x475 image: There are 8 blocks, the last block being 3888
 		// bytes rather than 4096
 
-		FssjDataOffset += CurBlockSize;
+		JssfDataOffset += CurBlockSize;
 	}
 
 	return true;
 }
 
-bool ExtractThumbnail(
+bool ExtractThumbnailDeltaCompressed(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
 )
@@ -540,8 +540,8 @@ bool ExtractThumbnail(
 	// Total blob size in bytes
 	const std::uint32_t BytesSize = ReadType<std::uint32_t>(Bytes);
 
-	// 3 channels minimum, four if the header seems to indicate that there is
-	// transparency
+	// 3 channels minimum, four if the header indicates that the canvas
+	// uses a transparent background
 	const std::uint32_t ThumbnailChannels
 		= ((((Header.Flags1 & 7) == 0)) != 0) + 3;
 
