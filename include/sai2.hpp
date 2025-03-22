@@ -54,7 +54,7 @@ enum class BlobDataType : std::uint32_t
 	DeltaPixelsCompressed = TagLE("dpcm"),
 
 	// Older image format used for thumbnails?
-	Fssj = TagLE("jssf"),
+	Jssf = TagLE("jssf"),
 };
 
 } // namespace sai2
