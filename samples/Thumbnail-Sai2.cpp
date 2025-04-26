@@ -488,6 +488,80 @@ uint32_t DeltaUnpackRow16Bpc(
 // 	return result;
 // }
 
+#include <immintrin.h>
+
+void __fastcall DecompressFssjBlock(
+	const __m128i* Src, std::uint64_t* Red16Dst, std::uint64_t* Green16Dst,
+	std::uint64_t* Blue16Dst, std::size_t Width
+)
+{
+	unsigned int IterationCount; // ecx
+	__m128i      Src128;         // xmm6
+	__m128i      v11;            // xmm6
+	__m128i      v12;            // xmm6
+	__m128       ByteC32;        // xmm4
+	__m128       ByteB32;        // xmm5
+	__m128       ByteA32;        // xmm6
+	__m128i      RedTerm;        // xmm1
+	__m128i      GreenTerm;      // xmm1
+	__m128i      BlueTerm;       // xmm4
+
+	IterationCount = Width >> 2; // 16bpc? four pixels at a time
+	do
+	{
+		--IterationCount;
+		Src128 = _mm_loadu_si128(Src); // Unpack 16 bytes into 16 floats
+		v11    = _mm_unpacklo_epi8(
+            _mm_shuffle_epi32(Src128, 8), _mm_shuffle_epi32(Src128, 0xD)
+        );
+		v12         = _mm_unpacklo_epi16(v11, _mm_shuffle_epi32(v11, 0xE));
+		ByteC32     = _mm_cvtepi32_ps(_mm_unpacklo_epi8(
+            _mm_unpacklo_epi8(_mm_shuffle_epi32(v12, 2), _mm_setzero_si128()),
+            _mm_setzero_si128()
+        ));
+		ByteB32     = _mm_cvtepi32_ps(_mm_unpacklo_epi8(
+            _mm_unpacklo_epi8(_mm_shuffle_epi32(v12, 1), _mm_setzero_si128()),
+            _mm_setzero_si128()
+        ));
+		ByteA32     = _mm_cvtepi32_ps(_mm_unpacklo_epi8(
+            _mm_unpacklo_epi8(v12, _mm_setzero_si128()), _mm_setzero_si128()
+        ));
+		RedTerm     = _mm_cvtps_epi32( // YCbCr -> RGB?
+            _mm_add_ps(
+                _mm_add_ps(
+                    _mm_add_ps(
+                        _mm_mul_ps(ByteC32, _mm_set1_ps(1.196f)),
+                        _mm_mul_ps(ByteB32, _mm_set1_ps(2.348f))
+                    ),
+                    _mm_mul_ps(ByteA32, _mm_set1_ps(0.456f))
+                ),
+                _mm_set1_ps(-512.0f)
+            )
+        );
+		*Red16Dst   = _mm_cvtsi128_si64(_mm_packs_epi32(RedTerm, RedTerm));
+		GreenTerm   = _mm_cvtps_epi32(_mm_add_ps(
+            _mm_add_ps(
+                _mm_mul_ps(ByteC32, _mm_set1_ps(-0.67494398f)),
+                _mm_mul_ps(ByteB32, _mm_set1_ps(-1.325056f))
+            ),
+            _mm_mul_ps(ByteA32, _mm_set1_ps(2.0f))
+        ));
+		*Green16Dst = _mm_cvtsi128_si64(_mm_packs_epi32(GreenTerm, GreenTerm));
+		BlueTerm    = _mm_cvtps_epi32(_mm_add_ps(
+            _mm_add_ps(
+                _mm_mul_ps(ByteC32, _mm_set1_ps(2.0f)),
+                _mm_mul_ps(ByteB32, _mm_set1_ps(-1.674752f))
+            ),
+            _mm_mul_ps(ByteA32, _mm_set1_ps(-0.325248))
+        ));
+		*Blue16Dst  = _mm_cvtsi128_si64(_mm_packs_epi32(BlueTerm, BlueTerm));
+		++Src;
+		++Red16Dst;
+		++Green16Dst;
+		++Blue16Dst;
+	} while( IterationCount != 0u );
+}
+
 bool ExtractThumbnailJssf(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
@@ -517,6 +591,14 @@ bool ExtractThumbnailJssf(
 
 		const std::span<const std::byte> CurJssfData
 			= Bytes.subspan(JssfDataOffset, CurBlockSize);
+
+		std::array<std::uint64_t, 4096> TestDecompress;
+
+		DecompressFssjBlock(
+			reinterpret_cast<const __m128i*>(CurJssfData.data()),
+			TestDecompress.data() + 0, TestDecompress.data() + 1,
+			TestDecompress.data() + 2, 1024
+		);
 
 		// BlockID must be the used to indicate which exact (X,Y) tile this data
 		// is for:
