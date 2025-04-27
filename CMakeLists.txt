@@ -87,6 +87,7 @@ add_library(
 	source/ifstreambuf.cpp
 	source/keys.cpp
 	source/sai.cpp
+	source/sai2.cpp
 	source/virtualfileentry.cpp
 	source/virtualfilesystem.cpp
 	source/virtualpage.cpp
