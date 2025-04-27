@@ -176,7 +176,7 @@ void ConvertRGB8ToYUV16(
 				_mm_mul_ps(Uvec, _mm_set1_ps(2.0f)),
 				_mm_mul_ps(Vvec, _mm_set1_ps(-1.674752f))
 			),
-			_mm_mul_ps(Yvec, _mm_set1_ps(-0.325248))
+			_mm_mul_ps(Yvec, _mm_set1_ps(-0.325248f))
 		));
 		*VDest = _mm_cvtsi128_si64(_mm_packs_epi32(BlueTerm, BlueTerm));
 
