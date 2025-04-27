@@ -490,68 +490,70 @@ uint32_t DeltaUnpackRow16Bpc(
 
 #include <immintrin.h>
 
-void ConvertJssfToRGB(
-	const __m128i* Src, std::uint64_t* Red16Dst, std::uint64_t* Green16Dst,
-	std::uint64_t* Blue16Dst, std::size_t Width
+void ConvertRGB8ToYUV16(
+	const __m128i* Src, std::uint64_t* YDest, std::uint64_t* UDest,
+	std::uint64_t* VDest, std::size_t Width
 )
 {
-	std::size_t IterationCount = Width >> 2; // four 16bpc pixels at a time
+	std::size_t IterationCount = Width >> 2; // four pixels
 	do
 	{
 		--IterationCount;
 
 		// Unpack 16 bytes into 16 floats across four vectors
 		const __m128i Src128 = _mm_loadu_si128(Src);
-		const __m128i v11    = _mm_unpacklo_epi8(
-            _mm_shuffle_epi32(Src128, 8), _mm_shuffle_epi32(Src128, 0xD)
-        );
+		++Src;
+
+		const __m128i v11 = _mm_unpacklo_epi8(
+			_mm_shuffle_epi32(Src128, 8), _mm_shuffle_epi32(Src128, 0xD)
+		);
 		const __m128i v12
 			= _mm_unpacklo_epi16(v11, _mm_shuffle_epi32(v11, 0xE));
-		const __m128i ByteC32 = _mm_cvtepi32_ps(_mm_unpacklo_epi8(
+
+		const __m128 Uvec = _mm_cvtepi32_ps(_mm_unpacklo_epi8(
 			_mm_unpacklo_epi8(_mm_shuffle_epi32(v12, 2), _mm_setzero_si128()),
 			_mm_setzero_si128()
 		));
-		const __m128i ByteB32 = _mm_cvtepi32_ps(_mm_unpacklo_epi8(
+		const __m128 Vvec = _mm_cvtepi32_ps(_mm_unpacklo_epi8(
 			_mm_unpacklo_epi8(_mm_shuffle_epi32(v12, 1), _mm_setzero_si128()),
 			_mm_setzero_si128()
 		));
-		const __m128i ByteA32 = _mm_cvtepi32_ps(_mm_unpacklo_epi8(
+		const __m128 Yvec = _mm_cvtepi32_ps(_mm_unpacklo_epi8(
 			_mm_unpacklo_epi8(v12, _mm_setzero_si128()), _mm_setzero_si128()
 		));
-		// Some kind of matrix multiply
-		// Likely a color-space conversion
-		// This looks somewhat like YUV -> RGB?
+
+		// Matrix multiply
 		const __m128i RedTerm = _mm_cvtps_epi32(_mm_add_ps(
 			_mm_add_ps(
 				_mm_add_ps(
-					_mm_mul_ps(ByteC32, _mm_set1_ps(1.196f)),
-					_mm_mul_ps(ByteB32, _mm_set1_ps(2.348f))
+					_mm_mul_ps(Uvec, _mm_set1_ps(1.196f)),
+					_mm_mul_ps(Vvec, _mm_set1_ps(2.348f))
 				),
-				_mm_mul_ps(ByteA32, _mm_set1_ps(0.456f))
+				_mm_mul_ps(Yvec, _mm_set1_ps(0.456f))
 			),
 			_mm_set1_ps(-512.0f)
 		));
-		*Red16Dst = _mm_cvtsi128_si64(_mm_packs_epi32(RedTerm, RedTerm));
+		*YDest = _mm_cvtsi128_si64(_mm_packs_epi32(RedTerm, RedTerm));
 		const __m128i GreenTerm = _mm_cvtps_epi32(_mm_add_ps(
 			_mm_add_ps(
-				_mm_mul_ps(ByteC32, _mm_set1_ps(-0.67494398f)),
-				_mm_mul_ps(ByteB32, _mm_set1_ps(-1.325056f))
+				_mm_mul_ps(Uvec, _mm_set1_ps(-0.67494398f)),
+				_mm_mul_ps(Vvec, _mm_set1_ps(-1.325056f))
 			),
-			_mm_mul_ps(ByteA32, _mm_set1_ps(2.0f))
+			_mm_mul_ps(Yvec, _mm_set1_ps(2.0f))
 		));
-		*Green16Dst = _mm_cvtsi128_si64(_mm_packs_epi32(GreenTerm, GreenTerm));
+		*UDest = _mm_cvtsi128_si64(_mm_packs_epi32(GreenTerm, GreenTerm));
 		const __m128i BlueTerm = _mm_cvtps_epi32(_mm_add_ps(
 			_mm_add_ps(
-				_mm_mul_ps(ByteC32, _mm_set1_ps(2.0f)),
-				_mm_mul_ps(ByteB32, _mm_set1_ps(-1.674752f))
+				_mm_mul_ps(Uvec, _mm_set1_ps(2.0f)),
+				_mm_mul_ps(Vvec, _mm_set1_ps(-1.674752f))
 			),
-			_mm_mul_ps(ByteA32, _mm_set1_ps(-0.325248))
+			_mm_mul_ps(Yvec, _mm_set1_ps(-0.325248))
 		));
-		*Blue16Dst = _mm_cvtsi128_si64(_mm_packs_epi32(BlueTerm, BlueTerm));
-		++Src;
-		++Red16Dst;
-		++Green16Dst;
-		++Blue16Dst;
+		*VDest = _mm_cvtsi128_si64(_mm_packs_epi32(BlueTerm, BlueTerm));
+
+		++YDest;
+		++UDest;
+		++VDest;
 	} while( IterationCount != 0u );
 }
 
@@ -585,21 +587,22 @@ bool ExtractThumbnailJssf(
 		const std::span<const std::byte> CurJssfData
 			= Bytes.subspan(JssfDataOffset, CurBlockSize);
 
-		std::array<std::uint16_t, 4096> TestDecompressR;
-		std::array<std::uint16_t, 4096> TestDecompressG;
-		std::array<std::uint16_t, 4096> TestDecompressB;
+		std::array<std::uint16_t, 4096> TestDecompressY;
+		std::array<std::uint16_t, 4096> TestDecompressU;
+		std::array<std::uint16_t, 4096> TestDecompressV;
 
-		ConvertJssfToRGB(
+		ConvertRGB8ToYUV16(
 			reinterpret_cast<const __m128i*>(CurJssfData.data()),
-			reinterpret_cast<std::uint64_t*>(TestDecompressR.data()),
-			reinterpret_cast<std::uint64_t*>(TestDecompressG.data()),
-			reinterpret_cast<std::uint64_t*>(TestDecompressB.data()), 1024
+			reinterpret_cast<std::uint64_t*>(TestDecompressY.data()),
+			reinterpret_cast<std::uint64_t*>(TestDecompressU.data()),
+			reinterpret_cast<std::uint64_t*>(TestDecompressV.data()), 1024
 		);
 
 		// BlockID must be the used to indicate which exact (X,Y) tile this data
 		// is for:
 		// For a 267x475 image: There are 8 blocks, the last block being 3888
 		// bytes rather than 4096
+		// Jssf thread-dispatches seem to be 32x32 tiles
 
 		JssfDataOffset += CurBlockSize;
 	}
