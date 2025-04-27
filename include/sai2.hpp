@@ -70,4 +70,17 @@ bool IterateCanvasData(
 	const std::function<CanvasDataProcT> CanvasDataProc
 );
 
+std::size_t UnpackDeltaRLE16(
+	std::span<const std::byte> Compressed, std::span<std::int16_t> Decompressed,
+	std::uint32_t PixelCount, std::uint8_t OutputChannels,
+	std::uint8_t InputChannels
+);
+
+// This looks kind of like the "Up" png-filter seen here:
+// http://www.libpng.org/pub/png/spec/1.2/PNG-Filters.html
+uint32_t DeltaUnpackRow16Bpc(
+	uint32_t* Dest8Bpc, const std::uint32_t* PreviousRow8Bpc,
+	const std::uint64_t* DeltaEncoded16Bpc, const std::uint32_t PixelCount
+);
+
 } // namespace sai2
