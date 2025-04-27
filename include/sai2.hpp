@@ -5,6 +5,8 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
+#include <span>
 
 #include "util.hpp"
 
@@ -56,5 +58,16 @@ enum class BlobDataType : std::uint32_t
 	// Older image format used for thumbnails?
 	Jssf = TagLE("jssf"),
 };
+
+// Return false to break iteration
+using CanvasDataProcT = bool(
+	const sai2::CanvasHeader& Header, const sai2::CanvasEntry& TableEntry,
+	std::span<const std::byte> Bytes
+);
+
+bool IterateCanvasData(
+	const std::span<const std::byte>     FileData,
+	const std::function<CanvasDataProcT> CanvasDataProc
+);
 
 } // namespace sai2
