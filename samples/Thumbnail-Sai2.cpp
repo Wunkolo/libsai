@@ -25,10 +25,6 @@ const T& ReadType(std::span<const std::byte>& Bytes)
 	return Result;
 }
 
-bool GetThumbnail(
-	const std::filesystem::path&     FilePath,
-	const std::span<const std::byte> FileData
-);
 bool ExtractThumbnailJssf(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
@@ -37,6 +33,39 @@ bool ExtractThumbnailDeltaCompressed(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
 );
+
+bool IterateCanvasItem(
+	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
+	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
+)
+{
+	std::printf(
+		"%.4s:%08X @ %016lX\n", &TableEntry.Type, TableEntry.LayerID,
+		TableEntry.BlobsOffset
+	);
+
+	switch( TableEntry.Type )
+	{
+	case sai2::CanvasDataType::ThumbnailOld:
+	{
+		return ExtractThumbnailJssf(FilePath, Header, TableEntry, Bytes);
+		break;
+	}
+	case sai2::CanvasDataType::Thumbnail:
+	{
+		return ExtractThumbnailDeltaCompressed(
+			FilePath, Header, TableEntry, Bytes
+		);
+		break;
+	}
+	default:
+	{
+		break;
+	}
+	}
+
+	return true;
+};
 
 int main(int argc, char* argv[])
 {
@@ -68,7 +97,15 @@ int main(int argc, char* argv[])
 			File.read(reinterpret_cast<char*>(FileData.data()), FileSize);
 			File.close();
 
-			GetThumbnail(FilePath, FileData);
+			const auto CanvasDataProc = [FilePath](
+											const sai2::CanvasHeader& Header,
+											const sai2::CanvasEntry& TableEntry,
+											std::span<const std::byte> Bytes
+										) {
+				return IterateCanvasItem(FilePath, Header, TableEntry, Bytes);
+			};
+
+			sai2::IterateCanvasData(FileData, CanvasDataProc);
 		}
 		else
 		{
@@ -78,67 +115,6 @@ int main(int argc, char* argv[])
 	}
 
 	return EXIT_SUCCESS;
-}
-
-bool GetThumbnail(
-	const std::filesystem::path&     FilePath,
-	const std::span<const std::byte> FileData
-)
-{
-	std::span<const std::byte> Bytes  = FileData;
-	const sai2::CanvasHeader&  Header = ReadType<sai2::CanvasHeader>(Bytes);
-
-	std::printf("%.*s\n", Header.Identifier.size(), Header.Identifier.data());
-
-	const std::span<const sai2::CanvasEntry> TableEntries(
-		reinterpret_cast<const sai2::CanvasEntry*>(Bytes.data()),
-		Header.TableCount
-	);
-
-	Bytes = Bytes.subspan(Header.TableCount * sizeof(sai2::CanvasEntry));
-
-	for( std::size_t TableEntryIndex = 0; TableEntryIndex < Header.TableCount;
-		 ++TableEntryIndex )
-	{
-		const sai2::CanvasEntry& TableEntry = TableEntries[TableEntryIndex];
-
-		const std::size_t DataSize
-			= ((TableEntryIndex + 1) == Header.TableCount)
-				? std::dynamic_extent
-				: (TableEntries[TableEntryIndex + 1].BlobsOffset
-				   - TableEntry.BlobsOffset);
-
-		std::printf(
-			"%.4s:%08X @ %016lX\n", &TableEntry.Type, TableEntry.LayerID,
-			TableEntry.BlobsOffset
-		);
-
-		switch( TableEntry.Type )
-		{
-		case sai2::CanvasDataType::ThumbnailOld:
-		{
-			return ExtractThumbnailJssf(
-				FilePath, Header, TableEntry,
-				FileData.subspan(TableEntry.BlobsOffset, DataSize)
-			);
-			break;
-		}
-		case sai2::CanvasDataType::Thumbnail:
-		{
-			return ExtractThumbnailDeltaCompressed(
-				FilePath, Header, TableEntry,
-				FileData.subspan(TableEntry.BlobsOffset, DataSize)
-			);
-			break;
-		}
-		default:
-		{
-			break;
-		}
-		}
-	}
-
-	return true;
 }
 
 std::size_t UnpackDeltaRLE16(
