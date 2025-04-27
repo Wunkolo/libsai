@@ -1,6 +1,8 @@
 #include <sai2.hpp>
 
+#include <algorithm>
 #include <cassert>
+#include <limits>
 
 namespace
 {
@@ -14,6 +16,107 @@ const T& ReadType(std::span<const std::byte>& Bytes)
 	Bytes           = Bytes.subspan(sizeof(T));
 	return Result;
 }
+
+// Internal utility-type for handling 16bpc RGBA pixels
+union Pixel16Bpc
+{
+	std::array<std::int16_t, 4>  i16;
+	std::array<std::uint16_t, 4> u16;
+	std::uint64_t                u64;
+
+	// Saturated 16bpc->8bpc
+	std::uint32_t To8BpcSaturated() const
+	{
+		std::uint32_t Result = 0u;
+		for( std::uint8_t CurChannel = 0u; CurChannel < 4u; ++CurChannel )
+		{
+			const std::uint8_t ChannelValue = std::uint8_t(
+				u16[CurChannel] > 0xFFu ? 0xFFu : u16[CurChannel]
+			);
+
+			Result |= (std::uint32_t(ChannelValue) << (CurChannel * 8u));
+		}
+		return Result;
+	}
+
+	static Pixel16Bpc From8Bpc(std::uint32_t Pixel)
+	{
+		Pixel16Bpc Result;
+		for( std::uint8_t CurChannel = 0u; CurChannel < 4u; ++CurChannel )
+		{
+			Result.u16[CurChannel] = ((Pixel >> (8u * CurChannel)) & 0xFFu);
+		}
+		return Result;
+	}
+};
+static_assert(sizeof(Pixel16Bpc) == sizeof(std::uint64_t));
+
+inline Pixel16Bpc Add16Bpc(const Pixel16Bpc A, const Pixel16Bpc B)
+{
+	Pixel16Bpc Result;
+	std::transform(
+		A.u16.begin(), A.u16.end(), B.u16.begin(), Result.u16.begin(),
+		std::plus<std::uint16_t>()
+	);
+	return Result;
+}
+
+template<typename T>
+	requires std::integral<T>
+T AddSaturated(T A, T B)
+{
+	if constexpr( std::is_signed<T>::value )
+	{
+		if( A > 0 && B > std::numeric_limits<T>::max() - A )
+		{
+			return std::numeric_limits<T>::max();
+		}
+		else if( A < 0 && B < std::numeric_limits<T>::min() - A )
+		{
+			return std::numeric_limits<T>::min();
+		}
+	}
+	else if( B > std::numeric_limits<T>::max() - A )
+	{
+		return std::numeric_limits<T>::max();
+	}
+	return A + B;
+}
+
+template<typename T>
+	requires std::integral<T>
+T SubSaturated(T A, T B)
+{
+	if( B > 0 && A < std::numeric_limits<T>::min() + B )
+	{
+		return std::numeric_limits<T>::min();
+	}
+	else if( B < 0 && A > std::numeric_limits<T>::max() + B )
+	{
+		return std::numeric_limits<T>::max();
+	}
+	else
+	{
+		return A - B;
+	}
+}
+
+inline Pixel16Bpc AddSaturated16Bpc(const Pixel16Bpc A, const Pixel16Bpc B)
+{
+	Pixel16Bpc Result;
+	std::
+		transform(A.u16.begin(), A.u16.end(), B.u16.begin(), Result.u16.begin(), AddSaturated<std::uint16_t>);
+	return Result;
+}
+
+inline Pixel16Bpc SubSaturated16Bpc(const Pixel16Bpc A, const Pixel16Bpc B)
+{
+	Pixel16Bpc Result;
+	std::
+		transform(A.u16.begin(), A.u16.end(), B.u16.begin(), Result.u16.begin(), SubSaturated<std::uint16_t>);
+	return Result;
+}
+
 } // namespace
 
 namespace sai2
@@ -50,11 +153,258 @@ bool IterateCanvasData(
 				FileData.subspan(TableEntry.BlobsOffset, DataSize)
 			) )
 		{
+			// Stop iterating if the user function returns false
 			break;
 		}
 	}
 
 	return true;
 }
+
+std::size_t UnpackDeltaRLE16(
+	std::span<const std::byte> Compressed, std::span<std::int16_t> Decompressed,
+	std::uint32_t PixelCount, std::uint8_t OutputChannels,
+	std::uint8_t InputChannels
+)
+{
+	const std::size_t CompressedSize = Compressed.size_bytes();
+
+	std::uint32_t RemainingBits    = 0;
+	std::uint64_t CurControlMask64 = 0;
+
+	for( std::uint8_t CurrentChannel = 0; CurrentChannel < InputChannels;
+		 ++CurrentChannel )
+	{
+
+		std::uint32_t CurChannelPixelCount = 0;
+
+		auto CurPixelWrite = Decompressed;
+
+		// Decode channel
+		while( true )
+		{
+			// Shift in more bits
+			if( RemainingBits < 32 )
+			{
+				const std::uint32_t ShiftAmount = RemainingBits;
+				RemainingBits += 32;
+				CurControlMask64
+					|= (static_cast<std::uint64_t>(
+							ReadType<std::uint32_t>(Compressed)
+						)
+						<< ShiftAmount);
+			}
+
+			if( CurControlMask64 == 0u )
+			{
+				return 0;
+			}
+
+			// Find the first set bit, and the bit right after
+			const std::uint8_t FirstSetBitIndex
+				= std::countr_zero(CurControlMask64);
+			const std::uint64_t NextSetBitMask
+				= CurControlMask64 >> (FirstSetBitIndex + 1);
+
+			const std::uint32_t CurOpCode
+				= (2 * FirstSetBitIndex) | (NextSetBitMask & 1);
+			RemainingBits -= (2 + FirstSetBitIndex);
+
+			// Too many zero bits?
+			assert(CurOpCode <= 0xF);
+
+			CurControlMask64 = NextSetBitMask >> 1;
+
+			// Write a singular zero
+			if( CurOpCode == 0u )
+			{
+				CurPixelWrite[CurrentChannel] = 0;
+
+				// Next Pixel
+				assert(CurPixelWrite.size() >= OutputChannels);
+				++CurChannelPixelCount;
+				CurPixelWrite = CurPixelWrite.subspan(OutputChannels);
+			}
+			// Write Value
+			else if( CurOpCode <= 0xE )
+			{
+				// The opcode itself is the number of bits to consume
+
+				// 000... or 111... if last bit is active
+				const std::int32_t BitActiveMask
+					= -((CurControlMask64 & (1 << CurOpCode)) != 0);
+
+				// Mask of bits to read
+				const std::uint64_t BitValueMask = ((1 << CurOpCode) - 1);
+				const std::uint64_t BitValue
+					= (CurControlMask64 & BitValueMask);
+
+				const std::int16_t ChannelValue
+					= (BitActiveMask & 1)
+					+ (BitActiveMask ^ (((1 << CurOpCode) | BitValue) - 1));
+
+				RemainingBits -= (CurOpCode + 1);
+				CurControlMask64 >>= (CurOpCode + 1);
+
+				// Write the actual pixel-value
+				CurPixelWrite[CurrentChannel] = ChannelValue;
+
+				// Next Pixel
+				assert(CurPixelWrite.size() >= OutputChannels);
+				++CurChannelPixelCount;
+				CurPixelWrite = CurPixelWrite.subspan(OutputChannels);
+			}
+			// Fill pixel channels with zeroes
+			else if( CurOpCode == 0xF )
+			{
+				// Next 7 bits are the pixel-count
+				const std::uint64_t ZeroFillCount
+					= (CurControlMask64 & 0x7F) + 8;
+				RemainingBits -= 7;
+				CurControlMask64 >>= 7;
+
+				// Write channel values
+				for( std::size_t i = 0; i < ZeroFillCount; ++i )
+				{
+					CurPixelWrite[i * OutputChannels + CurrentChannel] = 0;
+				}
+
+				// Next Pixel
+				assert(
+					CurPixelWrite.size() >= (OutputChannels * ZeroFillCount)
+				);
+				CurChannelPixelCount += ZeroFillCount;
+				CurPixelWrite
+					= CurPixelWrite.subspan(OutputChannels * ZeroFillCount);
+			}
+			else
+			{
+				// Invalid opcode
+				return 0;
+			}
+
+			if( CurChannelPixelCount >= PixelCount )
+			{
+				// Move onto next channel
+				break;
+			}
+		}
+	}
+
+	// Pad unused channels with zero
+	if( InputChannels < OutputChannels )
+	{
+		for( std::size_t CurChannel = InputChannels;
+			 CurChannel < OutputChannels; ++CurChannel )
+		{
+			auto CurChannelWrite = Decompressed.subspan(CurChannel);
+
+			for( std::size_t i = 0; i < PixelCount; ++i )
+			{
+				CurChannelWrite[i * OutputChannels] = 0;
+			}
+		}
+	}
+
+	// Return number of bytes read, including any unprocessed bits
+	return (CompressedSize - Compressed.size_bytes()) - ((RemainingBits / 8));
+}
+
+uint32_t DeltaUnpackRow16Bpc(
+	uint32_t* Dest8Bpc, const std::uint32_t* PreviousRow8Bpc,
+	const std::uint64_t* DeltaEncoded16Bpc, const std::uint32_t PixelCount
+)
+{
+	uint32_t result = 65280ULL;
+
+	// 0x0000, 0x0000, 0x0000, 0x0000, 0xff00, 0xff00, 0xff00, 0xff00
+	Pixel16Bpc PixelFF00;
+	PixelFF00.u16.fill(0xFF00u);
+
+	Pixel16Bpc PreviousRowPixel16Bpc = {};
+	Pixel16Bpc Sum16Bpc              = {};
+	for( std::size_t i = 0; i < PixelCount; ++i )
+	{
+		// 8->16bpc
+		const Pixel16Bpc CurPreviousRowPixel16Bpc
+			= Pixel16Bpc::From8Bpc(*PreviousRow8Bpc);
+
+		const Pixel16Bpc& CurrentPixelDelta
+			= *reinterpret_cast<const Pixel16Bpc*>(DeltaEncoded16Bpc);
+
+		Sum16Bpc = Add16Bpc(
+			SubSaturated16Bpc(
+				AddSaturated16Bpc(
+					SubSaturated16Bpc(
+						Add16Bpc(Sum16Bpc, CurPreviousRowPixel16Bpc),
+						PreviousRowPixel16Bpc
+					),
+					PixelFF00
+				),
+				PixelFF00
+			),
+			CurrentPixelDelta
+		);
+
+		// Saturate 16u->8u
+		*Dest8Bpc = Sum16Bpc.To8BpcSaturated();
+
+		++DeltaEncoded16Bpc;
+		++PreviousRow8Bpc;
+		++Dest8Bpc;
+
+		PreviousRowPixel16Bpc = CurPreviousRowPixel16Bpc;
+	}
+	return result;
+}
+
+// uint32_t DeltaUnpackRow16BpcSSE(
+// 	uint32_t* Dest8Bpc, const std::uint32_t* PreviousRow8Bpc,
+// 	const std::uint64_t* DeltaEncoded16Bpc, const std::uint32_t PixelCount
+// )
+// {
+// 	uint32_t result = 65280ULL;
+
+// 	// 0x0000, 0x0000, 0x0000, 0x0000, 0xff00, 0xff00, 0xff00, 0xff00
+// 	const __m128i VecFF00 = _mm_shufflelo_epi16(_mm_cvtsi32_si128(0xFF00u), 0);
+
+// 	__m128i PreviousRowPixel16Bpc = _mm_setzero_si128();
+// 	__m128i Sum16Bpc              = _mm_setzero_si128();
+// 	for( std::size_t i = 0; i < PixelCount; ++i )
+// 	{
+// 		// 8->16bpc
+// 		const __m128i CurPreviousRowPixel16Bpc = _mm_unpacklo_epi8(
+// 			_mm_cvtsi32_si128(*PreviousRow8Bpc), _mm_setzero_si128()
+// 		);
+// 		const __m128i CurrentDelta = _mm_loadl_epi64(
+// 			reinterpret_cast<const __m128i*>(DeltaEncoded16Bpc)
+// 		);
+
+// 		Sum16Bpc = _mm_add_epi16(
+// 			_mm_subs_epu16(
+// 				_mm_adds_epu16(
+// 					_mm_subs_epu16(
+// 						_mm_add_epi16(Sum16Bpc, CurPreviousRowPixel16Bpc),
+// 						PreviousRowPixel16Bpc
+// 					),
+// 					VecFF00
+// 				),
+// 				VecFF00
+// 			),
+// 			CurrentDelta
+// 		);
+// 		const __m128i CurPixel16bpc = _mm_move_epi64(Sum16Bpc);
+
+// 		// Saturate 16u->8u
+// 		*Dest8Bpc
+// 			= _mm_cvtsi128_si32(_mm_packus_epi16(CurPixel16bpc, CurPixel16bpc));
+
+// 		++DeltaEncoded16Bpc;
+// 		++PreviousRow8Bpc;
+// 		++Dest8Bpc;
+// 		PreviousRowPixel16Bpc = _mm_move_epi64(CurPreviousRowPixel16Bpc);
+// 	}
+// 	return result;
+// }
 
 } // namespace sai2
