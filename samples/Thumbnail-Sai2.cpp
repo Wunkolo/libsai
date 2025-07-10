@@ -199,41 +199,33 @@ bool ExtractThumbnailJssf(
 
 	const std::size_t JssfDataSize = Bytes.size_bytes();
 
-	std::size_t BlockID = 0u;
-	for( std::size_t JssfDataOffset = 0; JssfDataOffset < JssfDataSize;
-		 ++BlockID )
+	const std::uint16_t JssfWidth    = ReadType<std::uint16_t>(Bytes);
+	const std::uint16_t JssfHeight   = ReadType<std::uint16_t>(Bytes);
+	const std::uint16_t JssfChannels = ReadType<std::uint16_t>(Bytes);
+
+	const std::span<const std::byte, 64> JssfLumaQuant = Bytes.first<64>();
+	Bytes                                              = Bytes.subspan(64);
+
+	// Preemptively read the next quant table, but don't move the stream forward
+	// if we're not an actually colored image
+	const std::span<const std::byte, 64> JssChromaQuant = Bytes.first<64>();
+	if( JssfChannels > 1 )
 	{
-		std::size_t CurBlockSize = 4096u;
-		if( (JssfDataSize - JssfDataOffset) < 4096u )
-		{
-			CurBlockSize = (JssfDataSize - JssfDataOffset);
-		}
-		if( CurBlockSize == 0u )
-		{
-			break;
-		}
+		Bytes = Bytes.subspan(64);
+	}
 
-		const std::span<const std::byte> CurJssfData
-			= Bytes.subspan(JssfDataOffset, CurBlockSize);
+	// Each row of MCU is made of 8x8 tiles, rounded up
+	const std::size_t McuCount = (JssfHeight + 7) / 8;
+	for( std::size_t McuRowIndex = 0; McuRowIndex < McuCount; ++McuRowIndex )
+	{
+		// Length of the MCU bit stream
+		const std::uint16_t McuRowSize = ReadType<std::uint16_t>(Bytes);
+		assert(Bytes.size_bytes() >= McuRowSize);
 
-		std::array<std::uint16_t, 4096> TestDecompressY;
-		std::array<std::uint16_t, 4096> TestDecompressU;
-		std::array<std::uint16_t, 4096> TestDecompressV;
+		const std::span<const std::byte> McuData = Bytes.first(McuRowSize);
+		Bytes                                    = Bytes.subspan(McuRowSize);
 
-		ConvertRGB8ToYUV16(
-			reinterpret_cast<const __m128i*>(CurJssfData.data()),
-			reinterpret_cast<std::uint64_t*>(TestDecompressY.data()),
-			reinterpret_cast<std::uint64_t*>(TestDecompressU.data()),
-			reinterpret_cast<std::uint64_t*>(TestDecompressV.data()), 1024
-		);
-
-		// BlockID must be the used to indicate which exact (X,Y) tile this data
-		// is for:
-		// For a 267x475 image: There are 8 blocks, the last block being 3888
-		// bytes rather than 4096
-		// Jssf thread-dispatches seem to be 32x32 tiles
-
-		JssfDataOffset += CurBlockSize;
+		(void)McuData;
 	}
 
 	return true;
