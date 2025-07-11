@@ -112,6 +112,7 @@ if( MASTER_PROJECT )
 		Thumbnail-Sai2
 		samples/Thumbnail-Sai2.cpp
 		samples/stb_image_write.c
+		samples/stb_image.c
 	)
 	target_link_libraries(
 		Thumbnail-Sai2
