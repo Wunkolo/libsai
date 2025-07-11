@@ -203,6 +203,24 @@ bool ExtractThumbnailJssf(
 	const std::uint16_t JssfHeight   = ReadType<std::uint16_t>(Bytes);
 	const std::uint16_t JssfChannels = ReadType<std::uint16_t>(Bytes);
 
+	// Extract the JPEG data into a standard JPEG strea while decoding
+	std::vector<std::byte> JpegData;
+	const auto PushJpegData = [&JpegData]<typename T>(const T& Data) -> void {
+		const auto Swapped = std::byteswap(Data);
+
+		const std::span<const std::byte> SwappedBytes(
+			reinterpret_cast<const std::byte*>(&Swapped), sizeof(Swapped)
+		);
+
+		JpegData.insert(
+			JpegData.end(), SwappedBytes.cbegin(), SwappedBytes.cend()
+		);
+	};
+
+	// SOI - Start of image
+	PushJpegData(std::uint16_t(0xFF'D8));
+
+	/// Quantization Tables
 	const std::span<const std::byte, 64> JssfLumaQuant = Bytes.first<64>();
 	Bytes                                              = Bytes.subspan(64);
 
@@ -214,6 +232,82 @@ bool ExtractThumbnailJssf(
 		Bytes = Bytes.subspan(64);
 	}
 
+	// DQT - Define quantization table
+	PushJpegData(std::uint16_t(0xFF'DB));
+	// Length
+	// If there is more than 1 channel, then we must store both tables
+	PushJpegData(std::uint16_t((JssfChannels > 1 ? 65 : 0) + 67));
+
+	// Luma Quantization Table
+	PushJpegData(std::uint8_t(0x0'0)); // 4:Precision 4:Table Id
+	JpegData.insert(
+		JpegData.end(), JssfLumaQuant.cbegin(), JssfLumaQuant.cend()
+	);
+
+	// Chroma Quantization Table
+	if( JssfChannels > 1 )
+	{
+		PushJpegData(std::uint8_t(0x0'1)); // 4:Precision 4:Table Id
+		JpegData.insert(
+			JpegData.end(), JssChromaQuant.cbegin(), JssChromaQuant.cend()
+		);
+	}
+
+	/// Huffman tables
+	/// We use the default huffman tables
+
+	// SOF0 - Start of frame(Baseline DCT)
+	PushJpegData(std::uint16_t(0xFF'C0));
+	PushJpegData(std::uint16_t(8 + (JssfChannels * 3)));
+	PushJpegData(std::uint8_t(0x8));          // Precision
+	PushJpegData(std::uint16_t(JssfHeight));  // Height
+	PushJpegData(std::uint16_t(JssfWidth));   // Width
+	PushJpegData(std::uint8_t(JssfChannels)); // Channels
+
+	for( std::size_t ChannelIndex = 0; ChannelIndex < JssfChannels;
+		 ++ChannelIndex )
+	{
+		// Component Id
+		PushJpegData(std::uint8_t(ChannelIndex + 1));
+
+		// Sampling Factor
+		// Might need to be Y:0x22 Cb:0x11 Cr:0x11?
+		PushJpegData(std::uint8_t(0x11));
+
+		// Quantization Table Index
+		// Should be Y:0 Cb:1 Cr:1
+		PushJpegData(std::uint8_t(ChannelIndex != 0));
+	}
+
+	// DRI - Define restart interval
+	PushJpegData(std::uint16_t(0xFF'DD));
+	PushJpegData(std::uint16_t(0x0004)); // Length
+	// Number of MCUs between RSTn markers
+	// These are 8x8 tiles, so be sure to round up
+	PushJpegData(std::uint16_t((JssfWidth + 7) / 8));
+
+	// SOS - Start of scan
+	PushJpegData(std::uint16_t(0xFF'DA));
+	PushJpegData(std::uint16_t(6 + (JssfChannels * 2))); // Length
+	PushJpegData(std::uint16_t(JssfChannels));           // Components
+	for( std::size_t ChannelIndex = 0; ChannelIndex < JssfChannels;
+		 ++ChannelIndex )
+	{
+		// Component Id
+		PushJpegData(std::uint8_t(ChannelIndex + 1));
+
+		// Huffman Table index
+		// Should be Y:0x00 Cb:0x11 Cr:0x11
+		PushJpegData(std::uint8_t(ChannelIndex == 0 ? 0x00 : 0x11));
+	}
+
+	// Start of spectral/predictor selection
+	PushJpegData(std::uint8_t(0x00));
+	// End of spectral/predictor selection
+	PushJpegData(std::uint8_t(0x3F));
+	// Successive approximation hi:lo
+	PushJpegData(std::uint8_t(0x0'0));
+
 	// Each row of MCU is made of 8x8 tiles, rounded up
 	const std::size_t McuCount = (JssfHeight + 7) / 8;
 	for( std::size_t McuRowIndex = 0; McuRowIndex < McuCount; ++McuRowIndex )
@@ -222,12 +316,23 @@ bool ExtractThumbnailJssf(
 		const std::uint16_t McuRowSize = ReadType<std::uint16_t>(Bytes);
 		assert(Bytes.size_bytes() >= McuRowSize);
 
+		// Entropy encoded data
 		const std::span<const std::byte> McuData = Bytes.first(McuRowSize);
 		Bytes                                    = Bytes.subspan(McuRowSize);
 
-		(void)McuData;
+		// Insert a row of entropy data
+		JpegData.insert(JpegData.end(), McuData.cbegin(), McuData.cend());
+
+		// Insert a restart marker to move on to the next row
+
+		// RSTm - Restart with modulo
+		PushJpegData(std::uint16_t(0xFF'D0 | (McuRowIndex & 0b111)));
 	}
 
+	// EOI - End of image
+	PushJpegData(std::uint16_t(0xFF'D9));
+
+	// Stream ends with a singular `0x00` byte
 	return true;
 }
 
