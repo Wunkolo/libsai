@@ -12,6 +12,7 @@
 
 #include <sai2.hpp>
 
+#include "stb_image.h"
 #include "stb_image_write.h"
 
 // Read a type from a span of bytes, and offset the span
@@ -289,7 +290,7 @@ bool ExtractThumbnailJssf(
 	// SOS - Start of scan
 	PushJpegData(std::uint16_t(0xFF'DA));
 	PushJpegData(std::uint16_t(6 + (JssfChannels * 2))); // Length
-	PushJpegData(std::uint16_t(JssfChannels));           // Components
+	PushJpegData(std::uint8_t(JssfChannels));            // Components
 	for( std::size_t ChannelIndex = 0; ChannelIndex < JssfChannels;
 		 ++ChannelIndex )
 	{
@@ -324,13 +325,39 @@ bool ExtractThumbnailJssf(
 		JpegData.insert(JpegData.end(), McuData.cbegin(), McuData.cend());
 
 		// Insert a restart marker to move on to the next row
-
 		// RSTm - Restart with modulo
 		PushJpegData(std::uint16_t(0xFF'D0 | (McuRowIndex & 0b111)));
 	}
 
 	// EOI - End of image
 	PushJpegData(std::uint16_t(0xFF'D9));
+
+	// Decode jpeg data into RGB8
+	// int      x         = 0;
+	// int      y         = 0;
+	// int      channels  = 0;
+	// stbi_uc* ImageData = stbi_load_from_memory(
+	// 	reinterpret_cast<stbi_uc*>(JpegData.data()), JpegData.size(), &x, &y,
+	// 	&channels, JssfChannels
+	// );
+	// if( ImageData == nullptr )
+	// {
+	// 	std::puts(stbi_failure_reason());
+	// }
+	// stbi_write_png(DestPath.string().c_str(), x, y, channels, ImageData, 0);
+
+	// Write to file
+	std::filesystem::path DestPath(FilePath);
+	DestPath.replace_filename(FilePath.stem().string() + "-thumbnail");
+	DestPath.replace_extension("jpeg");
+	// DestPath.replace_extension("png");
+
+	{
+		std::ofstream OutFile(DestPath);
+		OutFile.write(
+			reinterpret_cast<const char*>(JpegData.data()), JpegData.size()
+		);
+	}
 
 	// Stream ends with a singular `0x00` byte
 	return true;
