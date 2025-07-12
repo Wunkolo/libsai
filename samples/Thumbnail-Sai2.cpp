@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <cstdlib>
 
-#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <span>
@@ -332,7 +331,10 @@ bool ExtractThumbnailJssf(
 
 		// Insert a restart marker to move on to the next row
 		// RSTm - Restart with modulo
-		PushJpegData16(0xFF'D0 | (McuRowIndex & 0b111));
+		if( McuRowIndex < (McuCount - 1) )
+		{
+			PushJpegData16(0xFF'D0 | (McuRowIndex & 0b111));
+		}
 	}
 
 	// EOI - End of image
