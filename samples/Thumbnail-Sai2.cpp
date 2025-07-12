@@ -257,8 +257,11 @@ bool ExtractThumbnailJssf(
 	); // Length
 	PushJpegBytes(std::as_bytes(std::span(HuffmanLut0)));
 	PushJpegBytes(std::as_bytes(std::span(HuffmanLut1)));
-	PushJpegBytes(std::as_bytes(std::span(HuffmanLut2)));
-	PushJpegBytes(std::as_bytes(std::span(HuffmanLut3)));
+	if( JssfChannels > 1 )
+	{
+		PushJpegBytes(std::as_bytes(std::span(HuffmanLut2)));
+		PushJpegBytes(std::as_bytes(std::span(HuffmanLut3)));
+	}
 
 	// SOF0 - Start of frame(Baseline DCT)
 	PushJpegData16(0xFF'C0);
