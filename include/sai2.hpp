@@ -55,7 +55,7 @@ enum class BlobDataType : std::uint32_t
 	// Delta-compressed pixel stream with an additional "RLE" compression
 	DeltaPixelsCompressed = TagLE("dpcm"),
 
-	// Older image format used for thumbnails?
+	// Older image format used for thumbnails, based on JPEG
 	Jssf = TagLE("jssf"),
 };
 
