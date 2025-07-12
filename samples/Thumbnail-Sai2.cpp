@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 
 #include <filesystem>
 #include <fstream>
@@ -26,11 +27,19 @@ const T& ReadType(std::span<const std::byte>& Bytes)
 	return Result;
 }
 
-bool ExtractThumbnailJssf(
+using ThumbnailT
+	= std::tuple<std::unique_ptr<std::byte[]>, std::uint32_t, std::uint32_t>;
+
+// Returns (RGBA Pixel Data, Width, Height).
+// Returns (null,0,0) if an error has occured.
+ThumbnailT ExtractThumbnailJssf(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
 );
-bool ExtractThumbnailDeltaCompressed(
+
+// Returns (RGBA Pixel Data, Width, Height).
+// Returns (null,0,0) if an error has occured.
+ThumbnailT ExtractThumbnailDeltaCompressed(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
 );
@@ -49,14 +58,44 @@ bool IterateCanvasItem(
 	{
 	case sai2::CanvasDataType::ThumbnailOld:
 	{
-		return ExtractThumbnailJssf(FilePath, Header, TableEntry, Bytes);
+		if( const auto Image
+			= ExtractThumbnailJssf(FilePath, Header, TableEntry, Bytes);
+			std::get<0>(Image) )
+		{
+			std::filesystem::path DestPath(FilePath);
+			DestPath.replace_filename(FilePath.stem().string() + "-thumbnail");
+			DestPath.replace_extension("png");
+			stbi_write_png(
+				DestPath.string().c_str(), std::get<1>(Image),
+				std::get<2>(Image), 4, std::get<0>(Image).get(), 0
+			);
+			return true;
+		}
+		else
+		{
+			return false;
+		}
 		break;
 	}
 	case sai2::CanvasDataType::Thumbnail:
 	{
-		return ExtractThumbnailDeltaCompressed(
-			FilePath, Header, TableEntry, Bytes
-		);
+		if( const auto Image = ExtractThumbnailDeltaCompressed(
+				FilePath, Header, TableEntry, Bytes
+			);
+			std::get<0>(Image) )
+		{
+			std::filesystem::path DestPath(FilePath);
+			DestPath.replace_filename(FilePath.stem().string() + "-thumbnail");
+			DestPath.replace_extension("png");
+			stbi_write_png(
+				DestPath.string().c_str(), std::get<1>(Image),
+				std::get<2>(Image), 4, std::get<0>(Image).get(), 0
+			);
+			return true;
+		}
+		{
+			return false;
+		}
 		break;
 	}
 	default:
@@ -118,7 +157,7 @@ int main(int argc, char* argv[])
 	return EXIT_SUCCESS;
 }
 
-bool ExtractThumbnailJssf(
+ThumbnailT ExtractThumbnailJssf(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
 )
@@ -340,29 +379,33 @@ bool ExtractThumbnailJssf(
 	// EOI - End of image
 	PushJpegData16(0xFF'D9);
 
-	// Decode jpeg data into RGB8
-	int      x         = 0;
-	int      y         = 0;
-	int      channels  = 0;
-	stbi_uc* ImageData = stbi_load_from_memory(
-		reinterpret_cast<stbi_uc*>(JpegData.data()), JpegData.size(), &x, &y,
-		&channels, JssfChannels
+	// Decode jpeg data into RGBA8
+	int      JpegWidth       = 0;
+	int      JpegHeight      = 0;
+	int      JpegChannels    = 0;
+	stbi_uc* JpegDecodedData = stbi_load_from_memory(
+		reinterpret_cast<stbi_uc*>(JpegData.data()), JpegData.size(),
+		&JpegWidth, &JpegHeight, &JpegChannels, 4
 	);
-	if( ImageData == nullptr )
+	if( JpegDecodedData == nullptr )
 	{
-		return false;
+		return std::make_tuple(nullptr, 0, 0);
 	}
 
-	std::filesystem::path DestPath(FilePath);
-	DestPath.replace_filename(FilePath.stem().string() + "-thumbnail");
-	DestPath.replace_extension("png");
-	stbi_write_png(DestPath.string().c_str(), x, y, channels, ImageData, 0);
+	std::unique_ptr<std::byte[]> Pixels = std::make_unique<std::byte[]>(
+		JpegWidth * JpegHeight * sizeof(std::uint32_t)
+	);
+	std::memcpy(
+		Pixels.get(), JpegDecodedData,
+		JpegWidth * JpegHeight * sizeof(std::uint32_t)
+	);
+	stbi_image_free(JpegDecodedData);
 
 	// Stream ends with a singular `0x00` byte
-	return true;
+	return std::make_tuple(std::move(Pixels), JpegWidth, JpegHeight);
 }
 
-bool ExtractThumbnailDeltaCompressed(
+ThumbnailT ExtractThumbnailDeltaCompressed(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
 )
@@ -480,5 +523,5 @@ bool ExtractThumbnailDeltaCompressed(
 	// High byte should equal Tile Index X
 	// assert((TileEndChecksum >> 8) == PrevTileXIndex);
 
-	return true;
+	return std::make_tuple(nullptr, 0, 0);
 }
