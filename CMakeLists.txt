@@ -76,7 +76,7 @@ endif()
 
 ### libsai
 add_library(
-	sai
+	sai SHARED
 	source/document.cpp
 	source/ifstream.cpp
 	source/ifstreambuf.cpp
@@ -142,4 +142,20 @@ if( MASTER_PROJECT )
 		PRIVATE
 		sai
 	)
+
+	install(
+		TARGETS Thumbnail Decrypt Tree Document
+		DESTINATION bin/
+	)
+
+	install(
+		TARGETS sai
+		DESTINATION lib/
+	)
+
+	install(
+		FILES include/sai.hpp
+		DESTINATION include/
+	)
+
 endif()
