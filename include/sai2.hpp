@@ -83,4 +83,12 @@ uint32_t DeltaUnpackRow16Bpc(
 	const std::uint64_t* DeltaEncoded16Bpc, const std::uint32_t PixelCount
 );
 
+// Extracts JSSF thumbnail data into a more-standard JPEG stream
+// JSSF is practically a more concisely packed stream of MCU tiles that can be
+// converted into a more standard JPEG.
+std::vector<std::byte> ConvertJssfToJpeg(
+	std::span<const std::byte> JssfBytes, std::uint16_t JssfWidth,
+	std::uint16_t JssfHeight, std::uint16_t JssfChannels
+);
+
 } // namespace sai2
