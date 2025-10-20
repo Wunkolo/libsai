@@ -157,24 +157,14 @@ int main(int argc, char* argv[])
 	return EXIT_SUCCESS;
 }
 
-ThumbnailT ExtractThumbnailJssf(
-	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
-	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
+// Extracts JSSF thumbnail data into a more standard JPEG stream
+std::vector<std::byte> ExtractJssfToJpeg(
+	std::span<const std::byte> JssfBytes, std::uint16_t JssfWidth,
+	std::uint16_t JssfHeight, std::uint16_t JssfChannels
 )
 {
-	const std::uint32_t Width  = ReadType<std::uint32_t>(Bytes);
-	const std::uint32_t Height = ReadType<std::uint32_t>(Bytes);
 
-	const sai2::BlobDataType Format = ReadType<sai2::BlobDataType>(Bytes);
-	assert(Format == sai2::BlobDataType::Jssf);
-
-	const std::size_t JssfDataSize = Bytes.size_bytes();
-
-	const std::uint16_t JssfWidth    = ReadType<std::uint16_t>(Bytes);
-	const std::uint16_t JssfHeight   = ReadType<std::uint16_t>(Bytes);
-	const std::uint16_t JssfChannels = ReadType<std::uint16_t>(Bytes);
-
-	// Extract the JPEG data into a standard JPEG strea while decoding
+	// Extract the JPEG data into a standard JPEG stream while decoding
 	std::vector<std::byte> JpegData;
 	const auto PushJpegBytes = [&](std::span<const std::byte> Data) -> void {
 		JpegData.insert(JpegData.end(), Data.begin(), Data.end()); // Data
@@ -191,15 +181,15 @@ ThumbnailT ExtractThumbnailJssf(
 	PushJpegData16(0xFF'D8);
 
 	/// Quantization Tables
-	const std::span<const std::byte, 64> JssfLumaQuant = Bytes.first<64>();
-	Bytes                                              = Bytes.subspan(64);
+	const std::span<const std::byte, 64> JssfLumaQuant = JssfBytes.first<64>();
+	JssfBytes                                          = JssfBytes.subspan(64);
 
 	// Preemptively read the next quant table, but don't move the stream forward
 	// if we're not an actually colored image
-	const std::span<const std::byte, 64> JssChromaQuant = Bytes.first<64>();
+	const std::span<const std::byte, 64> JssChromaQuant = JssfBytes.first<64>();
 	if( JssfChannels > 1 )
 	{
-		Bytes = Bytes.subspan(64);
+		JssfBytes = JssfBytes.subspan(64);
 	}
 
 	// DQT - Define quantization table
@@ -358,12 +348,12 @@ ThumbnailT ExtractThumbnailJssf(
 	for( std::size_t McuRowIndex = 0; McuRowIndex < McuCount; ++McuRowIndex )
 	{
 		// Length of the MCU bit stream
-		const std::uint16_t McuRowSize = ReadType<std::uint16_t>(Bytes);
-		assert(Bytes.size_bytes() >= McuRowSize);
+		const std::uint16_t McuRowSize = ReadType<std::uint16_t>(JssfBytes);
+		assert(JssfBytes.size_bytes() >= McuRowSize);
 
 		// Entropy encoded data
-		const std::span<const std::byte> McuData = Bytes.first(McuRowSize);
-		Bytes                                    = Bytes.subspan(McuRowSize);
+		const std::span<const std::byte> McuData = JssfBytes.first(McuRowSize);
+		JssfBytes = JssfBytes.subspan(McuRowSize);
 
 		// Insert a row of entropy data
 		JpegData.insert(JpegData.end(), McuData.begin(), McuData.end());
@@ -379,12 +369,35 @@ ThumbnailT ExtractThumbnailJssf(
 	// EOI - End of image
 	PushJpegData16(0xFF'D9);
 
+	return JpegData;
+}
+
+ThumbnailT ExtractThumbnailJssf(
+	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
+	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
+)
+{
+	const std::uint32_t Width  = ReadType<std::uint32_t>(Bytes);
+	const std::uint32_t Height = ReadType<std::uint32_t>(Bytes);
+
+	const sai2::BlobDataType Format = ReadType<sai2::BlobDataType>(Bytes);
+	assert(Format == sai2::BlobDataType::Jssf);
+
+	const std::size_t JssfDataSize = Bytes.size_bytes();
+
+	const std::uint16_t JssfWidth    = ReadType<std::uint16_t>(Bytes);
+	const std::uint16_t JssfHeight   = ReadType<std::uint16_t>(Bytes);
+	const std::uint16_t JssfChannels = ReadType<std::uint16_t>(Bytes);
+
+	const std::vector<std::byte> JpegData
+		= ExtractJssfToJpeg(Bytes, JssfWidth, JssfHeight, JssfChannels);
+
 	// Decode jpeg data into RGBA8
 	int      JpegWidth       = 0;
 	int      JpegHeight      = 0;
 	int      JpegChannels    = 0;
 	stbi_uc* JpegDecodedData = stbi_load_from_memory(
-		reinterpret_cast<stbi_uc*>(JpegData.data()), JpegData.size(),
+		reinterpret_cast<const stbi_uc*>(JpegData.data()), JpegData.size(),
 		&JpegWidth, &JpegHeight, &JpegChannels, 4
 	);
 	if( JpegDecodedData == nullptr )
@@ -458,8 +471,7 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 
 			// AA|RR|GG|BB / BB|GG|RR|AA
 			std::array<std::uint32_t, 256 * 256> TileImage;
-
-			std::span<const std::uint32_t> PreviousRow(CompositeRow);
+			std::span<const std::uint32_t>       PreviousRow(CompositeRow);
 
 			/// Compressed rows
 			for( std::uint32_t CurTileRowIndex = 0; CurTileRowIndex < TileSizeY;
