@@ -50,8 +50,8 @@ bool IterateCanvasItem(
 )
 {
 	std::printf(
-		"%.4s:%08X @ %016lX\n", &TableEntry.Type, TableEntry.LayerID,
-		TableEntry.BlobsOffset
+		"%.4s:%08X @ %016lX\n", reinterpret_cast<const char*>(&TableEntry.Type),
+		TableEntry.LayerID, TableEntry.BlobsOffset
 	);
 
 	switch( TableEntry.Type )
