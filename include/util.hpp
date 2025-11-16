@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Wunkolo
 // SPDX-License-Identifier: MIT
+#pragma once
 
 #include <bit>
 #include <cstdint>
