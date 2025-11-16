@@ -411,6 +411,9 @@ uint32_t DeltaUnpackRow16Bpc(
 // 	return result;
 // }
 
+// Extracts JSSF thumbnail data into a more-standard JPEG stream
+// JSSF is practically a more concisely packed stream of MCU tiles that can be
+// converted into a more standard JPEG.
 std::vector<std::byte> ConvertJssfToJpeg(
 	std::span<const std::byte> JssfBytes, std::uint16_t JssfWidth,
 	std::uint16_t JssfHeight, std::uint16_t JssfChannels
@@ -623,6 +626,36 @@ std::vector<std::byte> ConvertJssfToJpeg(
 	PushJpegData16(0xFF'D9);
 
 	return JpegData;
+}
+
+std::tuple<std::vector<std::byte>, std::uint32_t, std::uint32_t>
+	ExtractJssfToJpeg(std::span<const std::byte> JssfTableData)
+{
+	const std::uint32_t Width  = ReadType<std::uint32_t>(JssfTableData);
+	const std::uint32_t Height = ReadType<std::uint32_t>(JssfTableData);
+	(void)Width;
+	(void)Height;
+
+	const sai2::BlobDataType Format
+		= ReadType<sai2::BlobDataType>(JssfTableData);
+	assert(Format == sai2::BlobDataType::Jssf);
+
+	const std::size_t JssfDataSize = JssfTableData.size_bytes();
+	(void)JssfDataSize;
+
+	const std::uint16_t JssfWidth    = ReadType<std::uint16_t>(JssfTableData);
+	const std::uint16_t JssfHeight   = ReadType<std::uint16_t>(JssfTableData);
+	const std::uint16_t JssfChannels = ReadType<std::uint16_t>(JssfTableData);
+
+	std::vector<std::byte> JpegData
+		= ConvertJssfToJpeg(JssfTableData, JssfWidth, JssfHeight, JssfChannels);
+
+	if( JpegData.empty() )
+	{
+		return std::make_tuple(std::vector<std::byte>{}, 0, 0);
+	}
+
+	return std::make_tuple(std::move(JpegData), JssfWidth, JssfHeight);
 }
 
 } // namespace sai2

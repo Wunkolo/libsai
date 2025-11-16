@@ -31,14 +31,7 @@ using ThumbnailT
 	= std::tuple<std::unique_ptr<std::byte[]>, std::uint32_t, std::uint32_t>;
 
 // Returns (RGBA Pixel Data, Width, Height).
-// Returns (null,0,0) if an error has occured.
-ThumbnailT ExtractThumbnailJssf(
-	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
-	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
-);
-
-// Returns (RGBA Pixel Data, Width, Height).
-// Returns (null,0,0) if an error has occured.
+// Returns (null,0,0) if an error has occurred.
 ThumbnailT ExtractThumbnailDeltaCompressed(
 	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
@@ -58,17 +51,37 @@ bool IterateCanvasItem(
 	{
 	case sai2::CanvasDataType::ThumbnailOld:
 	{
-		if( const auto Image
-			= ExtractThumbnailJssf(FilePath, Header, TableEntry, Bytes);
-			std::get<0>(Image) )
+		if( const auto JpegStream = sai2::ExtractJssfToJpeg(Bytes);
+			!std::get<0>(JpegStream).empty() )
 		{
 			std::filesystem::path DestPath(FilePath);
 			DestPath.replace_filename(FilePath.stem().string() + "-thumbnail");
 			DestPath.replace_extension("png");
-			stbi_write_png(
-				DestPath.string().c_str(), std::get<1>(Image),
-				std::get<2>(Image), 4, std::get<0>(Image).get(), 0
+
+			// Decode jpeg stream
+			const auto JpegData = std::get<0>(JpegStream);
+
+			// Decode jpeg data into RGBA8
+			int      JpegWidth       = 0;
+			int      JpegHeight      = 0;
+			int      JpegChannels    = 0;
+			stbi_uc* JpegDecodedData = stbi_load_from_memory(
+				reinterpret_cast<const stbi_uc*>(JpegData.data()),
+				static_cast<int>(JpegData.size()), &JpegWidth, &JpegHeight,
+				&JpegChannels, 4
 			);
+			if( JpegDecodedData == nullptr )
+			{
+				return false;
+			}
+
+			// Write decoded pixel data into a png
+			stbi_write_png(
+				DestPath.string().c_str(), JpegWidth, JpegHeight, 4,
+				JpegDecodedData, 0
+			);
+
+			stbi_image_free(JpegDecodedData);
 		}
 		// Quit at the first thumbnail
 		return false;
@@ -150,56 +163,6 @@ int main(int argc, char* argv[])
 	}
 
 	return EXIT_SUCCESS;
-}
-
-ThumbnailT ExtractThumbnailJssf(
-	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
-	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
-)
-{
-	const std::uint32_t Width  = ReadType<std::uint32_t>(Bytes);
-	const std::uint32_t Height = ReadType<std::uint32_t>(Bytes);
-	(void)Width;
-	(void)Height;
-
-	const sai2::BlobDataType Format = ReadType<sai2::BlobDataType>(Bytes);
-	assert(Format == sai2::BlobDataType::Jssf);
-
-	const std::size_t JssfDataSize = Bytes.size_bytes();
-	(void)JssfDataSize;
-
-	const std::uint16_t JssfWidth    = ReadType<std::uint16_t>(Bytes);
-	const std::uint16_t JssfHeight   = ReadType<std::uint16_t>(Bytes);
-	const std::uint16_t JssfChannels = ReadType<std::uint16_t>(Bytes);
-
-	const std::vector<std::byte> JpegData
-		= sai2::ConvertJssfToJpeg(Bytes, JssfWidth, JssfHeight, JssfChannels);
-
-	// Decode jpeg data into RGBA8
-	int      JpegWidth       = 0;
-	int      JpegHeight      = 0;
-	int      JpegChannels    = 0;
-	stbi_uc* JpegDecodedData = stbi_load_from_memory(
-		reinterpret_cast<const stbi_uc*>(JpegData.data()),
-		static_cast<int>(JpegData.size()), &JpegWidth, &JpegHeight,
-		&JpegChannels, 4
-	);
-	if( JpegDecodedData == nullptr )
-	{
-		return std::make_tuple(nullptr, 0, 0);
-	}
-
-	std::unique_ptr<std::byte[]> Pixels = std::make_unique<std::byte[]>(
-		JpegWidth * JpegHeight * sizeof(std::uint32_t)
-	);
-	std::memcpy(
-		Pixels.get(), JpegDecodedData,
-		JpegWidth * JpegHeight * sizeof(std::uint32_t)
-	);
-	stbi_image_free(JpegDecodedData);
-
-	// Stream ends with a singular `0x00` byte
-	return std::make_tuple(std::move(Pixels), JpegWidth, JpegHeight);
 }
 
 ThumbnailT ExtractThumbnailDeltaCompressed(
