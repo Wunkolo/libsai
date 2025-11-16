@@ -69,12 +69,9 @@ bool IterateCanvasItem(
 				DestPath.string().c_str(), std::get<1>(Image),
 				std::get<2>(Image), 4, std::get<0>(Image).get(), 0
 			);
-			return true;
 		}
-		else
-		{
-			return false;
-		}
+		// Quit at the first thumbnail
+		return false;
 		break;
 	}
 	case sai2::CanvasDataType::Thumbnail:
@@ -91,11 +88,9 @@ bool IterateCanvasItem(
 				DestPath.string().c_str(), std::get<1>(Image),
 				std::get<2>(Image), 4, std::get<0>(Image).get(), 0
 			);
-			return true;
 		}
-		{
-			return false;
-		}
+		// Quit at the first thumbnail
+		return false;
 		break;
 	}
 	default:
@@ -295,7 +290,7 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 			///
 
 			// Fill alpha(for now)
-			for( auto& Pixel : TileImage )
+			for( std::uint32_t& Pixel : TileImage )
 			{
 				Pixel |= 0xFF'00'00'00;
 			}
