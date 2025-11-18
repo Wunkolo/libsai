@@ -9,6 +9,11 @@ set( CMAKE_COLOR_MAKEFILE ON )
 set( CMAKE_VERBOSE_MAKEFILE ON )
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
+option( BUILD_SHARED_LIBS "Build using shared libraries" OFF )
+
+# This provides standard installation directory variables.
+include(GNUInstallDirs)
+
 # Determine if we're built as a subproject (using add_subdirectory)
 # or if this is the master project.
 set( MASTER_PROJECT OFF )
@@ -76,7 +81,7 @@ endif()
 
 ### libsai
 add_library(
-	sai SHARED
+	sai
 	source/document.cpp
 	source/ifstream.cpp
 	source/ifstreambuf.cpp
@@ -144,18 +149,13 @@ if( MASTER_PROJECT )
 	)
 
 	install(
-		TARGETS Thumbnail Decrypt Tree Document
-		DESTINATION bin/
-	)
-
-	install(
 		TARGETS sai
-		DESTINATION lib/
+		DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	)
 
 	install(
 		FILES include/sai.hpp
-		DESTINATION include/
+		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 	)
 
 endif()
