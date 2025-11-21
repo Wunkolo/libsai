@@ -45,11 +45,12 @@ enum class CanvasDataType : std::uint32_t
 {
 	// History data
 	History = TagLE("hist"),
+
 	// jpeg-encoded thumbnails
-	// Seems to be used with older versions of sai2
 	ThumbnailOld = TagLE("thum"),
 	// delta-compressed thumbnails
 	Thumbnail = TagLE("intg"),
+
 	// Layer descriptor
 	Layer = TagLE("layr"),
 	// Standalone mask not associated with a layer
@@ -76,14 +77,39 @@ struct CanvasEntry
 };
 static_assert(sizeof(CanvasEntry) == 16);
 
+// Canvases 512x512 or larger will use the jssf format, smaller canvases will
+// use the delta-compressed format
 enum class BlobDataType : std::uint32_t
 {
 	// Delta-compressed pixel stream with an additional "RLE" compression
-	// Both layers and the newer thumbnail-data utilize this format.
 	DeltaPixelsCompressed = TagLE("dpcm"),
 
 	// Older image format used for thumbnails, based on JPEG
 	Jssf = TagLE("jssf"),
+};
+
+struct BlobLayr
+{
+	std::uint32_t LayerID;
+	std::uint32_t Unknown;
+	std::uint32_t UnknownOne;
+	std::uint32_t BlendingMode;
+	std::uint32_t UnknownB;
+	std::uint32_t UnknownC;
+	std::uint32_t UnknownD;
+	std::uint32_t UnknownE;
+	std::uint32_t UnknownF;
+	std::uint32_t UnknownG;
+	std::uint32_t MaskBlendingMode;
+	std::uint32_t UnknownI;
+	std::uint32_t UnknownJ;
+};
+
+struct BlobHist
+{
+	char16_t      HistIdentifier[32];
+	char8_t       HistHash[16];
+	std::uint32_t Revision;
 };
 
 // Return false to break iteration
