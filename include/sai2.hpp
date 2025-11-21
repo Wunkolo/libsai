@@ -38,8 +38,26 @@ static_assert(sizeof(CanvasHeader) == 64);
 
 enum class CanvasDataType : std::uint32_t
 {
+	// History data
+	History = TagLE("hist"),
+	// jpeg-encoded thumbnails
+	// Seems to be used with older versions of sai2
 	ThumbnailOld = TagLE("thum"),
-	Thumbnail    = TagLE("intg"),
+	// delta-compressed thumbnails
+	Thumbnail = TagLE("intg"),
+	// Layer descriptor
+	Layer = TagLE("layr"),
+	// Layer data
+	LayerPixels   = TagLE("lpix"),
+	FPixels       = TagLE("fpix"), // Folder pixels?
+	MaskPixels    = TagLE("mpix"),
+	LayerLinework = TagLE("liwk"),
+	// Rulers/guides
+	Shape       = TagLE("shap"),
+	Perspective = TagLE("pers"),
+	Text        = TagLE("text"),
+	Grid        = TagLE("grid"),
+	Symmetry    = TagLE("symm"),
 };
 
 struct CanvasEntry
@@ -53,6 +71,7 @@ static_assert(sizeof(CanvasEntry) == 16);
 enum class BlobDataType : std::uint32_t
 {
 	// Delta-compressed pixel stream with an additional "RLE" compression
+	// Both layers and the newer thumbnail-data utilize this format.
 	DeltaPixelsCompressed = TagLE("dpcm"),
 
 	// Older image format used for thumbnails, based on JPEG
