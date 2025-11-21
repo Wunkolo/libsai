@@ -179,7 +179,7 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 	// 3 channels minimum, four if the header indicates that the canvas
 	// uses a transparent background
 	const std::uint32_t ThumbnailChannels
-		= ((((Header.Flags1 & 7) == 0)) != 0) + 3;
+		= ((((Header.CanvasBackgroundFlags & 7) == 0)) != 0) + 3;
 
 	constexpr std::uint32_t TileSize = 256u;
 
