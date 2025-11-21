@@ -20,7 +20,10 @@ struct CanvasHeader
 	std::array<char, 16> Identifier;
 
 	std::uint8_t Flags0;
-	std::uint8_t Flags1; // & 0x7 Indicates if thumbnail has transparency?
+
+	// & 0x7 seems to indicate if thumbnail has transparency
+	std::uint8_t CanvasBackgroundFlags;
+
 	std::uint8_t Flags2;
 	std::uint8_t Flags3;
 
@@ -31,8 +34,10 @@ struct CanvasHeader
 	std::uint32_t SelectedLayer;
 	std::uint64_t UnknownA;
 	std::uint64_t UnknownB;
-	std::uint32_t UnknownFlags;
-	std::uint32_t UnknownBlendingMode;
+	std::uint32_t CanvasBackgroundColor;
+
+	// "norm"/"vivd"/"deep"/"mult"/"ver1"
+	std::uint32_t LayerEffectColor;
 };
 static_assert(sizeof(CanvasHeader) == 64);
 
@@ -47,13 +52,16 @@ enum class CanvasDataType : std::uint32_t
 	Thumbnail = TagLE("intg"),
 	// Layer descriptor
 	Layer = TagLE("layr"),
+	// Standalone mask not associated with a layer
+	// such as with the selection-pen(the "blue" mask)
+	Mask = TagLE("mask"),
 	// Layer data
 	LayerPixels   = TagLE("lpix"),
 	FPixels       = TagLE("fpix"), // Folder pixels?
 	MaskPixels    = TagLE("mpix"),
 	LayerLinework = TagLE("liwk"),
+	Shape         = TagLE("shap"),
 	// Rulers/guides
-	Shape       = TagLE("shap"),
 	Perspective = TagLE("pers"),
 	Text        = TagLE("text"),
 	Grid        = TagLE("grid"),
