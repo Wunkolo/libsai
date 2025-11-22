@@ -188,38 +188,37 @@ std::size_t UnpackDeltaRLE16(
 		while( true )
 		{
 			// Shift in more bits
-			if( RemainingBits < 32 )
+			while( (RemainingBits < 32) && (Compressed.size_bytes() > 0) )
 			{
 				const std::uint32_t ShiftAmount = RemainingBits;
 
 				// This is an additional level of error-checking that sai does
 				// not do. Sai reads 32-bit words all the time and will even
-				// read invalid bytes if not aligned to 4-bytes
+				// read invalid bytes if not aligned to 4-bytes. This has the
+				// same effect as padding with zero-bytes.
 				std::uint64_t NewWord = 0;
 				if( Compressed.size_bytes() >= sizeof(std::uint32_t) )
 				{
 					NewWord = ReadType<std::uint32_t>(Compressed);
+					RemainingBits += 32;
 				}
 				else if( Compressed.size_bytes() >= sizeof(std::uint16_t) )
 				{
 					NewWord = ReadType<std::uint16_t>(Compressed);
+					RemainingBits += 16;
 				}
 				else if( Compressed.size_bytes() >= sizeof(std::uint8_t) )
 				{
 					NewWord = ReadType<std::uint8_t>(Compressed);
+					RemainingBits += 8;
 				}
-				else
-				{
-					// Ran out of bytes to read
-					return 0;
-				}
-				CurControlMask64 |= ((NewWord) << ShiftAmount);
+				CurControlMask64 |= (NewWord << ShiftAmount);
+
 				// CurControlMask64
 				// 	|= (static_cast<std::uint64_t>(
 				// 			ReadType<std::uint32_t>(Compressed)
 				// 		)
 				// 		<< ShiftAmount);
-				RemainingBits += 32;
 			}
 
 			if( CurControlMask64 == 0u )
@@ -231,7 +230,7 @@ std::size_t UnpackDeltaRLE16(
 			const std::uint8_t FirstSetBitIndex
 				= std::countr_zero(CurControlMask64);
 			const std::uint64_t NextSetBitMask
-				= CurControlMask64 >> (FirstSetBitIndex + 1);
+				= CurControlMask64 >> std::uint8_t(FirstSetBitIndex + 1);
 
 			const std::uint32_t CurOpCode
 				= (2 * FirstSetBitIndex) | (NextSetBitMask & 1);
@@ -293,7 +292,7 @@ std::size_t UnpackDeltaRLE16(
 				// Write channel values
 				for( std::size_t i = 0; i < ZeroFillCount; ++i )
 				{
-					CurPixelWrite[i * OutputChannels + CurrentChannel] = 0;
+					CurPixelWrite[(i * OutputChannels) + CurrentChannel] = 0;
 				}
 
 				// Next Pixel
@@ -334,7 +333,14 @@ std::size_t UnpackDeltaRLE16(
 	}
 
 	// Return number of bytes read, including any unprocessed bits
-	return (CompressedSize - Compressed.size_bytes()) - ((RemainingBits / 8));
+
+	// Total number of bytes consumed
+	const std::size_t TotalReadBytes = CompressedSize - Compressed.size_bytes();
+
+	// If there are any left-over bits that haven't been read, then the next
+	// stream will need them
+	const std::size_t RemainingBytes = RemainingBits / 8;
+	return TotalReadBytes - RemainingBytes;
 }
 
 uint32_t DeltaUnpackRow16Bpc(
