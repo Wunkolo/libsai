@@ -687,4 +687,133 @@ std::tuple<std::vector<std::byte>, std::uint32_t, std::uint32_t>
 	return std::make_tuple(std::move(JpegData), JssfWidth, JssfHeight);
 }
 
+std::tuple<std::vector<std::byte>, std::uint32_t, std::uint32_t>
+	ExtractDpcmToBGRA(
+		const CanvasHeader& Header, std::span<const std::byte> DpcmTableData
+	)
+{
+
+	const sai2::BlobDataType Format
+		= ReadType<sai2::BlobDataType>(DpcmTableData);
+	assert(Format == sai2::BlobDataType::DeltaPixelsCompressed);
+
+	// Total blob size in bytes
+	// const std::uint32_t BytesSize = ReadType<std::uint32_t>(Bytes);
+
+	// 3 channels minimum, four if the header indicates that the canvas
+	// uses a transparent background
+	const std::uint32_t ThumbnailChannels
+		= ((((Header.CanvasBackgroundFlags & 7) == 0)) != 0) + 3;
+
+	constexpr std::uint32_t TileSize = 256u;
+
+	const std::uint32_t Width  = Header.Width;
+	const std::uint32_t Height = Header.Height;
+
+	const std::uint32_t TilesX     = (Width + (TileSize - 1)) / TileSize;
+	const std::uint32_t TilesY     = (Height + (TileSize - 1)) / TileSize;
+	const std::uint32_t TilesCount = TilesX * TilesY;
+
+	// Read tile byte sizes
+	std::vector<std::uint32_t> TileSizes;
+
+	TileSizes.reserve(TilesCount);
+	for( std::size_t TileIndex2D = 0; TileIndex2D < TilesCount; ++TileIndex2D )
+	{
+		TileSizes.emplace_back(ReadType<std::uint32_t>(DpcmTableData));
+	}
+
+	std::vector<std::byte> NewImage(Width * Height * sizeof(std::uint32_t));
+
+	std::span<std::uint32_t> ThumbnailImage(
+		reinterpret_cast<std::uint32_t*>(NewImage.data()), Width * Height
+	);
+
+	for( std::uint32_t CurTileYIndex = 0; CurTileYIndex < TilesY;
+		 ++CurTileYIndex )
+	{
+		const std::uint32_t TileBegY  = CurTileYIndex * TileSize;
+		const std::uint32_t TileEndY  = std::min(TileBegY + TileSize, Height);
+		const std::uint32_t TileSizeY = TileEndY - TileBegY;
+
+		std::array<std::uint32_t, 256> CompositeRow = {};
+		CompositeRow.fill(0);
+
+		std::uint32_t CurTileXIndex = 0;
+		for( ; CurTileXIndex < TilesX; ++CurTileXIndex )
+		{
+			const std::uint32_t TileDataSize
+				= TileSizes[(CurTileYIndex * TilesX) + CurTileXIndex];
+
+			// Read compressed tile row data
+			std::span<const std::byte> CurTileBytes
+				= DpcmTableData.first(TileDataSize);
+
+			const std::uint16_t TileChecksum
+				= ReadType<std::uint16_t>(CurTileBytes);
+			// High byte should equal Tile Index X
+			assert((TileChecksum >> 8) == CurTileXIndex);
+
+			const std::uint32_t TileBegX = CurTileXIndex * TileSize;
+			const std::uint32_t TileEndX = std::min(TileBegX + TileSize, Width);
+			const std::uint32_t TileSizeX = TileEndX - TileBegX;
+
+			const std::uint32_t RowReadSize = 3 * ThumbnailChannels * TileSizeX;
+			assert(DpcmTableData.size_bytes() >= RowReadSize);
+
+			// AA|RR|GG|BB / BB|GG|RR|AA
+			std::span<std::uint32_t> DestImage(ThumbnailImage);
+			DestImage = DestImage.subspan(TileBegX + (TileBegY * Width));
+			std::span<const std::uint32_t> PreviousRow(CompositeRow);
+
+			/// Compressed rows
+			for( std::uint32_t CurTileRowIndex = 0; CurTileRowIndex < TileSizeY;
+				 ++CurTileRowIndex )
+			{
+				// Decompress row
+				std::array<std::int16_t, 256 * 4> RowDelta16;
+				RowDelta16.fill(-1);
+				const std::size_t ConsumedBytes = sai2::UnpackDeltaRLE16(
+					CurTileBytes, RowDelta16, TileSizeX, 4, ThumbnailChannels
+				);
+				assert(ConsumedBytes > 0);
+
+				// Row to write to
+				std::span<std::uint32_t> TileRowData32
+					= DestImage.subspan(CurTileRowIndex * Width);
+
+				sai2::DeltaUnpackRow16Bpc(
+					TileRowData32.data(), PreviousRow.data(),
+					(uint64_t*)RowDelta16.data(), TileSizeX
+				);
+
+				PreviousRow = TileRowData32;
+
+				// Offset by the number of fully consumed bytes
+				CurTileBytes = CurTileBytes.subspan(ConsumedBytes);
+			}
+			// Expected to use all bytes exactly
+			assert(CurTileBytes.size_bytes() == 0);
+
+			// Next Tile data
+			DpcmTableData = DpcmTableData.subspan(TileDataSize);
+		}
+
+		const std::uint16_t TileChecksum
+			= ReadType<std::uint16_t>(DpcmTableData);
+		assert((TileChecksum >> 8) == CurTileXIndex);
+	}
+
+	if( ThumbnailChannels == 3 )
+	{
+		// Fill alpha(for now)
+		for( std::uint32_t& Pixel : ThumbnailImage )
+		{
+			Pixel |= 0xFF'00'00'00;
+		}
+	}
+
+	return std::make_tuple(std::move(NewImage), Width, Height);
+}
+
 } // namespace sai2
