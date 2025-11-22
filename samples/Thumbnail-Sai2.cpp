@@ -206,7 +206,7 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 	// // High byte should equal Tile Index X
 	// assert((TileBeginChecksum >> 8) == PrevTileXIndex);
 
-	std::vector<std::uint32_t> ThumbnailImage(Width * Height, 0xFFFF0000);
+	std::vector<std::uint32_t> ThumbnailImage(Width * Height, 0xFF'FF'00'00);
 
 	for( std::uint32_t CurTileYIndex = 0; CurTileYIndex < TilesY;
 		 ++CurTileYIndex )
@@ -221,7 +221,13 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 		for( std::uint32_t CurTileXIndex = 0; CurTileXIndex < TilesX;
 			 PrevTileXIndex              = ++CurTileXIndex )
 		{
-			TileChecksum = ReadType<std::uint16_t>(Bytes);
+			const std::uint32_t TileDataSize
+				= TileSizes[(CurTileYIndex * TilesX) + CurTileXIndex];
+
+			// Read compressed tile row data
+			std::span<const std::byte> CurTileBytes = Bytes.first(TileDataSize);
+
+			TileChecksum = ReadType<std::uint16_t>(CurTileBytes);
 			// High byte should equal Tile Index X
 			assert((TileChecksum >> 8) == PrevTileXIndex);
 
@@ -231,12 +237,6 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 
 			const std::uint32_t RowReadSize = 3 * ThumbnailChannels * TileSizeX;
 			assert(Bytes.size_bytes() >= RowReadSize);
-
-			const std::uint32_t TileDataSize
-				= TileSizes[(CurTileYIndex * TilesX) + CurTileXIndex];
-
-			// Read compressed tile row data
-			std::span<const std::byte> CurTileBytes = Bytes.first(TileDataSize);
 
 			// AA|RR|GG|BB / BB|GG|RR|AA
 			std::span<std::uint32_t> TileImage(ThumbnailImage);
@@ -269,8 +269,10 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 				// Offset by the number of fully consumed bytes
 				CurTileBytes = CurTileBytes.subspan(ConsumedBytes);
 			}
-			///
+			// Expected to use all bytes exactly
+			assert(CurTileBytes.size_bytes() == 0);
 
+			// Next Tile data
 			Bytes = Bytes.subspan(TileDataSize);
 		}
 	}
