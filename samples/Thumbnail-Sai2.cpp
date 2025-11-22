@@ -238,8 +238,8 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 			assert(Bytes.size_bytes() >= RowReadSize);
 
 			// AA|RR|GG|BB / BB|GG|RR|AA
-			std::span<std::uint32_t> TileImage(ThumbnailImage);
-			TileImage = TileImage.subspan(TileBegX + (TileBegY * TileSize));
+			std::span<std::uint32_t> DestImage(ThumbnailImage);
+			DestImage = DestImage.subspan(TileBegX + (TileBegY * Width));
 			std::span<const std::uint32_t> PreviousRow(CompositeRow);
 
 			/// Compressed rows
@@ -256,7 +256,7 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 
 				// Row to write to
 				std::span<std::uint32_t> TileRowData32
-					= TileImage.subspan(CurTileRowIndex * Width);
+					= DestImage.subspan(CurTileRowIndex * Width);
 
 				sai2::DeltaUnpackRow16Bpc(
 					TileRowData32.data(), PreviousRow.data(),
