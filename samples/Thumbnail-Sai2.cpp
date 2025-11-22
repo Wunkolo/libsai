@@ -174,7 +174,7 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 	assert(Format == sai2::BlobDataType::DeltaPixelsCompressed);
 
 	// Total blob size in bytes
-	const std::uint32_t BytesSize = ReadType<std::uint32_t>(Bytes);
+	// const std::uint32_t BytesSize = ReadType<std::uint32_t>(Bytes);
 
 	// 3 channels minimum, four if the header indicates that the canvas
 	// uses a transparent background
@@ -186,10 +186,27 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 	const std::uint32_t Width  = Header.Width;
 	const std::uint32_t Height = Header.Height;
 
-	const std::uint32_t TilesX = (Width + (TileSize - 1)) / TileSize;
-	const std::uint32_t TilesY = (Height + (TileSize - 1)) / TileSize;
+	const std::uint32_t TilesX     = (Width + (TileSize - 1)) / TileSize;
+	const std::uint32_t TilesY     = (Height + (TileSize - 1)) / TileSize;
+	const std::uint32_t TilesCount = TilesX * TilesY;
+
+	// Read tile byte sizes
+	std::vector<std::uint32_t> TileSizes;
+
+	TileSizes.reserve(TilesCount);
+	for( std::size_t TileIndex2D = 0; TileIndex2D < TilesCount; ++TileIndex2D )
+	{
+		TileSizes.emplace_back(ReadType<std::uint32_t>(Bytes));
+	}
 
 	std::uint32_t PrevTileXIndex = 0;
+	std::uint16_t TileChecksum   = 0;
+
+	// const std::uint16_t TileBeginChecksum = ReadType<std::uint16_t>(Bytes);
+	// // High byte should equal Tile Index X
+	// assert((TileBeginChecksum >> 8) == PrevTileXIndex);
+
+	std::vector<std::uint32_t> ThumbnailImage(Width * Height, 0xFFFF0000);
 
 	for( std::uint32_t CurTileYIndex = 0; CurTileYIndex < TilesY;
 		 ++CurTileYIndex )
@@ -198,17 +215,16 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 		const std::uint32_t TileEndY  = std::min(TileBegY + TileSize, Height);
 		const std::uint32_t TileSizeY = TileEndY - TileBegY;
 
-		std::uint32_t CurTileXIndex = 0;
-
-		const std::uint16_t TileBeginChecksum = ReadType<std::uint16_t>(Bytes);
-		// High byte should equal Tile Index X
-		assert((TileBeginChecksum >> 8) == PrevTileXIndex);
-
 		std::array<std::uint32_t, 256> CompositeRow = {};
 		CompositeRow.fill(0);
 
-		for( ; CurTileXIndex < TilesX; ++CurTileXIndex )
+		for( std::uint32_t CurTileXIndex = 0; CurTileXIndex < TilesX;
+			 PrevTileXIndex              = ++CurTileXIndex )
 		{
+			TileChecksum = ReadType<std::uint16_t>(Bytes);
+			// High byte should equal Tile Index X
+			assert((TileChecksum >> 8) == PrevTileXIndex);
+
 			const std::uint32_t TileBegX = CurTileXIndex * TileSize;
 			const std::uint32_t TileEndX = std::min(TileBegX + TileSize, Width);
 			const std::uint32_t TileSizeX = TileEndX - TileBegX;
@@ -216,18 +232,21 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 			const std::uint32_t RowReadSize = 3 * ThumbnailChannels * TileSizeX;
 			assert(Bytes.size_bytes() >= RowReadSize);
 
+			const std::uint32_t TileDataSize
+				= TileSizes[(CurTileYIndex * TilesX) + CurTileXIndex];
+
+			// Read compressed tile row data
+			std::span<const std::byte> CurTileBytes = Bytes.first(TileDataSize);
+
 			// AA|RR|GG|BB / BB|GG|RR|AA
-			std::array<std::uint32_t, 256 * 256> TileImage;
-			std::span<const std::uint32_t>       PreviousRow(CompositeRow);
+			std::span<std::uint32_t> TileImage(ThumbnailImage);
+			TileImage = TileImage.subspan(TileBegX + (TileBegY * TileSize));
+			std::span<const std::uint32_t> PreviousRow(CompositeRow);
 
 			/// Compressed rows
 			for( std::uint32_t CurTileRowIndex = 0; CurTileRowIndex < TileSizeY;
-				 PrevTileXIndex                = ++CurTileRowIndex )
+				 ++CurTileRowIndex )
 			{
-				// Read compressed tile row data
-				const std::span<const std::byte> CurTileBytes
-					= Bytes.first(RowReadSize);
-
 				// Decompress row
 				std::array<std::int16_t, 256 * 4> RowDelta16;
 				RowDelta16.fill(-1);
@@ -238,7 +257,7 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 
 				// Row to write to
 				std::span<std::uint32_t> TileRowData32
-					= std::span(TileImage).subspan(256 * CurTileRowIndex);
+					= TileImage.subspan(CurTileRowIndex * Width);
 
 				sai2::DeltaUnpackRow16Bpc(
 					TileRowData32.data(), PreviousRow.data(),
@@ -248,39 +267,41 @@ ThumbnailT ExtractThumbnailDeltaCompressed(
 				PreviousRow = TileRowData32;
 
 				// Offset by the number of fully consumed bytes
-				Bytes = Bytes.subspan(ConsumedBytes);
+				CurTileBytes = CurTileBytes.subspan(ConsumedBytes);
 			}
 			///
 
-			// Fill alpha(for now)
-			for( std::uint32_t& Pixel : TileImage )
-			{
-				Pixel |= 0xFF'00'00'00;
-			}
-
-			//// BGRA to RGBA
-			for( std::uint32_t& Pixel : TileImage )
-			{
-				// Swap B and R channels
-				const std::uint8_t R = ((Pixel >> 16));
-				const std::uint8_t B = ((Pixel >> 0));
-				Pixel = (Pixel & 0xFF'00'FF'00) | R | (std::uint32_t(B) << 16);
-			}
-
-			// Write to file
-			std::filesystem::path DestPath(FilePath);
-			DestPath.replace_filename(FilePath.stem().string() + "-thumbnail");
-			DestPath.replace_extension("png");
-
-			stbi_write_png(
-				DestPath.string().c_str(), TileSizeX, TileSizeY, 4,
-				TileImage.data(), 256 * sizeof(std::uint32_t)
-			);
+			Bytes = Bytes.subspan(TileDataSize);
 		}
 	}
-	const std::uint16_t TileEndChecksum = ReadType<std::uint16_t>(Bytes);
+	// TileChecksum = ReadType<std::uint16_t>(Bytes);
 	// High byte should equal Tile Index X
-	// assert((TileEndChecksum >> 8) == PrevTileXIndex);
+	// assert((TileChecksum >> 8) == PrevTileXIndex);
+
+	// Fill alpha(for now)
+	for( std::uint32_t& Pixel : ThumbnailImage )
+	{
+		Pixel |= 0xFF'00'00'00;
+	}
+
+	//// BGRA to RGBA
+	for( std::uint32_t& Pixel : ThumbnailImage )
+	{
+		// Swap B and R channels
+		const std::uint8_t R = ((Pixel >> 16));
+		const std::uint8_t B = ((Pixel >> 0));
+		Pixel = (Pixel & 0xFF'00'FF'00) | R | (std::uint32_t(B) << 16);
+	}
+
+	// Write to file
+	std::filesystem::path DestPath(FilePath);
+	DestPath.replace_filename(FilePath.stem().string() + "-thumbnail");
+	DestPath.replace_extension("png");
+
+	stbi_write_png(
+		DestPath.string().c_str(), Width, Height, 4, ThumbnailImage.data(),
+		Width * sizeof(std::uint32_t)
+	);
 
 	return std::make_tuple(nullptr, 0, 0);
 }
