@@ -47,9 +47,9 @@ enum class CanvasDataType : std::uint32_t
 	History = TagLE("hist"),
 
 	// jpeg-encoded thumbnails
-	ThumbnailOld = TagLE("thum"),
+	ThumbnailLossy = TagLE("thum"),
 	// delta-compressed thumbnails
-	Thumbnail = TagLE("intg"),
+	ThumbnailLossless = TagLE("intg"),
 
 	// Layer descriptor
 	Layer = TagLE("layr"),
@@ -138,9 +138,17 @@ uint32_t DeltaUnpackRow16Bpc(
 );
 
 // Extracts a JSSF table entry into a standard jpeg stream
-// Returns (RGBA Pixel Data, Width, Height).
+// Returns (Jpeg Data, Width, Height).
 // Returns (null,0,0) if an error has occurred.
 std::tuple<std::vector<std::byte>, std::uint32_t, std::uint32_t>
 	ExtractJssfToJpeg(std::span<const std::byte> JssfTableData);
+
+// Extracts a DPCM table entry into BGRA pixels
+// Returns (BGRA Data, Width, Height).
+// Returns (null,0,0) if an error has occurred.
+std::tuple<std::vector<std::byte>, std::uint32_t, std::uint32_t>
+	ExtractDpcmToBGRA(
+		const CanvasHeader& Header, std::span<const std::byte> JssfTableData
+	);
 
 } // namespace sai2
