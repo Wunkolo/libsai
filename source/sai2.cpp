@@ -134,6 +134,12 @@ bool IterateCanvasData(
 	std::span<const std::byte> Bytes  = FileData;
 	const CanvasHeader&        Header = ReadType<CanvasHeader>(Bytes);
 
+	if( std::strncmp(Header.Identifier.data(), "SAI-CANVAS-TYPE0", 16) != 0 )
+	{
+		// Not a sai2 file
+		return false;
+	}
+
 	const std::span<const sai2::CanvasEntry> TableEntries(
 		reinterpret_cast<const sai2::CanvasEntry*>(Bytes.data()),
 		Header.TableCount
