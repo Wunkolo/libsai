@@ -11,6 +11,7 @@ Sample code for extracting the thumbnail image from a user-created sai file
 #include <iostream>
 #include <sai.hpp>
 #include <utility>
+#include <algorithm>
 
 #include "stb_image_write.h"
 
@@ -18,6 +19,18 @@ const char* const Help
 	= "Extract thumbnail images from user-created .sai documents\n"
 	  "\tThumbnail (filename) (output)\n"
 	  "\tWunkolo - Wunkolo@gmail.com";
+
+void bgraToRgba(std::byte* Pixels, std::size_t PixelCount)
+{
+	std::size_t i = 0;
+	std::size_t ByteCount = PixelCount * 4;
+
+	while(i < ByteCount)
+	{
+		std::swap<std::byte>(Pixels[i], Pixels[i + 2]);
+		i += 4;
+	}
+}
 
 int main(int argc, char* argv[])
 {
@@ -39,6 +52,7 @@ int main(int argc, char* argv[])
 	Width = Height                      = 0;
 	std::unique_ptr<std::byte[]> Pixels = {};
 	std::tie(Pixels, Width, Height)     = FileIn.GetThumbnail();
+	bgraToRgba(Pixels.get(), Width * Height);
 
 	stbi_write_png(argv[2], Width, Height, 4, Pixels.get(), 0);
 
