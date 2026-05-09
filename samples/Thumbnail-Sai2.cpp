@@ -31,7 +31,9 @@ using ThumbnailT
 	= std::tuple<std::unique_ptr<std::byte[]>, std::uint32_t, std::uint32_t>;
 
 bool IterateCanvasItem(
-	const std::filesystem::path& FilePath, const sai2::CanvasHeader& Header,
+	const std::filesystem::path& FilePath,
+	const std::filesystem::path& DestPath,
+	const sai2::CanvasHeader& Header,
 	const sai2::CanvasEntry& TableEntry, std::span<const std::byte> Bytes
 )
 {
@@ -47,10 +49,6 @@ bool IterateCanvasItem(
 		if( const auto JpegStream = sai2::ExtractJssfToJpeg(Bytes);
 			!std::get<0>(JpegStream).empty() )
 		{
-			std::filesystem::path DestPath(FilePath);
-			DestPath.replace_filename(FilePath.stem().string() + "-thumbnail");
-			DestPath.replace_extension("png");
-
 			// Decode jpeg stream
 			const auto JpegData = std::get<0>(JpegStream);
 
@@ -85,10 +83,6 @@ bool IterateCanvasItem(
 		if( auto Extracted = sai2::ExtractDpcmToBGRA(Header, Bytes);
 			!std::get<0>(Extracted).empty() )
 		{
-			std::filesystem::path DestPath(FilePath);
-			DestPath.replace_filename(FilePath.stem().string() + "-thumbnail");
-			DestPath.replace_extension("png");
-
 			std::vector<std::byte>& ThumbnailData = std::get<0>(Extracted);
 
 			const std::span<std::uint32_t> ThumbnailImage(
@@ -133,42 +127,45 @@ int main(int argc, char* argv[])
 		Args.emplace_back(argv[i]);
 	}
 
-	for( const std::string_view& Arg : Args )
+	if(Args.size() < 2)
 	{
-		std::puts(Arg.data());
-		const std::filesystem::path FilePath(Arg);
-		if( !(std::filesystem::exists(FilePath)
-			  && std::filesystem::is_regular_file(FilePath)) )
-		{
-			// Not a file
-			std::printf("Invalid path %s\n", Arg.data());
-			continue;
-		}
-		const std::uintmax_t FileSize = std::filesystem::file_size(FilePath);
+		std::puts("Input and output paths required.");
+		return EXIT_FAILURE;
+	}
 
-		std::ifstream          File(FilePath);
-		std::vector<std::byte> FileData(FileSize);
+	const std::filesystem::path FilePath(Args[0]);
+	const std::filesystem::path DestPath(Args[1]);
+	if( !(std::filesystem::exists(FilePath)
+			&& std::filesystem::is_regular_file(FilePath)) )
+	{
+		// Not a file
+		std::printf("Invalid path %s\n", FilePath.string().c_str());
+		return EXIT_FAILURE;
+	}
+	const std::uintmax_t FileSize = std::filesystem::file_size(FilePath);
 
-		if( File.is_open() )
-		{
-			File.read(reinterpret_cast<char*>(FileData.data()), FileSize);
-			File.close();
+	std::ifstream          File(FilePath);
+	std::vector<std::byte> FileData(FileSize);
 
-			const auto CanvasDataProc = [&FilePath](
-											const sai2::CanvasHeader& Header,
-											const sai2::CanvasEntry& TableEntry,
-											std::span<const std::byte> Bytes
-										) {
-				return IterateCanvasItem(FilePath, Header, TableEntry, Bytes);
-			};
+	if( File.is_open() )
+	{
+		File.read(reinterpret_cast<char*>(FileData.data()), FileSize);
+		File.close();
 
-			sai2::IterateCanvasData(FileData, CanvasDataProc);
-		}
-		else
-		{
-			std::printf("Error reading file contents %s\n", Arg.data());
-			continue;
-		}
+		const auto CanvasDataProc = [&FilePath, &DestPath](
+										const sai2::CanvasHeader& Header,
+										const sai2::CanvasEntry& TableEntry,
+										std::span<const std::byte> Bytes
+									) {
+			return IterateCanvasItem(FilePath, DestPath, Header, TableEntry, Bytes);
+		};
+
+		sai2::IterateCanvasData(FileData, CanvasDataProc);
+	}
+	else
+	{
+		std::printf("Error reading file contents %s\n", FilePath.string().c_str());
+		return EXIT_FAILURE;
 	}
 
 	return EXIT_SUCCESS;
