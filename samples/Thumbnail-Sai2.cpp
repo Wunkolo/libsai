@@ -83,10 +83,6 @@ bool IterateCanvasItem(
 		if( auto Extracted = sai2::ExtractDpcmToBGRA(Header, Bytes);
 			!std::get<0>(Extracted).empty() )
 		{
-			std::filesystem::path DestPath(FilePath);
-			DestPath.replace_filename(FilePath.stem().string() + "-thumbnail");
-			DestPath.replace_extension("png");
-
 			std::vector<std::byte>& ThumbnailData = std::get<0>(Extracted);
 
 			const std::span<std::uint32_t> ThumbnailImage(
