@@ -20,12 +20,12 @@ const char* const Help
 	  "\tThumbnail (filename) (output)\n"
 	  "\tWunkolo - Wunkolo@gmail.com";
 
-void bgraToRgba(std::byte* Pixels, std::size_t PixelCount)
+void ConvertBGRA8ToRGBA8(std::span<std::byte> Pixels)
 {
 	std::size_t i = 0;
-	std::size_t ByteCount = PixelCount * 4;
+	std::size_t Count = Pixels.size();
 
-	while(i < ByteCount)
+	while(i < Count)
 	{
 		std::swap<std::byte>(Pixels[i], Pixels[i + 2]);
 		i += 4;
@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
 	Width = Height                      = 0;
 	std::unique_ptr<std::byte[]> Pixels = {};
 	std::tie(Pixels, Width, Height)     = FileIn.GetThumbnail();
-	bgraToRgba(Pixels.get(), Width * Height);
+	ConvertBGRA8ToRGBA8({ Pixels.get(), Width * Height * 4 });
 
 	stbi_write_png(argv[2], Width, Height, 4, Pixels.get(), 0);
 

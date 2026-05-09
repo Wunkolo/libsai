@@ -129,7 +129,7 @@ int main(int argc, char* argv[])
 
 	if(Args.size() < 2)
 	{
-		std::printf("Input and output paths required.\n");
+		std::puts("Input and output paths required.");
 		return EXIT_FAILURE;
 	}
 
@@ -139,7 +139,7 @@ int main(int argc, char* argv[])
 			&& std::filesystem::is_regular_file(FilePath)) )
 	{
 		// Not a file
-		std::printf("Invalid path %s\n", FilePath.string());
+		std::printf("Invalid path %s\n", FilePath.string().c_str());
 		return EXIT_FAILURE;
 	}
 	const std::uintmax_t FileSize = std::filesystem::file_size(FilePath);
@@ -164,7 +164,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		std::printf("Error reading file contents %s\n", FilePath.string());
+		std::printf("Error reading file contents %s\n", FilePath.string().c_str());
 		return EXIT_FAILURE;
 	}
 
