@@ -169,7 +169,9 @@ if( MASTER_PROJECT )
 
 	install(
 		FILES include/sai.hpp
-		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+			  include/sai2.hpp
+			  include/util.hpp
+		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sai
 	)
 
 endif()
