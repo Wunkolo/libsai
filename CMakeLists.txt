@@ -171,7 +171,7 @@ if( MASTER_PROJECT )
 		FILES include/sai.hpp
 			  include/sai2.hpp
 			  include/util.hpp
-		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libsai
+		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sai
 	)
 
 endif()
