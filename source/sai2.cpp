@@ -759,7 +759,7 @@ std::tuple<std::vector<std::byte>, std::uint32_t, std::uint32_t>
 			const std::uint16_t TileChecksum
 				= ReadType<std::uint16_t>(CurTileBytes);
 			// High byte should equal Tile Index X
-			assert((TileChecksum >> 8) == CurTileXIndex);
+			assert(static_cast<std::uint16_t>(TileChecksum >> 8) == CurTileXIndex);
 
 			const std::uint32_t TileBegX = CurTileXIndex * TileSize;
 			const std::uint32_t TileEndX = std::min(TileBegX + TileSize, Width);
@@ -808,7 +808,7 @@ std::tuple<std::vector<std::byte>, std::uint32_t, std::uint32_t>
 
 		const std::uint16_t TileChecksum
 			= ReadType<std::uint16_t>(DpcmTableData);
-		assert((TileChecksum >> 8) == CurTileXIndex);
+		assert(static_cast<std::uint16_t>(TileChecksum >> 8) == CurTileXIndex);
 	}
 
 	if( ThumbnailChannels == 3 )
